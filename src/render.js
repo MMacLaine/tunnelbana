@@ -23,6 +23,7 @@ let basemap = 'off'; // 'pending' | 'on' | 'off'; fallback water draws only when
 let drag = null;   // {x, y, end, snap, cost, problem} set by main.js each move
 let floats = [];   // {geo, text, age}
 let clockT = 0;    // render-local time for idle animations
+let lastDrawAt = 0;
 
 // --- Projection ---
 
@@ -380,7 +381,13 @@ function drawFloats(dt) {
   ctx.globalAlpha = 1;
 }
 
-export function draw(g, dt) {
+// draw() computes its own dt so it can be called from BOTH the game's rAF loop and
+// the basemap's render event (the latter keeps the overlay locked to the map during
+// pans and zooms; drawing with our own frame's camera lags the tiles by a frame).
+export function draw(g) {
+  const now = performance.now();
+  const dt = lastDrawAt ? Math.min(0.1, (now - lastDrawAt) / 1000) : 0;
+  lastDrawAt = now;
   clockT += dt;
   ctx.clearRect(0, 0, W, H);
   if (basemap === 'off') drawWaterFallback();

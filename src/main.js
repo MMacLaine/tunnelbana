@@ -2,23 +2,30 @@ import * as sim from './sim.js';
 import * as render from './render.js';
 import { ANCHORS } from './data.js';
 
-// All strings in one table (plan §7). English only at launch; station names stay Swedish.
 // UI copy interpolates from BAL so a balance change can never make the interface lie.
 const B = sim.BAL;
 const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
   noIdle: 'All trains are out',
-  fareHint: 'Space works too. Fare: ' + B.fare + ' kr per passenger delivered.',
-  extendHint: 'Drag either end of the line anywhere on the map. Dashed rings are real stations: full demand there, ' + B.freeSpotDemand + 'x anywhere else.',
-  freeSpotTag: ' · ' + B.freeSpotDemand + 'x demand',
-  mapDown: 'Basemap unavailable. Playing on the fallback map.',
+  hints: 'Fare: ' + B.fare + ' kr per delivered passenger (space rings the bell too). ' +
+    'Drag either end of the line anywhere on the map: dashed rings are real stations with full demand, ' +
+    'anywhere else earns what the label says. Right-click a line end to demolish it (' + B.demolishCost + ' kr). ' +
+    'Esc for the menu.',
+  demolished: '−' + B.demolishCost + ' kr',
+  cantDemolish: 'Cannot demolish now',
+  menuStart: 'Start',
+  menuContinue: 'Continue',
+  menuResume: 'Resume',
+  resetConfirm: 'Really? Click again',
+  reset: 'Reset progress',
   problems: {
     money: 'Need',
     tooClose: 'Too close to another station',
     water: 'Cannot build in the water (yet)',
     max: 'The line is at its limit for now',
   },
+  mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
     train:     { name: 'New train',        desc: 'One more train on the line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
     drivers:   { name: 'Hire drivers',     desc: 'Trains dispatch themselves. You can still ring the bell.' },
@@ -32,6 +39,7 @@ const STR = {
 };
 
 let g = sim.hydrate(localStorage.getItem(sim.SAVE_KEY));
+let paused = true; // boot into the menu
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.floor(n).toLocaleString('sv-SE');
@@ -68,7 +76,9 @@ if (window.maplibregl) {
       basemapUp = true;
       render.setBasemap('on');
     });
-    // Tile hiccups after load are non-fatal; a style that never loads is not.
+    // Redraw the overlay inside the map's own frame so the game layer stays
+    // locked to the tiles during pans and zooms (rAF alone lags a frame).
+    map.on('render', () => render.draw(g));
     setTimeout(() => { if (!basemapUp) basemapFailed(); }, 8000);
   } catch {
     map = null; // no WebGL: the static fallback projector still renders the game
@@ -88,10 +98,60 @@ function geoAt(p) {
 
 window.addEventListener('resize', () => render.resize());
 
+// --- Menu ---
+const menu = $('menu');
+function hasSave() {
+  return localStorage.getItem(sim.SAVE_KEY) !== null;
+}
+function settingsView(on) {
+  $('settings-view').hidden = !on;
+  $('main-view').hidden = on;
+  $('settings-reset').textContent = STR.reset;
+}
+function showMenu(mode) {
+  paused = true;
+  menu.hidden = false;
+  settingsView(false);
+  $('menu-resume').textContent =
+    mode === 'pause' ? STR.menuResume : hasSave() ? STR.menuContinue : STR.menuStart;
+  $('menu-quit').hidden = mode !== 'pause';
+}
+function closeMenu() {
+  paused = false;
+  menu.hidden = true;
+}
+$('menu-resume').addEventListener('click', closeMenu);
+$('menu-settings').addEventListener('click', () => settingsView(true));
+$('settings-back').addEventListener('click', () => settingsView(false));
+$('menu-quit').addEventListener('click', () => {
+  save();
+  showMenu('start');
+});
+$('settings-reset').addEventListener('click', () => {
+  const btn = $('settings-reset');
+  if (btn.textContent !== STR.resetConfirm) {
+    btn.textContent = STR.resetConfirm;
+    return;
+  }
+  localStorage.removeItem(sim.SAVE_KEY);
+  g = sim.hydrate(null);
+  updateUI();
+  settingsView(false);
+  showMenu('start');
+});
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape') {
+    if (menu.hidden) showMenu('pause');
+    else if (!$('settings-view').hidden) settingsView(false);
+    else closeMenu();
+  }
+});
+
 // --- Bell ---
 const bell = $('bell');
 bell.querySelector('.bell-title').textContent = STR.dispatch;
 function ringBell() {
+  if (paused) return;
   if (sim.dispatch(g)) {
     bell.classList.remove('rang');
     void bell.offsetWidth; // restart the animation
@@ -123,11 +183,14 @@ function dragState(p) {
     ? (problem === 'money' ? STR.problems.money + ' ' : '') + fmt(cost) + ' kr'
     : STR.problems[problem];
   // A free spot must say what it is worth, not just what it costs.
-  if (snap === null && (!problem || problem === 'money')) label += STR.freeSpotTag;
+  if (snap === null && (!problem || problem === 'money')) {
+    label += ' · ' + sim.freeSpotValue(geo) + 'x demand';
+  }
   return { x: p.x, y: p.y, end: dragEnd, snap, geo, cost, problem, label };
 }
 
 wrap.addEventListener('pointerdown', (e) => {
+  if (paused || e.button === 2) return;
   const p = canvasPos(e);
   const end = render.nearEnd(g, p);
   if (end) {
@@ -161,7 +224,7 @@ wrap.addEventListener('pointermove', (e) => {
   const p = canvasPos(e);
   if (dragEnd) {
     render.setDrag(dragState(p));
-  } else {
+  } else if (!paused) {
     wrap.style.cursor =
       render.nearEnd(g, p) || render.nearAnchor(g, p) !== null ? 'pointer' : '';
   }
@@ -191,6 +254,20 @@ window.addEventListener('pointercancel', () => {
   if (map) map.dragPan.enable();
 });
 
+// Right-click a line end: demolish it.
+wrap.addEventListener('contextmenu', (e) => {
+  if (paused) return;
+  const p = canvasPos(e);
+  const end = render.nearEnd(g, p);
+  if (!end) return;
+  e.preventDefault();
+  if (sim.demolish(g, end)) {
+    updateUI();
+  } else {
+    render.addFloatGeo(sim.endStation(g, end).geo, STR.cantDemolish);
+  }
+});
+
 // --- Shop ---
 const shopEl = $('shop');
 const cards = {};
@@ -204,7 +281,7 @@ for (const item of sim.SHOP) {
   card.querySelector('.shop-name').textContent = s.name;
   card.querySelector('.shop-desc').textContent = s.desc;
   card.addEventListener('click', () => {
-    if (sim.buy(g, item.id)) updateUI();
+    if (!paused && sim.buy(g, item.id)) updateUI();
   });
   shopEl.appendChild(card);
   cards[item.id] = card;
@@ -245,7 +322,6 @@ function updateUI() {
     sim.idleTrains(g).length + ' / ' + g.trains.length;
   bell.querySelector('.bell-sub').textContent =
     sim.idleTrains(g).length ? STR.dispatchSub : STR.noIdle;
-  $('extend-hint').textContent = STR.extendHint;
   updateShop();
 }
 
@@ -253,23 +329,26 @@ function updateUI() {
 const STEP = 0.05;
 let last = performance.now();
 let acc = 0;
-let lastFrame = last;
 
 function frame(now) {
-  acc += Math.min((now - last) / 1000, 2);
-  last = now;
-  while (acc >= STEP) {
-    sim.tick(g, STEP);
-    acc -= STEP;
+  if (paused) {
+    last = now;
+    acc = 0;
+  } else {
+    acc += Math.min((now - last) / 1000, 2);
+    last = now;
+    while (acc >= STEP) {
+      sim.tick(g, STEP);
+      acc -= STEP;
+    }
   }
   for (const e of g.events) {
     if (e.type === 'payout') render.addFloatGeo(e.geo, '+' + fmt(e.amt));
     if (e.type === 'extend') render.addFloatGeo(e.geo, e.name);
+    if (e.type === 'demolish') render.addFloatGeo(e.geo, e.name + ' ' + STR.demolished);
   }
   g.events.length = 0;
-  const dt = (now - lastFrame) / 1000;
-  lastFrame = now;
-  render.draw(g, dt);
+  render.draw(g);
   updateUI();
   requestAnimationFrame(frame);
 }
@@ -283,6 +362,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') save();
 });
 
-$('fare-hint').textContent = STR.fareHint;
+$('hints').textContent = STR.hints;
+showMenu('start');
 updateUI();
 requestAnimationFrame(frame);

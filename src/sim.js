@@ -1,13 +1,13 @@
 // Simulation: one line with free station placement, trains, fares, upkeep, purchases.
 // DOM-free on purpose so it can run under node for smoke tests.
 
-import { ANCHORS, START_BUILT, WATER, kmBetween, crossesWater, inRing } from './data.js';
+import { ANCHORS, START_BUILT, WATER, kmBetween, crossesWater, inRing, densityAt } from './data.js';
 
 export const BAL = {
   startMoney: 300,
   fare: 3,                 // kr per delivered passenger
   spawnPerSec: 0.5,        // base passengers per station per second (anchors)
-  freeSpotDemand: 0.5,     // demand multiplier for stations placed off-anchor
+  demolishCost: 150,       // flat cost to remove a line end; provisional
   stationCapBase: 80,      // base waiting cap per station
   cityGrowthDiv: 900,      // demand multiplier = 1 + delivered / this
   trainCapBase: 120,
@@ -198,6 +198,20 @@ export function placementProblem(g, end, geo) {
   return null;
 }
 
+// What a free spot at geo would earn (demand multiplier from the density field).
+export function freeSpotValue(geo) {
+  return densityAt(geo).mult;
+}
+
+const NUMERALS = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX', ' X'];
+
+// A free spot is named after the district it lands in, numbered when repeated.
+export function freeSpotName(g, geo) {
+  const base = densityAt(geo).district || 'Station';
+  const taken = g.line.filter((s) => s.name === base || s.name.startsWith(base + ' ')).length;
+  return base + (NUMERALS[Math.min(taken, NUMERALS.length - 1)] || ' ' + (taken + 1));
+}
+
 // anchorIdx is null for a free spot. Returns true on success.
 export function extendTo(g, end, geo, anchorIdx) {
   if (anchorIdx !== null && usedAnchors(g).has(anchorIdx)) return false;
@@ -208,7 +222,7 @@ export function extendTo(g, end, geo, anchorIdx) {
     station = anchorStation(anchorIdx);
   } else {
     g.freeSpots += 1;
-    station = { name: 'Ny station ' + g.freeSpots, geo, anchor: null, mult: BAL.freeSpotDemand };
+    station = { name: freeSpotName(g, geo), geo, anchor: null, mult: densityAt(geo).mult };
   }
   if (end === 'head') {
     g.line.unshift(station);
@@ -222,6 +236,40 @@ export function extendTo(g, end, geo, anchorIdx) {
     g.waiting.push(BAL.seedWaiting * station.mult);
   }
   g.events.push({ type: 'extend', geo: station.geo, name: station.name });
+  return true;
+}
+
+// --- Demolition: line ends only, costs money, never refunds (pillar 1 is about
+// the game taking things away, not the player choosing to) ---
+
+export function canDemolish(g, end) {
+  if (g.line.length <= 2) return false;
+  if (g.money < BAL.demolishCost) return false;
+  const idx = end === 'head' ? 0 : g.line.length - 1;
+  for (const t of g.trains) {
+    if (!t.run && t.at === idx) return false;
+    if (t.run && (t.run.from === idx || t.run.from + t.run.dir === idx)) return false;
+  }
+  return true;
+}
+
+export function demolish(g, end) {
+  if (!canDemolish(g, end)) return false;
+  g.money -= BAL.demolishCost;
+  const idx = end === 'head' ? 0 : g.line.length - 1;
+  const st = g.line[idx];
+  if (end === 'head') {
+    g.line.shift();
+    g.waiting.shift();
+    for (const t of g.trains) {
+      t.at = Math.max(0, t.at - 1);
+      if (t.run) t.run.from -= 1;
+    }
+  } else {
+    g.line.pop();
+    g.waiting.pop();
+  }
+  g.events.push({ type: 'demolish', geo: st.geo, name: st.name });
   return true;
 }
 
@@ -272,7 +320,7 @@ function validStation(st) {
     Number.isFinite(st.geo[0]) && Number.isFinite(st.geo[1]) &&
     st.geo[0] > 59.0 && st.geo[0] < 59.6 && st.geo[1] > 17.5 && st.geo[1] < 18.6 &&
     (st.anchor === null || (Number.isInteger(st.anchor) && st.anchor >= 0 && st.anchor < ANCHORS.length)) &&
-    (st.mult === 1 || st.mult === BAL.freeSpotDemand);
+    typeof st.mult === 'number' && st.mult >= 0.2 && st.mult <= 1;
 }
 
 const posInt = (v, max) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));

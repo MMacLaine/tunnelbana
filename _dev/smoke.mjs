@@ -14,6 +14,10 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
 if (sim.placementProblem(g, 'head', [59.3260, 18.0700]) !== 'water') err('water placement should be rejected');
 if (sim.placementProblem(g, 'tail', [59.3079, 18.0764]) !== 'tooClose') err('min spacing should be enforced');
 
+// Density field: a spot in a district beats the floor, nowhere does not.
+if (!(sim.freeSpotValue([59.2980, 18.0490]) > 0.35)) err('Årsta should beat the density floor');
+if (sim.freeSpotValue([59.2000, 18.4000]) !== 0.35) err('nowhere should sit at the density floor');
+
 for (let t = 0; t < 600; t += 0.05) {
   sim.tick(g, 0.05);
   if (Math.floor(t * 20) % 12 === 0) sim.dispatch(g);
@@ -40,6 +44,20 @@ for (let t = 0; t < 600; t += 0.05) {
   }
   g.events.length = 0;
 }
+
+// The free spot should have taken a district name from the density field.
+const free = g.line.find((s) => s.anchor === null);
+if (!free || free.name.indexOf('Södermalm') !== 0) err('free spot near Södermalm should take the district name, got ' + (free && free.name));
+
+// Demolition: keep trying the head until no train blocks it.
+const before = g.line.length;
+let demolished = false;
+for (let t = 0; t < 60 && !demolished; t += 0.05) {
+  sim.tick(g, 0.05);
+  demolished = sim.demolish(g, 'head');
+  g.events.length = 0;
+}
+if (!demolished || g.line.length !== before - 1) err('demolish head failed');
 
 // Save round-trip must preserve the line.
 const back = sim.hydrate(sim.serialize(g));
