@@ -1,0 +1,8 @@
+<!-- Tunnelbana asset: tb-appicon-180 -->
+<svg data-dc-tpl="478" viewBox="0 0 180 180" width="82" height="82" data-om-id="cb18b56c:483" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="479" x="0" y="0" width="180" height="180" fill="#0b0f14" data-om-id="cb18b56c:484"></rect>
+            <rect data-dc-tpl="480" x="0" y="0" width="180" height="180" fill="none" stroke="#1e2b3a" stroke-width="2" data-om-id="cb18b56c:485"></rect>
+            <path data-dc-tpl="481" d="M34 142V84a56 56 0 0 1 112 0v58" fill="none" stroke="#e6edf4" stroke-width="15" data-om-id="cb18b56c:486"></path>
+            <path data-dc-tpl="482" d="M68 142V88a22 22 0 0 1 44 0v54" fill="none" stroke="#35a86b" stroke-width="14" data-om-id="cb18b56c:487"></path>
+            <path data-dc-tpl="483" d="M20 150h140" stroke="#e6edf4" stroke-width="9" data-om-id="cb18b56c:488"></path>
+          </svg>

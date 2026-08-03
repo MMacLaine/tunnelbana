@@ -1,0 +1,27 @@
+<!-- Tunnelbana asset: tb-moment-start-screen -->
+<svg data-dc-tpl="1487" viewBox="0 0 1920 1080" width="1920" data-om-id="cb18b56c:1492" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg" height="1080">
+              <rect data-dc-tpl="1488" x="0" y="0" width="1920" height="1080" fill="#101722" data-om-id="cb18b56c:1493"></rect>
+              <g data-dc-tpl="1489" stroke="#1b2735" stroke-width="3" data-om-id="cb18b56c:1494"><path data-dc-tpl="1490" d="M0 300h1920M0 640h1920M0 900h1920M560 0v1080M1120 0v1080M1560 0v1080" data-om-id="cb18b56c:1495"></path></g>
+              <path data-dc-tpl="1491" d="M1180 940 L1220 720 L1300 560 L1420 380" fill="none" stroke="#35a86b" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:1496"></path>
+              <g data-dc-tpl="1492" fill="#0b0f14" stroke="#e6edf4" stroke-width="7" data-om-id="cb18b56c:1497"><circle data-dc-tpl="1493" cx="1180" cy="940" r="16" data-om-id="cb18b56c:1498"></circle><circle data-dc-tpl="1494" cx="1220" cy="720" r="16" data-om-id="cb18b56c:1499"></circle><circle data-dc-tpl="1495" cx="1300" cy="560" r="16" data-om-id="cb18b56c:1500"></circle><circle data-dc-tpl="1496" cx="1420" cy="380" r="20" data-om-id="cb18b56c:1501"></circle></g>
+              <circle data-dc-tpl="1497" cx="1420" cy="380" r="34" fill="none" stroke="#35a86b" stroke-width="7" opacity="0.6" data-om-id="cb18b56c:1502"></circle>
+              <rect data-dc-tpl="1498" x="0" y="0" width="1920" height="1080" fill="#070a0e" opacity="0.7" data-om-id="cb18b56c:1503"></rect>
+              <g data-dc-tpl="1499" transform="translate(160 250)" data-om-id="cb18b56c:1504">
+                <path data-dc-tpl="1500" d="M0 108V64a44 44 0 0 1 88 0v44" fill="none" stroke="#e6edf4" stroke-width="14" data-om-id="cb18b56c:1505"></path>
+                <path data-dc-tpl="1501" d="M26 108V68a18 18 0 0 1 36 0v40" fill="none" stroke="#35a86b" stroke-width="13" data-om-id="cb18b56c:1506"></path>
+                <path data-dc-tpl="1502" d="M-16 116h120" stroke="#e6edf4" stroke-width="7" data-om-id="cb18b56c:1507"></path>
+              </g>
+              <text data-dc-tpl="1503" x="160" y="500" font-family="IBM Plex Mono, monospace" font-size="86" font-weight="600" letter-spacing="30" fill="#e6edf4" data-om-id="cb18b56c:1508">TUNNELBANA</text>
+              <text data-dc-tpl="1504" x="166" y="556" font-family="IBM Plex Mono, monospace" font-size="26" letter-spacing="12" fill="#8996a5" data-om-id="cb18b56c:1509">BUILD STOCKHOLM</text>
+              <g data-dc-tpl="1505" font-family="IBM Plex Mono, monospace" data-om-id="cb18b56c:1510">
+                <rect data-dc-tpl="1506" x="160" y="630" width="420" height="76" fill="none" stroke="#35a86b" stroke-width="3" data-om-id="cb18b56c:1511"></rect>
+                <text data-dc-tpl="1507" x="188" y="680" font-size="30" font-weight="600" letter-spacing="4" fill="#e6edf4" data-om-id="cb18b56c:1512">CONTINUE, 1962</text>
+                <rect data-dc-tpl="1508" x="160" y="722" width="420" height="70" fill="none" stroke="#1e2b3a" stroke-width="3" data-om-id="cb18b56c:1513"></rect>
+                <text data-dc-tpl="1509" x="188" y="768" font-size="28" fill="#8996a5" data-om-id="cb18b56c:1514">New network</text>
+                <rect data-dc-tpl="1510" x="160" y="808" width="420" height="70" fill="none" stroke="#1e2b3a" stroke-width="3" data-om-id="cb18b56c:1515"></rect>
+                <text data-dc-tpl="1511" x="188" y="854" font-size="28" fill="#8996a5" data-om-id="cb18b56c:1516">Settings</text>
+                <text data-dc-tpl="1512" x="160" y="946" font-size="21" fill="#5a6673" data-om-id="cb18b56c:1517">An incremental game about building the rail network of</text>
+                <text data-dc-tpl="1513" x="160" y="980" font-size="21" fill="#5a6673" data-om-id="cb18b56c:1518">Stockholm, starting with three stations in 1950.</text>
+                <text data-dc-tpl="1514" x="160" y="1030" font-size="18" fill="#2c3d50" data-om-id="cb18b56c:1519">Unofficial fan work. Not affiliated with any transit operator or Region Stockholm.</text>
+              </g>
+            </svg>

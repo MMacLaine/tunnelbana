@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-currency-upkeep -->
+<svg data-dc-tpl="1278" viewBox="0 0 180 40" width="170" height="40" data-om-id="cb18b56c:1283" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1279" x="0" y="0" width="180" height="40" fill="#111823" data-om-id="cb18b56c:1284"></rect>
+            <text data-dc-tpl="1280" x="10" y="17" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1285">+5.1 fares</text>
+            <text data-dc-tpl="1281" x="82" y="17" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1286">−1.7 upkeep</text>
+            <text data-dc-tpl="1282" x="10" y="32" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600" fill="#35a86b" data-om-id="cb18b56c:1287">+3.4 kr/s</text>
+          </svg>

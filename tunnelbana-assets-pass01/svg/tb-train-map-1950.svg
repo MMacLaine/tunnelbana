@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-train-map-1950 -->
+<svg data-dc-tpl="851" viewBox="0 0 32 18" width="128" height="72" data-om-id="cb18b56c:856" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="852" x="0" y="0" width="32" height="18" fill="#0b0f14" data-om-id="cb18b56c:857"></rect>
+            <rect data-dc-tpl="853" x="1" y="1" width="30" height="16" rx="2.5" fill="#6f7f5e" data-om-id="cb18b56c:858"></rect>
+            <g data-dc-tpl="854" fill="#0b0f14" opacity="0.55" data-om-id="cb18b56c:859"><rect data-dc-tpl="855" x="5" y="4" width="4" height="3" data-om-id="cb18b56c:860"></rect><rect data-dc-tpl="856" x="12" y="4" width="4" height="3" data-om-id="cb18b56c:861"></rect><rect data-dc-tpl="857" x="19" y="4" width="4" height="3" data-om-id="cb18b56c:862"></rect></g>
+            <text data-dc-tpl="858" x="16" y="14" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" font-weight="600" fill="#08130c" data-om-id="cb18b56c:863">12</text>
+          </svg>

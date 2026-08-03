@@ -1,0 +1,30 @@
+<!-- Tunnelbana asset: tb-station-legibility-strip -->
+<svg data-dc-tpl="617" viewBox="0 0 300 40" width="300" height="40" data-om-id="cb18b56c:622" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="618" x="0" y="0" width="300" height="40" fill="#0b0f14" data-om-id="cb18b56c:623"></rect>
+            <g data-dc-tpl="619" transform="translate(0 4)" data-om-id="cb18b56c:624">
+              <circle data-dc-tpl="620" cx="14" cy="10" r="2.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.25" data-om-id="cb18b56c:625"></circle>
+              <circle data-dc-tpl="621" cx="44" cy="10" r="3.25" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.25" data-om-id="cb18b56c:626"></circle>
+              <circle data-dc-tpl="622" cx="44" cy="10" r="5.25" fill="none" stroke="#35a86b" stroke-width="1.25" data-om-id="cb18b56c:627"></circle>
+              <circle data-dc-tpl="623" cx="74" cy="10" r="2.5" fill="none" stroke="#5a6673" stroke-width="0.75" stroke-dasharray="1 1.5" data-om-id="cb18b56c:628"></circle>
+              <rect data-dc-tpl="624" x="97" y="6.5" width="9.5" height="5" rx="2.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.25" data-om-id="cb18b56c:629"></rect>
+              <circle data-dc-tpl="625" cx="134" cy="10" r="2.75" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.25" data-om-id="cb18b56c:630"></circle>
+              <circle data-dc-tpl="626" cx="134" cy="10" r="4.5" fill="none" stroke="#e6edf4" stroke-width="0.75" data-om-id="cb18b56c:631"></circle>
+              <circle data-dc-tpl="627" cx="164" cy="10" r="2.5" fill="#0b0f14" stroke="#e0a63c" stroke-width="1.25" data-om-id="cb18b56c:632"></circle>
+              <circle data-dc-tpl="628" cx="194" cy="10" r="2.5" fill="#0b0f14" stroke="#5a6673" stroke-width="1" data-om-id="cb18b56c:633"></circle>
+              <path data-dc-tpl="629" d="M192 12 196 8" stroke="#5a6673" stroke-width="1" data-om-id="cb18b56c:634"></path>
+              <text data-dc-tpl="630" x="222" y="13" font-family="IBM Plex Mono, monospace" font-size="8" fill="#5a6673" data-om-id="cb18b56c:635">12 px</text>
+            </g>
+            <g data-dc-tpl="631" transform="translate(0 22)" data-om-id="cb18b56c:636">
+              <circle data-dc-tpl="632" cx="14" cy="10" r="3.3" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.7" data-om-id="cb18b56c:637"></circle>
+              <circle data-dc-tpl="633" cx="44" cy="10" r="4.3" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.7" data-om-id="cb18b56c:638"></circle>
+              <circle data-dc-tpl="634" cx="44" cy="10" r="7" fill="none" stroke="#35a86b" stroke-width="1.7" data-om-id="cb18b56c:639"></circle>
+              <circle data-dc-tpl="635" cx="74" cy="10" r="3.3" fill="none" stroke="#5a6673" stroke-width="1" stroke-dasharray="1.3 2" data-om-id="cb18b56c:640"></circle>
+              <rect data-dc-tpl="636" x="94" y="5.5" width="12.6" height="6.6" rx="3.3" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.7" data-om-id="cb18b56c:641"></rect>
+              <circle data-dc-tpl="637" cx="134" cy="10" r="3.6" fill="#0b0f14" stroke="#e6edf4" stroke-width="1.7" data-om-id="cb18b56c:642"></circle>
+              <circle data-dc-tpl="638" cx="134" cy="10" r="6" fill="none" stroke="#e6edf4" stroke-width="1" data-om-id="cb18b56c:643"></circle>
+              <circle data-dc-tpl="639" cx="164" cy="10" r="3.3" fill="#0b0f14" stroke="#e0a63c" stroke-width="1.7" data-om-id="cb18b56c:644"></circle>
+              <circle data-dc-tpl="640" cx="194" cy="10" r="3.3" fill="#0b0f14" stroke="#5a6673" stroke-width="1.3" data-om-id="cb18b56c:645"></circle>
+              <path data-dc-tpl="641" d="M191.4 12.6 196.6 7.4" stroke="#5a6673" stroke-width="1.3" data-om-id="cb18b56c:646"></path>
+              <text data-dc-tpl="642" x="222" y="13" font-family="IBM Plex Mono, monospace" font-size="8" fill="#5a6673" data-om-id="cb18b56c:647">16 px</text>
+            </g>
+          </svg>

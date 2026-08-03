@@ -1,0 +1,5 @@
+<!-- Tunnelbana asset: tb-station-terminus -->
+<svg data-dc-tpl="525" viewBox="0 0 24 24" width="56" height="56" data-om-id="cb18b56c:530" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <circle data-dc-tpl="526" cx="12" cy="12" r="10.5" fill="none" stroke="#35a86b" stroke-width="2.5" data-om-id="cb18b56c:531" style="transform-origin: 12px 12px; animation: 1.9s ease-in-out 0s infinite normal none running tbPulse;"></circle>
+            <circle data-dc-tpl="527" cx="12" cy="12" r="6.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:532"></circle>
+          </svg>

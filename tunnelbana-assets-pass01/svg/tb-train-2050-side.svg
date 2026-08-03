@@ -1,0 +1,9 @@
+<!-- Tunnelbana asset: tb-train-2050-side -->
+<svg data-dc-tpl="837" viewBox="0 0 64 24" width="150" height="56" data-om-id="cb18b56c:842" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="838" x="0" y="0" width="64" height="24" fill="#0b0f14" data-om-id="cb18b56c:843"></rect>
+            <rect data-dc-tpl="839" x="2" y="4" width="60" height="13" rx="6.5" fill="#6fd6b0" data-om-id="cb18b56c:844"></rect>
+            <rect data-dc-tpl="840" x="6" y="4.2" width="52" height="3" rx="1.5" fill="#e6edf4" opacity="0.42" data-om-id="cb18b56c:845"></rect>
+            <rect data-dc-tpl="841" x="8" y="8.4" width="48" height="5" rx="2.5" fill="#0b0f14" opacity="0.4" data-om-id="cb18b56c:846"></rect>
+            <path data-dc-tpl="842" d="M2 17h60" stroke="#6fd6b0" stroke-width="2" opacity="0.5" data-om-id="cb18b56c:847"></path>
+            <g data-dc-tpl="843" fill="#8fae4a" data-om-id="cb18b56c:848"><circle data-dc-tpl="844" cx="18" cy="19.5" r="2" data-om-id="cb18b56c:849"></circle><circle data-dc-tpl="845" cx="46" cy="19.5" r="2" data-om-id="cb18b56c:850"></circle></g>
+          </svg>

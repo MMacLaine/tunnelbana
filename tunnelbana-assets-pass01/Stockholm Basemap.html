@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tunnelbana Night, basemap preview</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #070a0e; --bg: #0b0f14; --panel: rgba(11,15,20,0.88); --line: #1e2b3a;
+    --line-hi: #2c3d50; --ink: #e6edf4; --muted: #8996a5; --ghost: #5a6673;
+    --green: #35a86b; --amber: #e0a63c; --red: #c8544a;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--void); color: var(--ink); font-family: var(--mono); }
+  a { color: var(--amber); text-decoration: none; border-bottom: 1px solid #8a6a2c; }
+  a:hover { color: #f0bd5e; }
+  #wrap { position: fixed; inset: 0; }
+  #basemap, #overlay { position: absolute; inset: 0; }
+  #overlay { pointer-events: none; width: 100%; height: 100%; }
+  canvas { display: block; }
+  .maplibregl-ctrl-attrib { font-family: var(--mono); font-size: 9px !important; background: var(--panel) !important; }
+  .maplibregl-ctrl-attrib a { color: var(--ghost); border: 0; }
+  .hud { position: fixed; z-index: 5; }
+  .plate { background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #tl { top: 16px; left: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.32em; }
+  .brand p { font-size: 9px; letter-spacing: 0.16em; color: var(--muted); margin-top: 3px; text-transform: uppercase; }
+  .money { padding: 12px 14px; min-width: 232px; }
+  .money b { font-size: 24px; font-weight: 600; letter-spacing: 0.01em; display: block; }
+  .money .rates { display: flex; gap: 14px; margin-top: 5px; font-size: 10px; color: var(--muted); }
+  .money .net { color: var(--green); }
+  #bl { bottom: 20px; left: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
+  #bell { font-family: var(--mono); background: var(--panel); border: 2px solid var(--green); color: var(--ink);
+          padding: 12px 14px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 12px;
+          backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: background 0.15s ease; }
+  #bell:hover { background: rgba(53,168,107,0.16); }
+  #bell.rang { background: rgba(53,168,107,0.42); }
+  #bell .disc { width: 26px; height: 26px; border: 2px solid var(--green); border-radius: 50%; flex: none;
+                display: grid; place-items: center; }
+  #bell .disc svg { display: block; }
+  #bell .t { font-size: 15px; font-weight: 600; letter-spacing: 0.26em; display: block; }
+  #bell .s { font-size: 10px; color: var(--muted); margin-top: 3px; display: block; }
+  #tr { top: 16px; right: 16px; width: 278px; display: flex; flex-direction: column; gap: 8px; }
+  .card { padding: 12px 14px; }
+  .card h2 { font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; padding: 5px 0; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row span { color: var(--muted); }
+  .row b { font-weight: 400; color: var(--ink); }
+  button.sw { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+              background: none; border: 1px solid var(--line); color: var(--ghost); padding: 4px 8px; cursor: pointer; }
+  button.sw[aria-pressed="true"] { border-color: var(--green); color: var(--ink); }
+  input[type=range] { width: 104px; accent-color: var(--amber); }
+  .dl { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+        background: var(--amber); color: var(--void); border: 0; padding: 9px 12px; cursor: pointer; width: 100%; }
+  .note { font-size: 10px; line-height: 1.65; color: var(--ghost); }
+  #br { bottom: 42px; right: 8px; max-width: 460px; font-size: 9px; color: var(--ghost); text-align: right; opacity: 0.9; z-index: 6; }
+  #fail { position: fixed; inset: auto 16px 64px 16px; z-index: 7; display: none; }
+  #fail.on { display: block; }
+</style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="basemap"></div>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <div class="hud" id="tl">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
+        <path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="#e6edf4" stroke-width="5"></path>
+        <path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="#35a86b" stroke-width="4.4"></path>
+        <path d="M5 41h38" stroke="#e6edf4" stroke-width="3"></path>
+      </svg>
+      <div>
+        <h1>TUNNELBANA</h1>
+        <p>Basemap preview, pass 01</p>
+      </div>
+    </div>
+    <div class="money plate">
+      <b id="money">1 240 kr</b>
+      <div class="rates">
+        <span id="gross">+5.1 fares</span>
+        <span id="upkeep">&#8722;1.7 upkeep</span>
+        <span class="net" id="net">+3.4 kr/s</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud" id="bl">
+    <button id="bell">
+      <span class="disc">
+        <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+          <path d="M5 3l6 5-6 5" fill="none" stroke="#35a86b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </span>
+      <span>
+        <span class="t">AVG&#197;NG</span>
+        <span class="s" id="bell-sub">1 train ready, 12 waiting</span>
+      </span>
+    </button>
+  </div>
+
+  <div class="hud" id="tr">
+    <div class="card plate">
+      <h2>Basemap, Tunnelbana Night</h2>
+      <div class="row"><span>Veil</span><input type="range" id="veil" min="0" max="0.95" step="0.01" value="0.78"></div>
+      <div class="row"><span>Catchment</span><input type="range" id="radius" min="0.25" max="2" step="0.05" value="0.65"></div>
+      <div class="row"><span>Hard edge</span><button class="sw" id="t-edge" aria-pressed="true">on</button></div>
+      <div class="row"><span>Rail geometry</span><button class="sw" id="t-rail" aria-pressed="true">on</button></div>
+      <div class="row"><span>Game layer</span><button class="sw" id="t-game" aria-pressed="true">on</button></div>
+      <div class="row"><span>Zoom</span><b id="zoom">12.4</b></div>
+      <div class="row"><span>Scale</span><b id="scale">0 px/km</b></div>
+      <div class="row"><span>Tile host</span><b id="tiles">checking</b></div>
+    </div>
+    <div class="card plate">
+      <h2>Style file</h2>
+      <p class="note" style="margin-bottom:10px">Real vector geometry, styled to the section 02 tokens. No labels of its own: the game layer owns every name. Drops into the existing map call as the style option. The building layer is written but this tile host does not serve it, so it draws nothing yet.</p>
+      <button class="dl" id="dl">Download style JSON</button>
+    </div>
+  </div>
+
+  <div class="card plate hud" id="fail">
+    <p class="note">The tile service did not answer, so only the game layer and the ground colour are drawn. The style file itself is unaffected: reload with a connection, or point the source at your own tile host.</p>
+  </div>
+
+  <div class="hud" id="br">
+    Unofficial fan work. Not affiliated with any transit operator or Region Stockholm.
+  </div>
+
+<script>
+// The real 1950 line, lifted verbatim from src/data.js.
+var ANCHORS = [
+  { name: 'Slussen',          geo: [59.3200, 18.0720] },
+  { name: 'Medborgarplatsen', geo: [59.3143, 18.0736] },
+  { name: 'Skanstull',        geo: [59.3078, 18.0763] },
+  { name: 'Gullmarsplan',     geo: [59.2990, 18.0800] },
+  { name: 'Skärmarbrink',     geo: [59.2952, 18.0902] },
+  { name: 'Blåsut',           geo: [59.2896, 18.0885] },
+  { name: 'Sandsborg',        geo: [59.2843, 18.0925] },
+  { name: 'Skogskyrkogården', geo: [59.2795, 18.0954] },
+  { name: 'Tallkrogen',       geo: [59.2710, 18.0865] },
+  { name: 'Gubbängen',        geo: [59.2628, 18.0817] },
+  { name: 'Hökarängen',       geo: [59.2570, 18.0824] }
+];
+var BUILT = 6;                 // enough stations to show a chain of revealed catchments
+var TEASE = { from: [59.3200, 18.0720], to: [59.3292, 18.0703], label: 'mot T-Centralen, 1957', at: [59.3278, 18.0730] };
+var WAITING = [4, 11, 7, 19, 3, 8];
+
+var COL = {
+  void: '#070a0e', bg: '#0b0f14', ink: '#e6edf4', muted: '#8996a5', ghost: '#5a6673',
+  green: '#35a86b', amber: '#e0a63c', trainInk: '#08130c'
+};
+
+var state = { veil: 0.78, radius: 0.65, hardEdge: true, game: true, t: 0, money: 1240, ring: 0 };
+
+var cv = document.getElementById('overlay');
+var ctx = cv.getContext('2d');
+var W = 0, H = 0, dpr = 1;
+
+var map = new maplibregl.Map({
+  container: 'basemap',
+  style: 'basemap/tunnelbana-night.json',
+  center: [18.0790, 59.2930],
+  zoom: 12.3,
+  minZoom: 8,
+  maxZoom: 17,
+  attributionControl: { compact: true }
+});
+map.on('error', function (e) {
+  var msg = String((e && e.error && e.error.message) || '');
+  if (/style|network|failed to fetch/i.test(msg)) document.getElementById('fail').classList.add('on');
+  else tileErrors++;
+  setTileStatus();
+});
+var tileErrors = 0;
+function setTileStatus() {
+  var el = document.getElementById('tiles');
+  if (!el) return;
+  if (tileErrors > 0) { el.textContent = tileErrors + ' layer errors'; el.style.color = '#e0a63c'; }
+  else if (map.loaded()) { el.textContent = 'ok'; el.style.color = '#35a86b'; }
+}
+map.on('render', function () { draw(); readout(); setTileStatus(); });
+
+function resize() {
+  var box = document.getElementById('wrap').getBoundingClientRect();
+  W = Math.round(box.width); H = Math.round(box.height);
+  dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+function P(geo) { var p = map.project([geo[1], geo[0]]); return { x: p.x, y: p.y }; }
+function pxPerKm() {
+  var a = P([59.29, 18.08]), b = P([59.29 + 1 / 111.32, 18.08]);
+  return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+}
+function mono(size, weight) { return (weight ? weight + ' ' : '') + size + 'px "IBM Plex Mono", ui-monospace, monospace'; }
+
+function drawVeil() {
+  var r = Math.max(24, state.radius * pxPerKm());
+  ctx.save();
+  ctx.fillStyle = 'rgba(7,10,14,' + state.veil + ')';
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'destination-out';
+  for (var i = 0; i < BUILT; i++) {
+    var p = P(ANCHORS[i].geo);
+    var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    if (state.hardEdge) {
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(0.955, 'rgba(0,0,0,1)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+    } else {
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(0.4, 'rgba(0,0,0,0.9)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+    }
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  if (state.hardEdge) {
+    ctx.strokeStyle = 'rgba(44,61,80,0.85)';
+    ctx.lineWidth = 1;
+    for (var j = 0; j < BUILT; j++) {
+      var q = P(ANCHORS[j].geo);
+      ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+}
+
+function label(text, x, y, colour, size) {
+  ctx.font = mono(size || 12);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = COL.void;
+  ctx.lineWidth = 3.5;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = colour;
+  ctx.fillText(text, x, y);
+}
+
+function drawGame() {
+  var i, p;
+  // The pull northward, still unbuilt.
+  var f = P(TEASE.from), t = P(TEASE.to);
+  ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(t.x, t.y);
+  ctx.setLineDash([3, 6]); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = COL.ghost; ctx.stroke();
+  ctx.setLineDash([]);
+  var tl = P(TEASE.at);
+  label(TEASE.label, tl.x, tl.y, COL.ghost, 10);
+
+  // Unbuilt anchors: the promise.
+  for (i = BUILT; i < ANCHORS.length; i++) {
+    p = P(ANCHORS[i].geo);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.setLineDash([2, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = COL.ghost; ctx.stroke();
+    ctx.setLineDash([]);
+    if (pxPerKm() >= 60) label(ANCHORS[i].name, p.x + 12, p.y, COL.ghost, 11);
+  }
+
+  // The line.
+  var pts = [];
+  for (i = 0; i < BUILT; i++) pts.push(P(ANCHORS[i].geo));
+  ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+  for (i = 1; i < pts.length - 1; i++) ctx.arcTo(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, 7);
+  ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+  ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = COL.green; ctx.stroke();
+
+  // Terminus handles, the primary verb.
+  [0, BUILT - 1].forEach(function (idx) {
+    var s = pts[idx];
+    var rr = 10.5 + Math.sin(state.t * 2.2) * 1.4;
+    ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2);
+    ctx.lineWidth = 2.5; ctx.strokeStyle = COL.green; ctx.globalAlpha = 0.9; ctx.stroke(); ctx.globalAlpha = 1;
+  });
+
+  // Waiting passengers, rows of six, left of the platform.
+  for (i = 0; i < BUILT; i++) {
+    p = pts[i];
+    var n = WAITING[i] || 0;
+    ctx.fillStyle = n >= 16 ? COL.amber : COL.muted;
+    for (var k = 0; k < Math.min(n, 18); k++) {
+      ctx.beginPath();
+      ctx.arc(p.x - 18 - (k % 6) * 7, p.y - 7 + Math.floor(k / 6) * 7, 2.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Stations and labels.
+  for (i = 0; i < BUILT; i++) {
+    p = pts[i];
+    var terminus = i === 0 || i === BUILT - 1;
+    ctx.beginPath(); ctx.arc(p.x, p.y, terminus ? 6.5 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = COL.bg; ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = COL.ink; ctx.stroke();
+    label(ANCHORS[i].name, p.x + 13, p.y, terminus ? COL.ink : COL.muted, 12);
+  }
+
+  // One train, running the 1950 stock.
+  var seg = Math.floor(state.t / 3) % (BUILT - 1);
+  var fr = (state.t % 3) / 3;
+  var a = pts[seg], b = pts[seg + 1];
+  var tx = a.x + (b.x - a.x) * fr, ty = a.y + (b.y - a.y) * fr;
+  ctx.save();
+  ctx.translate(tx, ty);
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(-14, -8, 28, 16, 2.5); } else { ctx.rect(-14, -8, 28, 16); }
+  ctx.fillStyle = '#6f7f5e'; ctx.fill();
+  ctx.fillStyle = 'rgba(11,15,20,0.55)';
+  ctx.fillRect(-9, -5, 4, 3); ctx.fillRect(-2, -5, 4, 3); ctx.fillRect(5, -5, 4, 3);
+  ctx.fillStyle = COL.trainInk; ctx.font = mono(9, 600); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('12', 0, 2.5);
+  ctx.restore();
+
+  // Payout float at the station just left behind.
+  if (state.ring > 0) {
+    var s0 = pts[seg];
+    ctx.globalAlpha = Math.max(0, 1 - state.ring / 1.2);
+    ctx.fillStyle = COL.amber; ctx.font = mono(13, 600); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('+42 kr', s0.x + 22, s0.y - 12 - state.ring * 22);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  if (state.veil > 0) drawVeil();
+  if (state.game) drawGame();
+}
+
+var last = 0;
+function loop(now) {
+  var dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+  last = now;
+  state.t += dt;
+  if (state.ring > 0) state.ring = Math.max(0, state.ring - dt);
+  state.money += 3.4 * dt;
+  document.getElementById('money').textContent = Math.floor(state.money).toLocaleString('sv-SE').replace(/\u00a0/g, ' ') + ' kr';
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function readout() {
+  var el = document.getElementById('zoom');
+  el.textContent = map.getZoom().toFixed(1);
+  document.getElementById('scale').textContent = Math.round(pxPerKm()) + ' px/km';
+}
+
+document.getElementById('veil').oninput = function () { state.veil = +this.value; draw(); };
+document.getElementById('radius').oninput = function () { state.radius = +this.value; draw(); };
+document.getElementById('t-rail').onclick = function () {
+  var on = this.getAttribute('aria-pressed') !== 'true';
+  this.setAttribute('aria-pressed', on ? 'true' : 'false');
+  this.textContent = on ? 'on' : 'off';
+  if (map.getLayer('rail')) map.setLayoutProperty('rail', 'visibility', on ? 'visible' : 'none');
+};
+document.getElementById('t-edge').onclick = function () {
+  state.hardEdge = !state.hardEdge;
+  this.setAttribute('aria-pressed', state.hardEdge ? 'true' : 'false');
+  this.textContent = state.hardEdge ? 'on' : 'off';
+  draw();
+};
+document.getElementById('t-game').onclick = function () {
+  state.game = !state.game;
+  this.setAttribute('aria-pressed', state.game ? 'true' : 'false');
+  this.textContent = state.game ? 'on' : 'off';
+  draw();
+};
+document.getElementById('bell').onclick = function () {
+  var b = this;
+  b.classList.add('rang');
+  setTimeout(function () { b.classList.remove('rang'); }, 250);
+  state.ring = 1.2;
+  state.money += 42;
+  document.getElementById('bell-sub').textContent = 'dispatched, 12 aboard';
+};
+document.getElementById('dl').onclick = function () {
+  var btn = this;
+  fetch('basemap/tunnelbana-night.json').then(function (r) { return r.text(); }).then(function (txt) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
+    a.download = 'tunnelbana-night.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    btn.textContent = 'Saved';
+    setTimeout(function () { btn.textContent = 'Download style JSON'; }, 1400);
+  }).catch(function () { btn.textContent = 'Fetch blocked, open the file directly'; });
+};
+</script>
+</body>
+</html>

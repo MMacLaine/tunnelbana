@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-favicon-32 -->
+<svg data-dc-tpl="458" viewBox="0 0 32 32" width="32" height="32" data-om-id="cb18b56c:463" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="459" x="0" y="0" width="32" height="32" fill="#0b0f14" data-om-id="cb18b56c:464"></rect>
+            <path data-dc-tpl="460" d="M6 26V15a10 10 0 0 1 20 0v11" fill="none" stroke="#e6edf4" stroke-width="3.6" data-om-id="cb18b56c:465"></path>
+            <path data-dc-tpl="461" d="M13 26v-9.5a3 3 0 0 1 6 0V26" fill="none" stroke="#35a86b" stroke-width="3" data-om-id="cb18b56c:466"></path>
+            <path data-dc-tpl="462" d="M3 27.5h26" stroke="#e6edf4" stroke-width="2.4" data-om-id="cb18b56c:467"></path>
+          </svg>

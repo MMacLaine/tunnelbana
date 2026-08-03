@@ -1,0 +1,22 @@
+<!-- Tunnelbana asset: tb-moment-era-1957 -->
+<svg data-dc-tpl="1457" viewBox="0 0 1920 1080" width="1920" data-om-id="cb18b56c:1462" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg" height="1080">
+            <rect data-dc-tpl="1458" x="0" y="0" width="1920" height="1080" fill="#101722" data-om-id="cb18b56c:1463"></rect>
+            <g data-dc-tpl="1459" stroke="#1b2735" stroke-width="3" data-om-id="cb18b56c:1464"><path data-dc-tpl="1460" d="M0 240h1920M0 520h1920M0 800h1920M420 0v1080M900 0v1080M1400 0v1080" data-om-id="cb18b56c:1465"></path></g>
+            <path data-dc-tpl="1461" d="M980 900 L1010 700 L1180 520 L1240 300" fill="none" stroke="#1e6b45" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:1466"></path>
+            <g data-dc-tpl="1462" fill="#0b0f14" stroke="#5a6673" stroke-width="6" data-om-id="cb18b56c:1467"><circle data-dc-tpl="1463" cx="980" cy="900" r="14" data-om-id="cb18b56c:1468"></circle><circle data-dc-tpl="1464" cx="1010" cy="700" r="14" data-om-id="cb18b56c:1469"></circle><circle data-dc-tpl="1465" cx="1180" cy="520" r="14" data-om-id="cb18b56c:1470"></circle><circle data-dc-tpl="1466" cx="1240" cy="300" r="18" data-om-id="cb18b56c:1471"></circle></g>
+            <rect data-dc-tpl="1467" x="0" y="0" width="1920" height="1080" fill="#070a0e" opacity="0.9" data-om-id="cb18b56c:1472"></rect>
+            <text data-dc-tpl="1468" x="160" y="360" font-family="IBM Plex Mono, monospace" font-size="34" letter-spacing="16" fill="#e0a63c" data-om-id="cb18b56c:1473">ERA 02</text>
+            <text data-dc-tpl="1469" x="152" y="580" font-family="IBM Plex Mono, monospace" font-size="230" font-weight="600" letter-spacing="8" fill="#e6edf4" data-om-id="cb18b56c:1474">1957</text>
+            <path data-dc-tpl="1470" d="M160 640h640" stroke="#35a86b" stroke-width="8" data-om-id="cb18b56c:1475"></path>
+            <text data-dc-tpl="1471" x="160" y="720" font-family="IBM Plex Mono, monospace" font-size="46" font-weight="600" letter-spacing="6" fill="#e6edf4" data-om-id="cb18b56c:1476">The line reaches under the water</text>
+            <text data-dc-tpl="1472" x="160" y="790" font-family="IBM Plex Mono, monospace" font-size="26" fill="#8996a5" data-om-id="cb18b56c:1477">T-Centralen opens. Norrmalm is now buildable, and every fare</text>
+            <text data-dc-tpl="1473" x="160" y="828" font-family="IBM Plex Mono, monospace" font-size="26" fill="#8996a5" data-om-id="cb18b56c:1478">crossing the water is worth 1.4 times more.</text>
+            <g data-dc-tpl="1474" font-family="IBM Plex Mono, monospace" font-size="22" fill="#5a6673" data-om-id="cb18b56c:1479">
+              <text data-dc-tpl="1475" x="160" y="920" data-om-id="cb18b56c:1480">UNLOCKED</text>
+              <text data-dc-tpl="1476" x="380" y="920" fill="#e6edf4" data-om-id="cb18b56c:1481">rolling stock 1965, automatic signalling, 14 anchors</text>
+              <text data-dc-tpl="1477" x="160" y="962" data-om-id="cb18b56c:1482">POLITICAL CAPITAL</text>
+              <text data-dc-tpl="1478" x="380" y="962" fill="#9b8cc9" data-om-id="cb18b56c:1483">+2 pk</text>
+            </g>
+            <text data-dc-tpl="1479" x="160" y="1030" font-family="IBM Plex Mono, monospace" font-size="20" letter-spacing="4" fill="#5a6673" data-om-id="cb18b56c:1484">CONTINUES IN 4 S, OR CLICK ANYWHERE</text>
+            <text data-dc-tpl="1480" x="1760" y="1030" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="18" fill="#2c3d50" data-om-id="cb18b56c:1485">02 OF 07</text>
+          </svg>

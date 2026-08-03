@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-mark-portal -->
+<svg data-dc-tpl="371" viewBox="0 0 96 96" width="128" height="128" data-om-id="cb18b56c:376" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="372" x="0" y="0" width="96" height="96" fill="#0b0f14" data-om-id="cb18b56c:377"></rect>
+            <path data-dc-tpl="373" d="M20 76V44a28 28 0 0 1 56 0v32" fill="none" stroke="#e6edf4" stroke-width="8" stroke-linecap="butt" data-om-id="cb18b56c:378"></path>
+            <path data-dc-tpl="374" d="M36 76V46a12 12 0 0 1 24 0v30" fill="none" stroke="#35a86b" stroke-width="7" data-om-id="cb18b56c:379"></path>
+            <path data-dc-tpl="375" d="M10 80h76" stroke="#e6edf4" stroke-width="4" data-om-id="cb18b56c:380"></path>
+          </svg>

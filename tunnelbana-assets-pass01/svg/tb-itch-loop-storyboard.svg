@@ -1,0 +1,50 @@
+<!-- Tunnelbana asset: tb-itch-loop-storyboard -->
+<svg data-dc-tpl="1665" viewBox="0 0 1000 260" width="1000" data-om-id="cb18b56c:1670" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg" height="260">
+          <rect data-dc-tpl="1666" x="0" y="0" width="1000" height="260" fill="#0b0f14" data-om-id="cb18b56c:1671"></rect>
+          <g data-dc-tpl="1667" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1.2" fill="#5a6673" data-om-id="cb18b56c:1672">
+            <text data-dc-tpl="1668" x="0" y="12" data-om-id="cb18b56c:1673">01 / 0.0 S, THE DARK CITY</text>
+            <text data-dc-tpl="1669" x="255" y="12" data-om-id="cb18b56c:1674">02 / 1.2 S, AVGÅNG</text>
+            <text data-dc-tpl="1670" x="510" y="12" data-om-id="cb18b56c:1675">03 / 2.4 S, THE FARE LANDS</text>
+            <text data-dc-tpl="1671" x="765" y="12" data-om-id="cb18b56c:1676">04 / 3.6 S, THE CITY LIGHTS UP</text>
+          </g>
+          <g data-dc-tpl="1672" data-om-id="cb18b56c:1677">
+            <rect data-dc-tpl="1673" x="0" y="24" width="230" height="150" fill="#101722" data-om-id="cb18b56c:1678"></rect>
+            <rect data-dc-tpl="1674" x="0" y="24" width="230" height="150" fill="#070a0e" opacity="0.9" data-om-id="cb18b56c:1679"></rect>
+            <path data-dc-tpl="1675" d="M40 150 L110 110 L170 70" fill="none" stroke="#1e6b45" stroke-width="6" stroke-linecap="round" data-om-id="cb18b56c:1680"></path>
+            <g data-dc-tpl="1676" fill="#0b0f14" stroke="#8996a5" stroke-width="3" data-om-id="cb18b56c:1681"><circle data-dc-tpl="1677" cx="40" cy="150" r="6" data-om-id="cb18b56c:1682"></circle><circle data-dc-tpl="1678" cx="110" cy="110" r="6" data-om-id="cb18b56c:1683"></circle><circle data-dc-tpl="1679" cx="170" cy="70" r="7" data-om-id="cb18b56c:1684"></circle></g>
+            <g data-dc-tpl="1680" fill="#8996a5" data-om-id="cb18b56c:1685"><circle data-dc-tpl="1681" cx="26" cy="140" r="2" data-om-id="cb18b56c:1686"></circle><circle data-dc-tpl="1682" cx="20" cy="140" r="2" data-om-id="cb18b56c:1687"></circle><circle data-dc-tpl="1683" cx="32" cy="140" r="2" data-om-id="cb18b56c:1688"></circle></g>
+            <text data-dc-tpl="1684" x="0" y="192" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1689">Three stations, veil at 0.9, dots waiting.</text>
+          </g>
+          <g data-dc-tpl="1685" transform="translate(255 0)" data-om-id="cb18b56c:1690">
+            <rect data-dc-tpl="1686" x="0" y="24" width="230" height="150" fill="#101722" data-om-id="cb18b56c:1691"></rect>
+            <rect data-dc-tpl="1687" x="0" y="24" width="230" height="150" fill="#070a0e" opacity="0.88" data-om-id="cb18b56c:1692"></rect>
+            <path data-dc-tpl="1688" d="M40 150 L110 110 L170 70" fill="none" stroke="#35a86b" stroke-width="6" stroke-linecap="round" data-om-id="cb18b56c:1693"></path>
+            <g data-dc-tpl="1689" fill="#0b0f14" stroke="#e6edf4" stroke-width="3" data-om-id="cb18b56c:1694"><circle data-dc-tpl="1690" cx="40" cy="150" r="6" data-om-id="cb18b56c:1695"></circle><circle data-dc-tpl="1691" cx="110" cy="110" r="6" data-om-id="cb18b56c:1696"></circle><circle data-dc-tpl="1692" cx="170" cy="70" r="7" data-om-id="cb18b56c:1697"></circle></g>
+            <rect data-dc-tpl="1693" x="30" y="140" width="22" height="12" rx="4" fill="#35a86b" data-om-id="cb18b56c:1698"></rect>
+            <circle data-dc-tpl="1694" cx="41" cy="146" r="16" fill="none" stroke="#35a86b" stroke-width="2" opacity="0.5" data-om-id="cb18b56c:1699"></circle>
+            <text data-dc-tpl="1695" x="0" y="192" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1700">The bell rings, the train leaves Slussen.</text>
+          </g>
+          <g data-dc-tpl="1696" transform="translate(510 0)" data-om-id="cb18b56c:1701">
+            <rect data-dc-tpl="1697" x="0" y="24" width="230" height="150" fill="#101722" data-om-id="cb18b56c:1702"></rect>
+            <rect data-dc-tpl="1698" x="0" y="24" width="230" height="150" fill="#070a0e" opacity="0.86" data-om-id="cb18b56c:1703"></rect>
+            <path data-dc-tpl="1699" d="M40 150 L110 110 L170 70" fill="none" stroke="#35a86b" stroke-width="6" stroke-linecap="round" data-om-id="cb18b56c:1704"></path>
+            <g data-dc-tpl="1700" fill="#0b0f14" stroke="#e6edf4" stroke-width="3" data-om-id="cb18b56c:1705"><circle data-dc-tpl="1701" cx="40" cy="150" r="6" data-om-id="cb18b56c:1706"></circle><circle data-dc-tpl="1702" cx="110" cy="110" r="6" data-om-id="cb18b56c:1707"></circle><circle data-dc-tpl="1703" cx="170" cy="70" r="7" data-om-id="cb18b56c:1708"></circle></g>
+            <rect data-dc-tpl="1704" x="100" y="104" width="22" height="12" rx="4" fill="#35a86b" data-om-id="cb18b56c:1709"></rect>
+            <text data-dc-tpl="1705" x="126" y="98" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600" fill="#e0a63c" data-om-id="cb18b56c:1710">+42 kr</text>
+            <text data-dc-tpl="1706" x="0" y="192" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1711">Amber payout floats up and fades.</text>
+          </g>
+          <g data-dc-tpl="1707" transform="translate(765 0)" data-om-id="cb18b56c:1712">
+            <defs data-dc-tpl="1708" data-om-id="cb18b56c:1713"><clipPath data-dc-tpl="1709" id="tbgif" data-om-id="cb18b56c:1714"><circle data-dc-tpl="1710" cx="170" cy="70" r="46" data-om-id="cb18b56c:1715"></circle></clipPath></defs>
+            <rect data-dc-tpl="1711" x="0" y="24" width="230" height="150" fill="#101722" data-om-id="cb18b56c:1716"></rect>
+            <rect data-dc-tpl="1712" x="0" y="24" width="230" height="150" fill="#070a0e" opacity="0.82" data-om-id="cb18b56c:1717"></rect>
+            <g data-dc-tpl="1713" clip-path="url(#tbgif)" data-om-id="cb18b56c:1718"><rect data-dc-tpl="1714" x="0" y="24" width="230" height="150" fill="#16202d" data-om-id="cb18b56c:1719"></rect><g data-dc-tpl="1715" stroke="#2c3d50" stroke-width="1.5" data-om-id="cb18b56c:1720"><path data-dc-tpl="1716" d="M0 90h230M0 130h230M80 24v150M150 24v150" data-om-id="cb18b56c:1721"></path></g></g>
+            <circle data-dc-tpl="1717" cx="170" cy="70" r="46" fill="none" stroke="#2c3d50" stroke-width="1.5" data-om-id="cb18b56c:1722"></circle>
+            <path data-dc-tpl="1718" d="M40 150 L110 110 L170 70 L210 40" fill="none" stroke="#35a86b" stroke-width="6" stroke-linecap="round" data-om-id="cb18b56c:1723"></path>
+            <g data-dc-tpl="1719" fill="#0b0f14" stroke="#e6edf4" stroke-width="3" data-om-id="cb18b56c:1724"><circle data-dc-tpl="1720" cx="40" cy="150" r="6" data-om-id="cb18b56c:1725"></circle><circle data-dc-tpl="1721" cx="110" cy="110" r="6" data-om-id="cb18b56c:1726"></circle><circle data-dc-tpl="1722" cx="170" cy="70" r="7" data-om-id="cb18b56c:1727"></circle><circle data-dc-tpl="1723" cx="210" cy="40" r="7" data-om-id="cb18b56c:1728"></circle></g>
+            <text data-dc-tpl="1724" x="0" y="192" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1729">A new station snaps in and its</text>
+            <text data-dc-tpl="1725" x="0" y="204" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1730">block of city lights up.</text>
+          </g>
+          <path data-dc-tpl="1726" d="M0 216h1000" stroke="#1e2b3a" stroke-width="1" data-om-id="cb18b56c:1731"></path>
+          <text data-dc-tpl="1727" x="0" y="236" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5a6673" data-om-id="cb18b56c:1732">4 s loop, 12 fps, 640 by 400, no text overlay: the loop must read with sound off and at thumbnail size.</text>
+          <text data-dc-tpl="1728" x="0" y="252" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5a6673" data-om-id="cb18b56c:1733">Capture in engine at 2x and downsample. The veil lifting on the final beat is the only thing the viewer needs to notice.</text>
+        </svg>

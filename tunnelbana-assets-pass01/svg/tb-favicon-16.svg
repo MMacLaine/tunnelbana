@@ -1,0 +1,6 @@
+<!-- Tunnelbana asset: tb-favicon-16 -->
+<svg data-dc-tpl="449" viewBox="0 0 16 16" width="16" height="16" data-om-id="cb18b56c:454" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="450" x="0" y="0" width="16" height="16" fill="#0b0f14" data-om-id="cb18b56c:455"></rect>
+            <path data-dc-tpl="451" d="M3 13V7.5a5 5 0 0 1 10 0V13" fill="none" stroke="#e6edf4" stroke-width="2.4" data-om-id="cb18b56c:456"></path>
+            <path data-dc-tpl="452" d="M2 14h12" stroke="#35a86b" stroke-width="2" data-om-id="cb18b56c:457"></path>
+          </svg>

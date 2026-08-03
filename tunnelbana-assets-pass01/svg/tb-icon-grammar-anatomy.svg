@@ -1,0 +1,14 @@
+<!-- Tunnelbana asset: tb-icon-grammar-anatomy -->
+<svg data-dc-tpl="1007" viewBox="0 0 240 132" width="240" height="132" data-om-id="cb18b56c:1012" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1008" x="0" y="0" width="240" height="132" fill="#0b0f14" data-om-id="cb18b56c:1013"></rect>
+            <g data-dc-tpl="1009" stroke="#1e2b3a" stroke-width="1" data-om-id="cb18b56c:1014"><rect data-dc-tpl="1010" x="20" y="14" width="96" height="96" data-om-id="cb18b56c:1015"></rect><rect data-dc-tpl="1011" x="28" y="22" width="80" height="80" stroke="#2c3d50" stroke-dasharray="3 3" data-om-id="cb18b56c:1016"></rect></g>
+            <g data-dc-tpl="1012" transform="translate(20 14) scale(4)" stroke="#e6edf4" stroke-width="2" fill="none" stroke-linecap="round" data-om-id="cb18b56c:1017">
+              <rect data-dc-tpl="1013" x="5" y="15" width="14" height="3" rx="0.5" data-om-id="cb18b56c:1018"></rect><rect data-dc-tpl="1014" x="5" y="10" width="10" height="3" rx="0.5" data-om-id="cb18b56c:1019"></rect><rect data-dc-tpl="1015" x="5" y="5" width="6" height="3" rx="0.5" data-om-id="cb18b56c:1020"></rect>
+            </g>
+            <g data-dc-tpl="1016" stroke="#e0a63c" stroke-width="1" data-om-id="cb18b56c:1021"><path data-dc-tpl="1017" d="M116 22h14M116 102h14" data-om-id="cb18b56c:1022"></path></g>
+            <text data-dc-tpl="1018" x="134" y="26" font-family="IBM Plex Mono, monospace" font-size="9" fill="#e0a63c" data-om-id="cb18b56c:1023">24 box</text>
+            <text data-dc-tpl="1019" x="134" y="106" font-family="IBM Plex Mono, monospace" font-size="9" fill="#e0a63c" data-om-id="cb18b56c:1024">20 live area</text>
+            <text data-dc-tpl="1020" x="134" y="60" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8996a5" data-om-id="cb18b56c:1025">stroke 2, round cap</text>
+            <text data-dc-tpl="1021" x="134" y="74" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8996a5" data-om-id="cb18b56c:1026">currentColor only</text>
+            <text data-dc-tpl="1022" x="20" y="126" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5a6673" data-om-id="cb18b56c:1027">category: capacity</text>
+          </svg>

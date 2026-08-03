@@ -1,0 +1,10 @@
+<!-- Tunnelbana asset: tb-bell-auto -->
+<svg data-dc-tpl="1435" viewBox="0 0 200 78" width="200" height="78" data-om-id="cb18b56c:1440" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1436" x="0" y="0" width="200" height="78" fill="#0b0f14" data-om-id="cb18b56c:1441"></rect>
+            <rect data-dc-tpl="1437" x="0.5" y="8.5" width="199" height="60" fill="#111823" opacity="0.92" data-om-id="cb18b56c:1442"></rect>
+            <rect data-dc-tpl="1438" x="0.5" y="8.5" width="199" height="60" fill="none" stroke="#2c3d50" stroke-width="2" data-om-id="cb18b56c:1443"></rect>
+            <circle data-dc-tpl="1439" cx="30" cy="38" r="13" fill="none" stroke="#35a86b" stroke-width="2" stroke-dasharray="4 3" data-om-id="cb18b56c:1444"></circle>
+            <path data-dc-tpl="1440" d="M26 32l7 6-7 6" fill="none" stroke="#35a86b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:1445"></path>
+            <text data-dc-tpl="1441" x="54" y="36" font-family="IBM Plex Mono, monospace" font-size="15" font-weight="600" letter-spacing="4.2" fill="#e6edf4" data-om-id="cb18b56c:1446">AVGÅNG</text>
+            <text data-dc-tpl="1442" x="55" y="52" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8996a5" data-om-id="cb18b56c:1447">automatic, every 6 s</text>
+          </svg>

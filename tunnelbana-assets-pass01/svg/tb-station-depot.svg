@@ -1,0 +1,5 @@
+<!-- Tunnelbana asset: tb-station-depot -->
+<svg data-dc-tpl="600" viewBox="0 0 24 24" width="56" height="56" data-om-id="cb18b56c:605" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="601" x="6" y="6" width="12" height="12" rx="2" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:606"></rect>
+            <path data-dc-tpl="602" d="M9.5 18v-5.5M14.5 18v-5.5" stroke="#8996a5" stroke-width="1.6" data-om-id="cb18b56c:607"></path>
+          </svg>

@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-appicon-512-maskable -->
+<svg data-dc-tpl="489" viewBox="0 0 512 512" width="82" height="82" data-om-id="cb18b56c:494" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="490" x="0" y="0" width="512" height="512" fill="#111823" data-om-id="cb18b56c:495"></rect>
+            <path data-dc-tpl="491" d="M141 366V246a115 115 0 0 1 230 0v120" fill="none" stroke="#e6edf4" stroke-width="34" data-om-id="cb18b56c:496"></path>
+            <path data-dc-tpl="492" d="M212 366V254a44 44 0 0 1 88 0v112" fill="none" stroke="#35a86b" stroke-width="32" data-om-id="cb18b56c:497"></path>
+            <path data-dc-tpl="493" d="M112 383h288" stroke="#e6edf4" stroke-width="20" data-om-id="cb18b56c:498"></path>
+          </svg>

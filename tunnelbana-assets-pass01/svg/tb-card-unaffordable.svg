@@ -1,0 +1,11 @@
+<!-- Tunnelbana asset: tb-card-unaffordable -->
+<svg data-dc-tpl="1185" viewBox="0 0 260 92" width="260" height="92" data-om-id="cb18b56c:1190" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1186" x="0" y="0" width="260" height="92" fill="#0d131c" data-om-id="cb18b56c:1191"></rect>
+            <rect data-dc-tpl="1187" x="0.5" y="0.5" width="259" height="91" fill="none" stroke="#1e2b3a" stroke-width="1" data-om-id="cb18b56c:1192"></rect>
+            <g data-dc-tpl="1188" transform="translate(14 16)" stroke="#5a6673" stroke-width="2" fill="none" stroke-linecap="round" data-om-id="cb18b56c:1193"><rect data-dc-tpl="1189" x="8" y="2.5" width="8" height="19" rx="4" data-om-id="cb18b56c:1194"></rect><circle data-dc-tpl="1190" cx="12" cy="7.5" r="1.5" fill="#5a6673" stroke="none" data-om-id="cb18b56c:1195"></circle></g>
+            <text data-dc-tpl="1191" x="52" y="26" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600" fill="#8996a5" data-om-id="cb18b56c:1196">Automatic signalling</text>
+            <text data-dc-tpl="1192" x="248" y="26" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" fill="#8a6a2c" data-om-id="cb18b56c:1197">1 400 kr</text>
+            <text data-dc-tpl="1193" x="52" y="44" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5a6673" data-om-id="cb18b56c:1198">Trains run closer together.</text>
+            <text data-dc-tpl="1194" x="52" y="62" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8a6a2c" data-om-id="cb18b56c:1199">160 kr short</text>
+            <text data-dc-tpl="1195" x="52" y="78" font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="1.2" fill="#5a6673" data-om-id="cb18b56c:1200">SIGNALLING   1965</text>
+          </svg>

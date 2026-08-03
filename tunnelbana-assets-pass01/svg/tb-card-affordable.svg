@@ -1,0 +1,12 @@
+<!-- Tunnelbana asset: tb-card-affordable -->
+<svg data-dc-tpl="1167" viewBox="0 0 260 92" width="260" height="92" data-om-id="cb18b56c:1172" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1168" x="0" y="0" width="260" height="92" fill="#111823" data-om-id="cb18b56c:1173"></rect>
+            <rect data-dc-tpl="1169" x="0.5" y="0.5" width="259" height="91" fill="none" stroke="#35a86b" stroke-width="1" data-om-id="cb18b56c:1174"></rect>
+            <g data-dc-tpl="1170" transform="translate(14 16)" stroke="#35a86b" stroke-width="2" fill="none" stroke-linecap="round" data-om-id="cb18b56c:1175"><rect data-dc-tpl="1171" x="5" y="15" width="14" height="3" rx="0.5" data-om-id="cb18b56c:1176"></rect><rect data-dc-tpl="1172" x="5" y="10" width="10" height="3" rx="0.5" data-om-id="cb18b56c:1177"></rect><rect data-dc-tpl="1173" x="5" y="5" width="6" height="3" rx="0.5" data-om-id="cb18b56c:1178"></rect></g>
+            <text data-dc-tpl="1174" x="52" y="26" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600" fill="#e6edf4" data-om-id="cb18b56c:1179">Longer trains</text>
+            <text data-dc-tpl="1175" x="248" y="26" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" fill="#e0a63c" data-om-id="cb18b56c:1180">800 kr</text>
+            <text data-dc-tpl="1176" x="52" y="44" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1181">Two more cars per train.</text>
+            <text data-dc-tpl="1177" x="52" y="62" font-family="IBM Plex Mono, monospace" font-size="9" fill="#35a86b" data-om-id="cb18b56c:1182">owned 2 of 6</text>
+            <text data-dc-tpl="1178" x="52" y="78" font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="1.2" fill="#5a6673" data-om-id="cb18b56c:1183">CAPACITY   1950</text>
+            <rect data-dc-tpl="1179" x="14" y="70" width="24" height="3" fill="#1e6b45" data-om-id="cb18b56c:1184"></rect>
+          </svg>

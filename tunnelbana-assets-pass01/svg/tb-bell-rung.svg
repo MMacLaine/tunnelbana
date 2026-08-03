@@ -1,0 +1,11 @@
+<!-- Tunnelbana asset: tb-bell-rung -->
+<svg data-dc-tpl="1407" viewBox="0 0 200 78" width="200" height="78" data-om-id="cb18b56c:1412" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1408" x="0" y="0" width="200" height="78" fill="#0b0f14" data-om-id="cb18b56c:1413"></rect>
+            <rect data-dc-tpl="1409" x="0.5" y="8.5" width="199" height="60" fill="#1e6b45" opacity="0.5" data-om-id="cb18b56c:1414"></rect>
+            <rect data-dc-tpl="1410" x="0.5" y="8.5" width="199" height="60" fill="none" stroke="#35a86b" stroke-width="2" data-om-id="cb18b56c:1415"></rect>
+            <circle data-dc-tpl="1411" cx="30" cy="38" r="13" fill="#35a86b" data-om-id="cb18b56c:1416"></circle>
+            <path data-dc-tpl="1412" d="M26 32l7 6-7 6" fill="none" stroke="#08130c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:1417"></path>
+            <circle data-dc-tpl="1413" cx="30" cy="38" r="19" fill="none" stroke="#35a86b" stroke-width="1.5" opacity="0.45" data-om-id="cb18b56c:1418"></circle>
+            <text data-dc-tpl="1414" x="54" y="36" font-family="IBM Plex Mono, monospace" font-size="15" font-weight="600" letter-spacing="4.2" fill="#e6edf4" data-om-id="cb18b56c:1419">AVGÅNG</text>
+            <text data-dc-tpl="1415" x="55" y="52" font-family="IBM Plex Mono, monospace" font-size="9" fill="#e6edf4" data-om-id="cb18b56c:1420">dispatched, 12 aboard</text>
+          </svg>

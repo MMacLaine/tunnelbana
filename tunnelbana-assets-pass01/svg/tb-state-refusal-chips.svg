@@ -1,0 +1,10 @@
+<!-- Tunnelbana asset: tb-state-refusal-chips -->
+<svg data-dc-tpl="1360" viewBox="0 0 200 96" width="200" height="96" data-om-id="cb18b56c:1365" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1361" x="0" y="0" width="200" height="96" fill="#0b0f14" data-om-id="cb18b56c:1366"></rect>
+            <g data-dc-tpl="1362" font-family="IBM Plex Mono, monospace" font-size="10" font-weight="600" data-om-id="cb18b56c:1367">
+              <rect data-dc-tpl="1363" x="0" y="4" width="150" height="17" rx="2" fill="#070a0e" opacity="0.75" data-om-id="cb18b56c:1368"></rect><path data-dc-tpl="1364" d="M0 4v17" stroke="#c8544a" stroke-width="2" data-om-id="cb18b56c:1369"></path><text data-dc-tpl="1365" x="8" y="16" fill="#c8544a" data-om-id="cb18b56c:1370">too close to Skanstull</text>
+              <rect data-dc-tpl="1366" x="0" y="27" width="120" height="17" rx="2" fill="#070a0e" opacity="0.75" data-om-id="cb18b56c:1371"></rect><path data-dc-tpl="1367" d="M0 27v17" stroke="#c8544a" stroke-width="2" data-om-id="cb18b56c:1372"></path><text data-dc-tpl="1368" x="8" y="39" fill="#c8544a" data-om-id="cb18b56c:1373">not enough kronor</text>
+              <rect data-dc-tpl="1369" x="0" y="50" width="136" height="17" rx="2" fill="#070a0e" opacity="0.75" data-om-id="cb18b56c:1374"></rect><path data-dc-tpl="1370" d="M0 50v17" stroke="#c8544a" stroke-width="2" data-om-id="cb18b56c:1375"></path><text data-dc-tpl="1371" x="8" y="62" fill="#c8544a" data-om-id="cb18b56c:1376">needs a 1957 mandate</text>
+              <rect data-dc-tpl="1372" x="0" y="73" width="112" height="17" rx="2" fill="#070a0e" opacity="0.75" data-om-id="cb18b56c:1377"></rect><path data-dc-tpl="1373" d="M0 73v17" stroke="#e0a63c" stroke-width="2" data-om-id="cb18b56c:1378"></path><text data-dc-tpl="1374" x="8" y="85" fill="#e0a63c" data-om-id="cb18b56c:1379">upkeep exceeds fares</text>
+            </g>
+          </svg>

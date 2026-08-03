@@ -1,0 +1,35 @@
+<!-- Tunnelbana asset: tb-itch-cover-630x500 -->
+<svg data-dc-tpl="1567" viewBox="0 0 630 500" width="378" height="300" data-om-id="cb18b56c:1572" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg">
+            <rect data-dc-tpl="1568" x="0" y="0" width="630" height="500" fill="#101722" data-om-id="cb18b56c:1573"></rect>
+            <g data-dc-tpl="1569" stroke="#1b2735" stroke-width="2" data-om-id="cb18b56c:1574"><path data-dc-tpl="1570" d="M0 120h630M0 260h630M0 380h630M150 0v500M330 0v500M470 0v500" data-om-id="cb18b56c:1575"></path></g>
+            <g data-dc-tpl="1571" fill="#16202d" data-om-id="cb18b56c:1576"><rect data-dc-tpl="1572" x="360" y="140" width="60" height="44" data-om-id="cb18b56c:1577"></rect><rect data-dc-tpl="1573" x="490" y="300" width="70" height="50" data-om-id="cb18b56c:1578"></rect><rect data-dc-tpl="1574" x="180" y="410" width="80" height="40" data-om-id="cb18b56c:1579"></rect></g>
+            <rect data-dc-tpl="1575" x="0" y="0" width="630" height="500" fill="#070a0e" opacity="0.9" data-om-id="cb18b56c:1580"></rect>
+            <g data-dc-tpl="1576" clip-path="url(#tbcov)" data-om-id="cb18b56c:1581">
+              <rect data-dc-tpl="1577" x="0" y="0" width="630" height="500" fill="#101722" data-om-id="cb18b56c:1582"></rect>
+              <g data-dc-tpl="1578" stroke="#26374b" stroke-width="2" data-om-id="cb18b56c:1583"><path data-dc-tpl="1579" d="M0 120h630M0 260h630M0 380h630M150 0v500M330 0v500M470 0v500" data-om-id="cb18b56c:1584"></path></g>
+              <g data-dc-tpl="1580" fill="#1c2a3a" data-om-id="cb18b56c:1585"><rect data-dc-tpl="1581" x="360" y="140" width="60" height="44" data-om-id="cb18b56c:1586"></rect><rect data-dc-tpl="1582" x="490" y="300" width="70" height="50" data-om-id="cb18b56c:1587"></rect></g>
+            </g>
+            <defs data-dc-tpl="1583" data-om-id="cb18b56c:1588"><clipPath data-dc-tpl="1584" id="tbcov" data-om-id="cb18b56c:1589"><circle data-dc-tpl="1585" cx="400" cy="300" r="86" data-om-id="cb18b56c:1590"></circle><circle data-dc-tpl="1586" cx="520" cy="180" r="66" data-om-id="cb18b56c:1591"></circle></clipPath></defs>
+            <circle data-dc-tpl="1587" cx="400" cy="300" r="86" fill="none" stroke="#2c3d50" stroke-width="1.5" data-om-id="cb18b56c:1592"></circle>
+            <circle data-dc-tpl="1588" cx="520" cy="180" r="66" fill="none" stroke="#2c3d50" stroke-width="1.5" data-om-id="cb18b56c:1593"></circle>
+            <path data-dc-tpl="1589" d="M330 420 L400 300 L520 180" fill="none" stroke="#35a86b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:1594"></path>
+            <path data-dc-tpl="1590" d="M520 180 L580 96" fill="none" stroke="#5a6673" stroke-width="5" stroke-linecap="round" stroke-dasharray="5 9" data-om-id="cb18b56c:1595"></path>
+            <g data-dc-tpl="1591" fill="#0b0f14" stroke="#e6edf4" stroke-width="4" data-om-id="cb18b56c:1596"><circle data-dc-tpl="1592" cx="330" cy="420" r="9" data-om-id="cb18b56c:1597"></circle><circle data-dc-tpl="1593" cx="400" cy="300" r="9" data-om-id="cb18b56c:1598"></circle><circle data-dc-tpl="1594" cx="520" cy="180" r="11" data-om-id="cb18b56c:1599"></circle></g>
+            <circle data-dc-tpl="1595" cx="520" cy="180" r="19" fill="none" stroke="#35a86b" stroke-width="4" opacity="0.65" data-om-id="cb18b56c:1600"></circle>
+            <g data-dc-tpl="1596" transform="translate(447 232) rotate(-45)" data-om-id="cb18b56c:1601"><rect data-dc-tpl="1597" x="-16" y="-9" width="32" height="18" rx="6" fill="#35a86b" data-om-id="cb18b56c:1602"></rect><text data-dc-tpl="1598" x="0" y="4" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" font-weight="600" fill="#08130c" data-om-id="cb18b56c:1603">24</text></g>
+            <text data-dc-tpl="1599" x="410" y="286" font-family="IBM Plex Mono, monospace" font-size="12" fill="#e6edf4" stroke="#070a0e" stroke-width="4" paint-order="stroke" stroke-linejoin="round" data-om-id="cb18b56c:1604">Gullmarsplan</text>
+            <text data-dc-tpl="1600" x="536" y="176" font-family="IBM Plex Mono, monospace" font-size="12" fill="#e6edf4" stroke="#070a0e" stroke-width="4" paint-order="stroke" stroke-linejoin="round" data-om-id="cb18b56c:1605">Slussen</text>
+            <g data-dc-tpl="1601" transform="translate(44 44)" data-om-id="cb18b56c:1606">
+              <path data-dc-tpl="1602" d="M0 44V26a18 18 0 0 1 36 0v18" fill="none" stroke="#e6edf4" stroke-width="6" data-om-id="cb18b56c:1607"></path>
+              <path data-dc-tpl="1603" d="M11 44V28a7 7 0 0 1 14 0v16" fill="none" stroke="#35a86b" stroke-width="5.5" data-om-id="cb18b56c:1608"></path>
+              <path data-dc-tpl="1604" d="M-7 47h50" stroke="#e6edf4" stroke-width="3" data-om-id="cb18b56c:1609"></path>
+            </g>
+            <text data-dc-tpl="1605" x="44" y="146" font-family="IBM Plex Mono, monospace" font-size="27" font-weight="600" letter-spacing="9.4" fill="#e6edf4" data-om-id="cb18b56c:1610">TUNNELBANA</text>
+            <text data-dc-tpl="1606" x="46" y="172" font-family="IBM Plex Mono, monospace" font-size="12" letter-spacing="5" fill="#8996a5" data-om-id="cb18b56c:1611">BUILD STOCKHOLM</text>
+            <path data-dc-tpl="1607" d="M44 200h150" stroke="#35a86b" stroke-width="3" data-om-id="cb18b56c:1612"></path>
+            <text data-dc-tpl="1608" x="44" y="240" font-family="IBM Plex Mono, monospace" font-size="15" fill="#e6edf4" data-om-id="cb18b56c:1613">The city lights up</text>
+            <text data-dc-tpl="1609" x="44" y="262" font-family="IBM Plex Mono, monospace" font-size="15" fill="#e6edf4" data-om-id="cb18b56c:1614">where you build.</text>
+            <text data-dc-tpl="1610" x="44" y="440" font-family="IBM Plex Mono, monospace" font-size="19" font-weight="600" fill="#e0a63c" data-om-id="cb18b56c:1615">1 240 kr</text>
+            <text data-dc-tpl="1611" x="44" y="460" font-family="IBM Plex Mono, monospace" font-size="10" fill="#35a86b" data-om-id="cb18b56c:1616">+3.4 kr/s</text>
+            <text data-dc-tpl="1612" x="44" y="482" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5a6673" data-om-id="cb18b56c:1617">1950 to 2050, an idle network</text>
+          </svg>

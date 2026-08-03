@@ -1,0 +1,14 @@
+<!-- Tunnelbana asset: tb-itch-screenshot-frame -->
+<svg data-dc-tpl="1644" viewBox="0 0 700 300" width="700" data-om-id="cb18b56c:1649" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg" height="300">
+              <rect data-dc-tpl="1645" x="0" y="0" width="700" height="300" fill="#070a0e" data-om-id="cb18b56c:1650"></rect>
+              <rect data-dc-tpl="1646" x="30" y="30" width="640" height="212" fill="#101722" stroke="#1e2b3a" stroke-width="2" data-om-id="cb18b56c:1651"></rect>
+              <g data-dc-tpl="1647" stroke="#1b2735" stroke-width="2" data-om-id="cb18b56c:1652"><path data-dc-tpl="1648" d="M30 110h640M30 180h640M240 30v212M440 30v212" data-om-id="cb18b56c:1653"></path></g>
+              <rect data-dc-tpl="1649" x="30" y="30" width="640" height="212" fill="#070a0e" opacity="0.86" data-om-id="cb18b56c:1654"></rect>
+              <path data-dc-tpl="1650" d="M200 210 L340 150 L470 90" fill="none" stroke="#35a86b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:1655"></path>
+              <g data-dc-tpl="1651" fill="#0b0f14" stroke="#e6edf4" stroke-width="3.5" data-om-id="cb18b56c:1656"><circle data-dc-tpl="1652" cx="200" cy="210" r="7" data-om-id="cb18b56c:1657"></circle><circle data-dc-tpl="1653" cx="340" cy="150" r="7" data-om-id="cb18b56c:1658"></circle><circle data-dc-tpl="1654" cx="470" cy="90" r="9" data-om-id="cb18b56c:1659"></circle></g>
+              <rect data-dc-tpl="1655" x="46" y="46" width="130" height="34" fill="#111823" opacity="0.9" stroke="#1e2b3a" data-om-id="cb18b56c:1660"></rect>
+              <text data-dc-tpl="1656" x="56" y="70" font-family="IBM Plex Mono, monospace" font-size="17" font-weight="600" fill="#e6edf4" data-om-id="cb18b56c:1661">4 820 kr</text>
+              <text data-dc-tpl="1657" x="30" y="272" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#e6edf4" data-om-id="cb18b56c:1662">1964, the red line opens</text>
+              <text data-dc-tpl="1658" x="670" y="272" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" fill="#5a6673" data-om-id="cb18b56c:1663">03 / 06</text>
+              <path data-dc-tpl="1659" d="M30 254h640" stroke="#1e2b3a" stroke-width="1" data-om-id="cb18b56c:1664"></path>
+            </svg>

@@ -1,0 +1,9 @@
+<!-- Tunnelbana asset: tb-train-1965-side -->
+<svg data-dc-tpl="744" viewBox="0 0 64 24" width="150" height="56" data-om-id="cb18b56c:749" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="745" x="0" y="0" width="64" height="24" fill="#0b0f14" data-om-id="cb18b56c:750"></rect>
+            <rect data-dc-tpl="746" x="2" y="4" width="60" height="13" rx="2.5" fill="#7f9166" data-om-id="cb18b56c:751"></rect>
+            <rect data-dc-tpl="747" x="2" y="4" width="60" height="2" fill="#0b0f14" opacity="0.3" data-om-id="cb18b56c:752"></rect>
+            <g data-dc-tpl="748" fill="#0b0f14" opacity="0.6" data-om-id="cb18b56c:753"><rect data-dc-tpl="749" x="6" y="8" width="7" height="5" rx="0.5" data-om-id="cb18b56c:754"></rect><rect data-dc-tpl="750" x="16" y="8" width="7" height="5" rx="0.5" data-om-id="cb18b56c:755"></rect><rect data-dc-tpl="751" x="29" y="8" width="7" height="5" rx="0.5" data-om-id="cb18b56c:756"></rect><rect data-dc-tpl="752" x="39" y="8" width="7" height="5" rx="0.5" data-om-id="cb18b56c:757"></rect><rect data-dc-tpl="753" x="50" y="8" width="7" height="5" rx="0.5" data-om-id="cb18b56c:758"></rect></g>
+            <rect data-dc-tpl="754" x="25" y="7" width="2.6" height="10" fill="#0b0f14" opacity="0.45" data-om-id="cb18b56c:759"></rect><rect data-dc-tpl="755" x="47" y="7" width="2.6" height="10" fill="#0b0f14" opacity="0.45" data-om-id="cb18b56c:760"></rect>
+            <g data-dc-tpl="756" fill="#5a6673" data-om-id="cb18b56c:761"><circle data-dc-tpl="757" cx="13" cy="19" r="2.6" data-om-id="cb18b56c:762"></circle><circle data-dc-tpl="758" cx="51" cy="19" r="2.6" data-om-id="cb18b56c:763"></circle></g>
+          </svg>

@@ -1,0 +1,25 @@
+<!-- Tunnelbana asset: tb-moment-ending -->
+<svg data-dc-tpl="1520" viewBox="0 0 1920 1080" width="1920" data-om-id="cb18b56c:1525" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg" height="1080">
+              <rect data-dc-tpl="1521" x="0" y="0" width="1920" height="1080" fill="#0d1512" data-om-id="cb18b56c:1526"></rect>
+              <g data-dc-tpl="1522" stroke="#17211d" stroke-width="3" data-om-id="cb18b56c:1527"><path data-dc-tpl="1523" d="M0 260h1920M0 560h1920M0 860h1920M480 0v1080M980 0v1080M1480 0v1080" data-om-id="cb18b56c:1528"></path></g>
+              <g data-dc-tpl="1524" stroke="#6fd6b0" stroke-width="10" fill="none" opacity="0.85" stroke-linecap="round" data-om-id="cb18b56c:1529">
+                <path data-dc-tpl="1525" d="M1040 980 L1120 760 L1180 520 L1300 300" data-om-id="cb18b56c:1530"></path>
+                <path data-dc-tpl="1526" d="M900 900 L1120 760 L1360 700 L1560 520" data-om-id="cb18b56c:1531"></path>
+                <path data-dc-tpl="1527" d="M1180 520 L1420 460 L1620 300" data-om-id="cb18b56c:1532"></path>
+              </g>
+              <g data-dc-tpl="1528" stroke="#8fae4a" stroke-width="8" fill="none" opacity="0.7" data-om-id="cb18b56c:1533"><path data-dc-tpl="1529" d="M1120 760 L1000 620 L860 560" data-om-id="cb18b56c:1534"></path></g>
+              <g data-dc-tpl="1530" fill="#0d1512" stroke="#e8f0ea" stroke-width="6" data-om-id="cb18b56c:1535"><circle data-dc-tpl="1531" cx="1120" cy="760" r="18" data-om-id="cb18b56c:1536"></circle><circle data-dc-tpl="1532" cx="1180" cy="520" r="18" data-om-id="cb18b56c:1537"></circle><circle data-dc-tpl="1533" cx="1420" cy="460" r="14" data-om-id="cb18b56c:1538"></circle><circle data-dc-tpl="1534" cx="1300" cy="300" r="14" data-om-id="cb18b56c:1539"></circle><circle data-dc-tpl="1535" cx="1560" cy="520" r="14" data-om-id="cb18b56c:1540"></circle><circle data-dc-tpl="1536" cx="860" cy="560" r="14" data-om-id="cb18b56c:1541"></circle></g>
+              <rect data-dc-tpl="1537" x="0" y="0" width="1920" height="1080" fill="#050807" opacity="0.72" data-om-id="cb18b56c:1542"></rect>
+              <text data-dc-tpl="1538" x="160" y="330" font-family="IBM Plex Mono, monospace" font-size="32" letter-spacing="16" fill="#6fd6b0" data-om-id="cb18b56c:1543">THE ARC COMPLETES</text>
+              <text data-dc-tpl="1539" x="152" y="540" font-family="IBM Plex Mono, monospace" font-size="150" font-weight="600" letter-spacing="4" fill="#e8f0ea" data-om-id="cb18b56c:1544">1950 to 2050</text>
+              <path data-dc-tpl="1540" d="M160 600h700" stroke="#6fd6b0" stroke-width="8" data-om-id="cb18b56c:1545"></path>
+              <g data-dc-tpl="1541" font-family="IBM Plex Mono, monospace" data-om-id="cb18b56c:1546">
+                <text data-dc-tpl="1542" x="160" y="700" font-size="26" fill="#8b9a90" data-om-id="cb18b56c:1547">STATIONS</text><text data-dc-tpl="1543" x="520" y="700" font-size="26" font-weight="600" fill="#e8f0ea" data-om-id="cb18b56c:1548">218</text>
+                <text data-dc-tpl="1544" x="160" y="752" font-size="26" fill="#8b9a90" data-om-id="cb18b56c:1549">PASSENGERS DELIVERED</text><text data-dc-tpl="1545" x="520" y="752" font-size="26" font-weight="600" fill="#e8f0ea" data-om-id="cb18b56c:1550">1 204 880 000</text>
+                <text data-dc-tpl="1546" x="160" y="804" font-size="26" fill="#8b9a90" data-om-id="cb18b56c:1551">CITY REVEALED</text><text data-dc-tpl="1547" x="520" y="804" font-size="26" font-weight="600" fill="#e8f0ea" data-om-id="cb18b56c:1552">96 percent</text>
+                <text data-dc-tpl="1548" x="160" y="856" font-size="26" fill="#8b9a90" data-om-id="cb18b56c:1553">TIME PLAYED</text><text data-dc-tpl="1549" x="520" y="856" font-size="26" font-weight="600" fill="#e8f0ea" data-om-id="cb18b56c:1554">19 h 42 m</text>
+                <text data-dc-tpl="1550" x="160" y="948" font-size="28" fill="#e8f0ea" data-om-id="cb18b56c:1555">Nothing stops. The trains keep running, the fares keep</text>
+                <text data-dc-tpl="1551" x="160" y="988" font-size="28" fill="#e8f0ea" data-om-id="cb18b56c:1556">landing, and the city keeps the light you gave it.</text>
+                <text data-dc-tpl="1552" x="160" y="1038" font-size="20" letter-spacing="4" fill="#5a6673" data-om-id="cb18b56c:1557">CLICK TO KEEP PLAYING</text>
+              </g>
+            </svg>

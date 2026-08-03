@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-currency-kr-counter -->
+<svg data-dc-tpl="1225" viewBox="0 0 180 48" width="170" height="46" data-om-id="cb18b56c:1230" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1226" x="0" y="0" width="180" height="48" fill="#111823" data-om-id="cb18b56c:1231"></rect>
+            <text data-dc-tpl="1227" x="10" y="30" font-family="IBM Plex Mono, monospace" font-size="24" font-weight="600" fill="#e6edf4" data-om-id="cb18b56c:1232">1 240</text>
+            <text data-dc-tpl="1228" x="86" y="30" font-family="IBM Plex Mono, monospace" font-size="16" fill="#e0a63c" data-om-id="cb18b56c:1233">kr</text>
+            <text data-dc-tpl="1229" x="10" y="42" font-family="IBM Plex Mono, monospace" font-size="9" fill="#35a86b" data-om-id="cb18b56c:1234">+3.4 kr/s net</text>
+          </svg>

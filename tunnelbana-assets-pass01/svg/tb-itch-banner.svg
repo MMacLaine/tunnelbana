@@ -1,0 +1,12 @@
+<!-- Tunnelbana asset: tb-itch-banner -->
+<svg data-dc-tpl="1619" viewBox="0 0 1400 300" width="1400" data-om-id="cb18b56c:1624" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg" height="300">
+              <rect data-dc-tpl="1620" x="0" y="0" width="1400" height="300" fill="#101722" data-om-id="cb18b56c:1625"></rect>
+              <g data-dc-tpl="1621" stroke="#1b2735" stroke-width="2" data-om-id="cb18b56c:1626"><path data-dc-tpl="1622" d="M0 90h1400M0 200h1400M300 0v300M700 0v300M1080 0v300" data-om-id="cb18b56c:1627"></path></g>
+              <rect data-dc-tpl="1623" x="0" y="0" width="1400" height="300" fill="#070a0e" opacity="0.9" data-om-id="cb18b56c:1628"></rect>
+              <g data-dc-tpl="1624" clip-path="url(#tbban)" data-om-id="cb18b56c:1629"><rect data-dc-tpl="1625" x="0" y="0" width="1400" height="300" fill="#101722" data-om-id="cb18b56c:1630"></rect><g data-dc-tpl="1626" stroke="#26374b" stroke-width="2" data-om-id="cb18b56c:1631"><path data-dc-tpl="1627" d="M0 90h1400M0 200h1400M300 0v300M700 0v300M1080 0v300" data-om-id="cb18b56c:1632"></path></g></g>
+              <defs data-dc-tpl="1628" data-om-id="cb18b56c:1633"><clipPath data-dc-tpl="1629" id="tbban" data-om-id="cb18b56c:1634"><circle data-dc-tpl="1630" cx="900" cy="150" r="90" data-om-id="cb18b56c:1635"></circle><circle data-dc-tpl="1631" cx="1120" cy="110" r="70" data-om-id="cb18b56c:1636"></circle></clipPath></defs>
+              <path data-dc-tpl="1632" d="M700 250 L900 150 L1120 110 L1330 40" fill="none" stroke="#35a86b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:1637"></path>
+              <g data-dc-tpl="1633" fill="#0b0f14" stroke="#e6edf4" stroke-width="4" data-om-id="cb18b56c:1638"><circle data-dc-tpl="1634" cx="700" cy="250" r="8" data-om-id="cb18b56c:1639"></circle><circle data-dc-tpl="1635" cx="900" cy="150" r="8" data-om-id="cb18b56c:1640"></circle><circle data-dc-tpl="1636" cx="1120" cy="110" r="10" data-om-id="cb18b56c:1641"></circle></g>
+              <text data-dc-tpl="1637" x="70" y="140" font-family="IBM Plex Mono, monospace" font-size="42" font-weight="600" letter-spacing="15" fill="#e6edf4" data-om-id="cb18b56c:1642">TUNNELBANA</text>
+              <text data-dc-tpl="1638" x="74" y="180" font-family="IBM Plex Mono, monospace" font-size="16" letter-spacing="7" fill="#8996a5" data-om-id="cb18b56c:1643">BUILD STOCKHOLM, 1950 TO 2050</text>
+            </svg>

@@ -1,0 +1,9 @@
+<!-- Tunnelbana asset: tb-lockup-horizontal -->
+<svg data-dc-tpl="405" viewBox="0 0 360 72" width="300" height="60" data-om-id="cb18b56c:410" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="406" x="0" y="0" width="360" height="72" fill="#0b0f14" data-om-id="cb18b56c:411"></rect>
+            <path data-dc-tpl="407" d="M12 56V38a16 16 0 0 1 32 0v18" fill="none" stroke="#e6edf4" stroke-width="5" data-om-id="cb18b56c:412"></path>
+            <path data-dc-tpl="408" d="M21 56V40a7 7 0 0 1 14 0v16" fill="none" stroke="#35a86b" stroke-width="4.5" data-om-id="cb18b56c:413"></path>
+            <path data-dc-tpl="409" d="M6 58.5h44" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:414"></path>
+            <text data-dc-tpl="410" x="70" y="42" font-family="IBM Plex Mono, monospace" font-size="24" font-weight="600" letter-spacing="7.4" fill="#e6edf4" data-om-id="cb18b56c:415">TUNNELBANA</text>
+            <text data-dc-tpl="411" x="71" y="58" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="3.2" fill="#8996a5" data-om-id="cb18b56c:416">BUILD STOCKHOLM</text>
+          </svg>

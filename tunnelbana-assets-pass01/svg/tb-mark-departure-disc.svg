@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-mark-departure-disc -->
+<svg data-dc-tpl="382" viewBox="0 0 96 96" width="128" height="128" data-om-id="cb18b56c:387" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="383" x="0" y="0" width="96" height="96" fill="#0b0f14" data-om-id="cb18b56c:388"></rect>
+            <circle data-dc-tpl="384" cx="48" cy="48" r="34" fill="none" stroke="#e6edf4" stroke-width="6" data-om-id="cb18b56c:389"></circle>
+            <path data-dc-tpl="385" d="M40 32 L62 48 L40 64" fill="none" stroke="#35a86b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:390"></path>
+            <path data-dc-tpl="386" d="M28 40v16" stroke="#e6edf4" stroke-width="6" stroke-linecap="round" data-om-id="cb18b56c:391"></path>
+          </svg>

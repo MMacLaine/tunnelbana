@@ -1,0 +1,13 @@
+<!-- Tunnelbana asset: tb-label-plate-halo -->
+<svg data-dc-tpl="648" viewBox="0 0 300 74" width="300" height="74" data-om-id="cb18b56c:653" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="649" x="0" y="0" width="300" height="74" fill="#111823" data-om-id="cb18b56c:654"></rect>
+            <g data-dc-tpl="650" stroke="#1b2735" stroke-width="1" data-om-id="cb18b56c:655"><path data-dc-tpl="651" d="M0 18h300M0 56h300M120 0v74M210 0v74" data-om-id="cb18b56c:656"></path></g>
+            <rect data-dc-tpl="652" x="0" y="0" width="300" height="74" fill="#2c3d50" opacity="0.28" data-om-id="cb18b56c:657"></rect>
+            <circle data-dc-tpl="653" cx="18" cy="22" r="5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:658"></circle>
+            <rect data-dc-tpl="654" x="28" y="14" width="112" height="16" fill="#070a0e" opacity="0.62" data-om-id="cb18b56c:659"></rect>
+            <text data-dc-tpl="655" x="33" y="26" font-family="IBM Plex Mono, monospace" font-size="12" fill="#e6edf4" data-om-id="cb18b56c:660">Skanstull</text>
+            <text data-dc-tpl="656" x="152" y="26" font-family="IBM Plex Mono, monospace" font-size="8" fill="#8996a5" data-om-id="cb18b56c:661">plate 0.62</text>
+            <circle data-dc-tpl="657" cx="18" cy="54" r="5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:662"></circle>
+            <text data-dc-tpl="658" x="33" y="58" font-family="IBM Plex Mono, monospace" font-size="12" fill="#e6edf4" stroke="#070a0e" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round" data-om-id="cb18b56c:663">Skanstull</text>
+            <text data-dc-tpl="659" x="152" y="58" font-family="IBM Plex Mono, monospace" font-size="8" fill="#8996a5" data-om-id="cb18b56c:664">halo 3.5, preferred</text>
+          </svg>

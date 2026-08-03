@@ -1,0 +1,5 @@
+<!-- Tunnelbana asset: tb-station-selected -->
+<svg data-dc-tpl="608" viewBox="0 0 24 24" width="56" height="56" data-om-id="cb18b56c:613" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <circle data-dc-tpl="609" cx="12" cy="12" r="5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:614"></circle>
+            <path data-dc-tpl="610" d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="#e0a63c" stroke-width="1.6" data-om-id="cb18b56c:615"></path>
+          </svg>

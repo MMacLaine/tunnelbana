@@ -1,0 +1,7 @@
+<!-- Tunnelbana asset: tb-station-interchange-3 -->
+<svg data-dc-tpl="565" viewBox="0 0 24 24" width="56" height="56" data-om-id="cb18b56c:570" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="566" x="1.5" y="6" width="21" height="12" rx="6" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:571"></rect>
+            <circle data-dc-tpl="567" cx="7" cy="12" r="1.7" fill="#35a86b" data-om-id="cb18b56c:572"></circle>
+            <circle data-dc-tpl="568" cx="12" cy="12" r="1.7" fill="#c8544a" data-om-id="cb18b56c:573"></circle>
+            <circle data-dc-tpl="569" cx="17" cy="12" r="1.7" fill="#4f8fd4" data-om-id="cb18b56c:574"></circle>
+          </svg>

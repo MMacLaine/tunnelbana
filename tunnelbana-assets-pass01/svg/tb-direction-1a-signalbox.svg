@@ -1,0 +1,23 @@
+<!-- Tunnelbana asset: tb-direction-1a-signalbox -->
+<svg data-dc-tpl="61" viewBox="0 0 320 168" width="320" data-om-id="cb18b56c:66" style="color:rgb(230, 237, 244)" xmlns="http://www.w3.org/2000/svg" height="168">
+            <rect data-dc-tpl="62" x="0" y="0" width="320" height="168" fill="#0b0f14" data-om-id="cb18b56c:67"></rect>
+            <g data-dc-tpl="63" stroke="#131c27" stroke-width="1" data-om-id="cb18b56c:68">
+              <path data-dc-tpl="64" d="M0 40h320M0 96h320M78 0v168M212 0v168M0 132h320" data-om-id="cb18b56c:69"></path>
+            </g>
+            <rect data-dc-tpl="65" x="0" y="0" width="320" height="168" fill="#070a0e" opacity="0.62" data-om-id="cb18b56c:70"></rect>
+            <circle data-dc-tpl="66" cx="150" cy="86" r="46" fill="#0d1520" data-om-id="cb18b56c:71"></circle>
+            <g data-dc-tpl="67" stroke="#1b2735" stroke-width="1" data-om-id="cb18b56c:72">
+              <path data-dc-tpl="68" d="M104 86h92M150 40v92M120 52l60 68" data-om-id="cb18b56c:73"></path>
+            </g>
+            <circle data-dc-tpl="69" cx="150" cy="86" r="46" fill="none" stroke="#2c3d50" stroke-width="1" data-om-id="cb18b56c:74"></circle>
+            <path data-dc-tpl="70" d="M150 52 L150 86 L182 118" fill="none" stroke="#35a86b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" data-om-id="cb18b56c:75"></path>
+            <circle data-dc-tpl="71" cx="150" cy="52" r="5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:76"></circle>
+            <circle data-dc-tpl="72" cx="150" cy="86" r="4.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:77"></circle>
+            <circle data-dc-tpl="73" cx="182" cy="118" r="5.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:78"></circle>
+            <circle data-dc-tpl="74" cx="182" cy="118" r="10" fill="none" stroke="#35a86b" stroke-width="2" opacity="0.55" data-om-id="cb18b56c:79"></circle>
+            <rect data-dc-tpl="75" x="192" y="110" width="66" height="15" fill="#070a0e" opacity="0.7" data-om-id="cb18b56c:80"></rect>
+            <text data-dc-tpl="76" x="196" y="121" font-family="IBM Plex Mono, monospace" font-size="10" fill="#e6edf4" data-om-id="cb18b56c:81">Skanstull</text>
+            <rect data-dc-tpl="77" x="10" y="10" width="122" height="26" fill="#111823" opacity="0.9" stroke="#1e2b3a" data-om-id="cb18b56c:82"></rect>
+            <text data-dc-tpl="78" x="18" y="28" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#e6edf4" data-om-id="cb18b56c:83">1 240 kr</text>
+            <text data-dc-tpl="79" x="86" y="27" font-family="IBM Plex Mono, monospace" font-size="8" fill="#35a86b" data-om-id="cb18b56c:84">+3.4/s</text>
+          </svg>

@@ -1,0 +1,25 @@
+<!-- Tunnelbana asset: tb-drag-states -->
+<svg data-dc-tpl="1331" viewBox="0 0 400 190" width="400" height="190" data-om-id="cb18b56c:1336" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1332" x="0" y="0" width="400" height="190" fill="#0b0f14" data-om-id="cb18b56c:1337"></rect>
+            <text data-dc-tpl="1333" x="0" y="12" font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="1.2" fill="#5a6673" data-om-id="cb18b56c:1338">VALID, SNAPPED TO AN ANCHOR</text>
+            <circle data-dc-tpl="1334" cx="24" cy="42" r="6.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1339"></circle>
+            <path data-dc-tpl="1335" d="M24 42h96" stroke="#35a86b" stroke-width="5" stroke-linecap="round" opacity="0.85" data-om-id="cb18b56c:1340"></path>
+            <circle data-dc-tpl="1336" cx="120" cy="42" r="8" fill="none" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1341"></circle>
+            <circle data-dc-tpl="1337" cx="120" cy="42" r="2" fill="#e6edf4" data-om-id="cb18b56c:1342"></circle>
+            <rect data-dc-tpl="1338" x="132" y="32" width="104" height="18" rx="2" fill="#070a0e" opacity="0.7" data-om-id="cb18b56c:1343"></rect>
+            <text data-dc-tpl="1339" x="138" y="45" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="600" fill="#e0a63c" data-om-id="cb18b56c:1344">Blasut, 340 kr</text>
+            <text data-dc-tpl="1340" x="0" y="76" font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="1.2" fill="#5a6673" data-om-id="cb18b56c:1345">VALID, FREE SPOT, DASHED AND CHEAPER DEMAND</text>
+            <circle data-dc-tpl="1341" cx="24" cy="106" r="6.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1346"></circle>
+            <path data-dc-tpl="1342" d="M24 106h96" stroke="#35a86b" stroke-width="5" stroke-linecap="round" stroke-dasharray="5 5" opacity="0.85" data-om-id="cb18b56c:1347"></path>
+            <circle data-dc-tpl="1343" cx="120" cy="106" r="5" fill="#0b0f14" stroke="#8996a5" stroke-width="2.5" data-om-id="cb18b56c:1348"></circle>
+            <rect data-dc-tpl="1344" x="132" y="96" width="146" height="18" rx="2" fill="#070a0e" opacity="0.7" data-om-id="cb18b56c:1349"></rect>
+            <text data-dc-tpl="1345" x="138" y="109" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="600" fill="#e0a63c" data-om-id="cb18b56c:1350">Enskede, 210 kr, x0.55</text>
+            <text data-dc-tpl="1346" x="0" y="140" font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="1.2" fill="#5a6673" data-om-id="cb18b56c:1351">REFUSED, WITH THE REASON NAMED</text>
+            <circle data-dc-tpl="1347" cx="24" cy="170" r="6.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1352"></circle>
+            <path data-dc-tpl="1348" d="M24 170h96" stroke="#c8544a" stroke-width="5" stroke-linecap="round" stroke-dasharray="5 5" opacity="0.85" data-om-id="cb18b56c:1353"></path>
+            <circle data-dc-tpl="1349" cx="120" cy="170" r="5" fill="none" stroke="#c8544a" stroke-width="2.5" data-om-id="cb18b56c:1354"></circle>
+            <path data-dc-tpl="1350" d="M116 174 124 166" stroke="#c8544a" stroke-width="2.5" data-om-id="cb18b56c:1355"></path>
+            <rect data-dc-tpl="1351" x="132" y="160" width="196" height="18" rx="2" fill="#070a0e" opacity="0.7" data-om-id="cb18b56c:1356"></rect>
+            <path data-dc-tpl="1352" d="M132 160v18" stroke="#c8544a" stroke-width="2" data-om-id="cb18b56c:1357"></path>
+            <text data-dc-tpl="1353" x="140" y="173" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="600" fill="#c8544a" data-om-id="cb18b56c:1358">crosses water, 3x cost, 920 kr</text>
+          </svg>

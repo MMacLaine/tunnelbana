@@ -1,0 +1,9 @@
+<!-- Tunnelbana asset: tb-currency-payout-float -->
+<svg data-dc-tpl="1256" viewBox="0 0 120 56" width="120" height="56" data-om-id="cb18b56c:1261" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1257" x="0" y="0" width="120" height="56" fill="#0b0f14" data-om-id="cb18b56c:1262"></rect>
+            <circle data-dc-tpl="1258" cx="20" cy="40" r="5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1263"></circle>
+            <g data-dc-tpl="1259" data-om-id="cb18b56c:1264" style="animation: 1.6s ease-out 0s infinite normal none running tbFloat;">
+              <text data-dc-tpl="1260" x="34" y="26" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600" fill="#e0a63c" data-om-id="cb18b56c:1265">+42 kr</text>
+            </g>
+            <text data-dc-tpl="1261" x="34" y="46" font-family="IBM Plex Mono, monospace" font-size="8" fill="#5a6673" data-om-id="cb18b56c:1266">1.2 s, rises 22 px</text>
+          </svg>

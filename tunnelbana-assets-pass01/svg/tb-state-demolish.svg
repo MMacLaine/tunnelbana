@@ -1,0 +1,11 @@
+<!-- Tunnelbana asset: tb-state-demolish -->
+<svg data-dc-tpl="1380" viewBox="0 0 200 96" width="184" height="88" data-om-id="cb18b56c:1385" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1381" x="0" y="0" width="200" height="96" fill="#0b0f14" data-om-id="cb18b56c:1386"></rect>
+            <path data-dc-tpl="1382" d="M20 70h100" stroke="#1e6b45" stroke-width="5" stroke-linecap="round" stroke-dasharray="6 6" data-om-id="cb18b56c:1387"></path>
+            <circle data-dc-tpl="1383" cx="20" cy="70" r="5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1388"></circle>
+            <circle data-dc-tpl="1384" cx="120" cy="70" r="6.5" fill="#0b0f14" stroke="#c8544a" stroke-width="2.5" data-om-id="cb18b56c:1389"></circle>
+            <circle data-dc-tpl="1385" cx="120" cy="70" r="12" fill="none" stroke="#c8544a" stroke-width="1.5" stroke-dasharray="3 3" data-om-id="cb18b56c:1390"></circle>
+            <text data-dc-tpl="1386" x="20" y="26" font-family="IBM Plex Mono, monospace" font-size="10" font-weight="600" fill="#c8544a" data-om-id="cb18b56c:1391">demolish Hokarangen</text>
+            <text data-dc-tpl="1387" x="20" y="42" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8996a5" data-om-id="cb18b56c:1392">refunds 40 percent, 130 kr</text>
+            <text data-dc-tpl="1388" x="20" y="54" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5a6673" data-om-id="cb18b56c:1393">the map goes dark here again</text>
+          </svg>

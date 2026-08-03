@@ -1,0 +1,11 @@
+<!-- Tunnelbana asset: tb-card-political -->
+<svg data-dc-tpl="1201" viewBox="0 0 260 92" width="260" height="92" data-om-id="cb18b56c:1206" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1202" x="0" y="0" width="260" height="92" fill="#111823" data-om-id="cb18b56c:1207"></rect>
+            <rect data-dc-tpl="1203" x="0.5" y="0.5" width="259" height="91" fill="none" stroke="#9b8cc9" stroke-width="1" data-om-id="cb18b56c:1208"></rect>
+            <g data-dc-tpl="1204" transform="translate(14 16)" stroke="#9b8cc9" stroke-width="2" fill="none" stroke-linejoin="round" data-om-id="cb18b56c:1209"><path data-dc-tpl="1205" d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z" data-om-id="cb18b56c:1210"></path><path data-dc-tpl="1206" d="M8.5 12h7" data-om-id="cb18b56c:1211"></path></g>
+            <text data-dc-tpl="1207" x="52" y="26" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600" fill="#e6edf4" data-om-id="cb18b56c:1212">City council mandate</text>
+            <text data-dc-tpl="1208" x="248" y="26" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" fill="#9b8cc9" data-om-id="cb18b56c:1213">3 pk</text>
+            <text data-dc-tpl="1209" x="52" y="44" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8996a5" data-om-id="cb18b56c:1214">Unlocks the 1957 crossing.</text>
+            <text data-dc-tpl="1210" x="52" y="62" font-family="IBM Plex Mono, monospace" font-size="9" fill="#9b8cc9" data-om-id="cb18b56c:1215">once only</text>
+            <text data-dc-tpl="1211" x="52" y="78" font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="1.2" fill="#5a6673" data-om-id="cb18b56c:1216">POLITICS   1957</text>
+          </svg>

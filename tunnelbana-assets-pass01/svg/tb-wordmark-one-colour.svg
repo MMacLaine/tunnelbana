@@ -1,0 +1,6 @@
+<!-- Tunnelbana asset: tb-wordmark-one-colour -->
+<svg data-dc-tpl="438" viewBox="0 0 320 40" width="290" height="36" data-om-id="cb18b56c:443" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="439" x="0" y="0" width="320" height="40" fill="#e6edf4" data-om-id="cb18b56c:444"></rect>
+            <text data-dc-tpl="440" x="8" y="26" font-family="IBM Plex Mono, monospace" font-size="21" font-weight="600" letter-spacing="7.2" fill="#0b0f14" data-om-id="cb18b56c:445">TUNNELBANA</text>
+            <path data-dc-tpl="441" d="M9 34h296" stroke="#0b0f14" stroke-width="2.5" data-om-id="cb18b56c:446"></path>
+          </svg>

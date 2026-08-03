@@ -1,0 +1,9 @@
+<!-- Tunnelbana asset: tb-currency-politcap-counter -->
+<svg data-dc-tpl="1244" viewBox="0 0 180 48" width="170" height="46" data-om-id="cb18b56c:1249" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="1245" x="0" y="0" width="180" height="48" fill="#111823" data-om-id="cb18b56c:1250"></rect>
+            <path data-dc-tpl="1246" d="M18 12l8 4.6v9.2L18 30.4 10 25.8v-9.2z" fill="none" stroke="#9b8cc9" stroke-width="2" stroke-linejoin="round" data-om-id="cb18b56c:1251"></path>
+            <path data-dc-tpl="1247" d="M14.4 21.2h7.2" stroke="#9b8cc9" stroke-width="2" data-om-id="cb18b56c:1252"></path>
+            <text data-dc-tpl="1248" x="34" y="27" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="600" fill="#e6edf4" data-om-id="cb18b56c:1253">3</text>
+            <text data-dc-tpl="1249" x="48" y="27" font-family="IBM Plex Mono, monospace" font-size="12" fill="#9b8cc9" data-om-id="cb18b56c:1254">pk</text>
+            <text data-dc-tpl="1250" x="10" y="42" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5a6673" data-om-id="cb18b56c:1255">next at 1957</text>
+          </svg>

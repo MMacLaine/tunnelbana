@@ -1,0 +1,26 @@
+<!-- Tunnelbana asset: tb-veil-hard-edge -->
+<svg data-dc-tpl="1295" viewBox="0 0 400 190" width="400" height="190" data-om-id="cb18b56c:1300" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <defs data-dc-tpl="1296" data-om-id="cb18b56c:1301">
+              <clipPath data-dc-tpl="1297" id="tbrev" data-om-id="cb18b56c:1302"><circle data-dc-tpl="1298" cx="120" cy="100" r="56" data-om-id="cb18b56c:1303"></circle><circle data-dc-tpl="1299" cx="250" cy="70" r="44" data-om-id="cb18b56c:1304"></circle></clipPath>
+            </defs>
+            <rect data-dc-tpl="1300" x="0" y="0" width="400" height="190" fill="#101722" data-om-id="cb18b56c:1305"></rect>
+            <g data-dc-tpl="1301" stroke="#1b2735" stroke-width="1.5" data-om-id="cb18b56c:1306">
+              <path data-dc-tpl="1302" d="M0 40h400M0 84h400M0 128h400M0 166h400M56 0v190M132 0v190M208 0v190M284 0v190M356 0v190" data-om-id="cb18b56c:1307"></path>
+            </g>
+            <g data-dc-tpl="1303" fill="#16202d" data-om-id="cb18b56c:1308"><rect data-dc-tpl="1304" x="60" y="46" width="30" height="24" data-om-id="cb18b56c:1309"></rect><rect data-dc-tpl="1305" x="140" y="90" width="46" height="26" data-om-id="cb18b56c:1310"></rect><rect data-dc-tpl="1306" x="216" y="42" width="34" height="30" data-om-id="cb18b56c:1311"></rect><rect data-dc-tpl="1307" x="292" y="132" width="40" height="24" data-om-id="cb18b56c:1312"></rect></g>
+            <rect data-dc-tpl="1308" x="0" y="0" width="400" height="190" fill="#070a0e" opacity="0.86" data-om-id="cb18b56c:1313"></rect>
+            <g data-dc-tpl="1309" clip-path="url(#tbrev)" data-om-id="cb18b56c:1314">
+              <rect data-dc-tpl="1310" x="0" y="0" width="400" height="190" fill="#101722" data-om-id="cb18b56c:1315"></rect>
+              <g data-dc-tpl="1311" stroke="#243449" stroke-width="1.5" data-om-id="cb18b56c:1316"><path data-dc-tpl="1312" d="M0 40h400M0 84h400M0 128h400M0 166h400M56 0v190M132 0v190M208 0v190M284 0v190M356 0v190" data-om-id="cb18b56c:1317"></path></g>
+              <g data-dc-tpl="1313" fill="#1c2a3a" data-om-id="cb18b56c:1318"><rect data-dc-tpl="1314" x="60" y="46" width="30" height="24" data-om-id="cb18b56c:1319"></rect><rect data-dc-tpl="1315" x="140" y="90" width="46" height="26" data-om-id="cb18b56c:1320"></rect><rect data-dc-tpl="1316" x="216" y="42" width="34" height="30" data-om-id="cb18b56c:1321"></rect></g>
+            </g>
+            <circle data-dc-tpl="1317" cx="120" cy="100" r="56" fill="none" stroke="#2c3d50" stroke-width="1" data-om-id="cb18b56c:1322"></circle>
+            <circle data-dc-tpl="1318" cx="250" cy="70" r="44" fill="none" stroke="#2c3d50" stroke-width="1" data-om-id="cb18b56c:1323"></circle>
+            <path data-dc-tpl="1319" d="M120 100 L250 70" stroke="#35a86b" stroke-width="5" stroke-linecap="round" data-om-id="cb18b56c:1324"></path>
+            <circle data-dc-tpl="1320" cx="120" cy="100" r="5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1325"></circle>
+            <circle data-dc-tpl="1321" cx="250" cy="70" r="6.5" fill="#0b0f14" stroke="#e6edf4" stroke-width="2.5" data-om-id="cb18b56c:1326"></circle>
+            <circle data-dc-tpl="1322" cx="250" cy="70" r="10.5" fill="none" stroke="#35a86b" stroke-width="2.5" opacity="0.8" data-om-id="cb18b56c:1327"></circle>
+            <text data-dc-tpl="1323" x="132" y="104" font-family="IBM Plex Mono, monospace" font-size="11" fill="#e6edf4" stroke="#070a0e" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round" data-om-id="cb18b56c:1328">Gullmarsplan</text>
+            <text data-dc-tpl="1324" x="262" y="74" font-family="IBM Plex Mono, monospace" font-size="11" fill="#e6edf4" stroke="#070a0e" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round" data-om-id="cb18b56c:1329">Skanstull</text>
+            <text data-dc-tpl="1325" x="12" y="180" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5a6673" data-om-id="cb18b56c:1330">veil 0.86, catchment 0.65 km, hard edge, 3 px feather</text>
+          </svg>

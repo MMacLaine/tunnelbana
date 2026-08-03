@@ -1,0 +1,10 @@
+<!-- Tunnelbana asset: tb-mark-revealed-circle -->
+<svg data-dc-tpl="393" viewBox="0 0 96 96" width="128" height="128" data-om-id="cb18b56c:398" xmlns="http://www.w3.org/2000/svg" style="color:rgb(230, 237, 244)">
+            <rect data-dc-tpl="394" x="0" y="0" width="96" height="96" fill="#0b0f14" data-om-id="cb18b56c:399"></rect>
+            <circle data-dc-tpl="395" cx="48" cy="48" r="34" fill="#16202d" data-om-id="cb18b56c:400"></circle>
+            <g data-dc-tpl="396" stroke="#2c3d50" stroke-width="3" data-om-id="cb18b56c:401">
+              <path data-dc-tpl="397" d="M14 40h68M14 58h68M40 14v68M62 14v68" data-om-id="cb18b56c:402"></path>
+            </g>
+            <circle data-dc-tpl="398" cx="48" cy="48" r="34" fill="none" stroke="#e6edf4" stroke-width="5" data-om-id="cb18b56c:403"></circle>
+            <circle data-dc-tpl="399" cx="48" cy="48" r="9" fill="#0b0f14" stroke="#35a86b" stroke-width="6" data-om-id="cb18b56c:404"></circle>
+          </svg>
