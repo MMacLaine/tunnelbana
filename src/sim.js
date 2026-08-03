@@ -49,10 +49,12 @@ export function newGame() {
     freeSpots: 0,
     autoTimer: 0,
     totalDelivered: 0,
-    grossLog: [],   // recent payouts, for the income-per-second display
+    grossEma: 0,    // smoothed fares per second, for the income display
     events: [],     // drained by the renderer (payout floats etc.)
   };
 }
+
+const GROSS_TAU = 8; // seconds; smoothing for the fares-per-second readout
 
 export function cityMult(g) {
   return 1 + g.totalDelivered / BAL.cityGrowthDiv;
@@ -74,12 +76,9 @@ export function upkeepRate(g) {
   return g.trains.length * BAL.upkeepPerTrainPerSec;
 }
 
-// Gross fares per second, averaged over the last 10 seconds.
+// Gross fares per second, exponentially smoothed (payouts are lumpy impulses).
 export function grossRate(g) {
-  const cutoff = g.clock - 10;
-  let sum = 0;
-  for (const e of g.grossLog) if (e.t >= cutoff) sum += e.amt;
-  return sum / 10;
+  return g.grossEma;
 }
 
 export function usedAnchors(g) {
@@ -118,19 +117,21 @@ function arrive(g, train) {
   const run = train.run;
   run.from += run.dir;
   run.t = 0;
-  pickUp(g, train, run.from);
   const atTerminus = run.from === 0 || run.from === g.line.length - 1;
   if (atTerminus) {
+    // No pickup here: passengers on the terminus platform have not travelled.
+    // They board on the next dispatch from this end.
     const amt = run.onboard * BAL.fare;
     if (run.onboard > 0) {
       g.money += amt;
       g.totalDelivered += run.onboard;
-      g.grossLog.push({ t: g.clock, amt });
+      g.grossEma += amt / GROSS_TAU;
       g.events.push({ type: 'payout', geo: g.line[run.from].geo, amt });
     }
     train.at = run.from;
     train.run = null;
   } else {
+    pickUp(g, train, run.from);
     run.dur = segTimeBetween(g.line[run.from], g.line[run.from + run.dir]);
   }
 }
@@ -158,18 +159,17 @@ export function tick(g, dt) {
     }
   }
 
-  // Drivers dispatch on their own once hired.
+  // Drivers dispatch on their own once hired. A miss (no idle train) must not
+  // burn the whole interval, or automation underperforms manual play.
   if (g.owned.drivers) {
     g.autoTimer -= dt;
     if (g.autoTimer <= 0) {
-      dispatch(g);
-      g.autoTimer = autoInterval(g);
+      g.autoTimer = dispatch(g) ? autoInterval(g) : 0.25;
     }
   }
 
-  // Keep the income window short.
-  const cutoff = g.clock - 12;
-  while (g.grossLog.length && g.grossLog[0].t < cutoff) g.grossLog.shift();
+  // Decay the smoothed income readout.
+  g.grossEma = Math.max(0, g.grossEma - g.grossEma * dt / GROSS_TAU);
 }
 
 // --- Extending the line: from either end, to an anchor or a free spot ---
@@ -257,11 +257,25 @@ export function serialize(g) {
     saveVersion: 3,
     money: Math.round(g.money),
     line: g.line,
+    waiting: g.waiting.map((w) => Math.round(w)),
     freeSpots: g.freeSpots,
     owned: g.owned,
     totalDelivered: Math.round(g.totalDelivered),
   });
 }
+
+// Saves are a shipping feature (export/import strings), so hydrate trusts nothing:
+// every field is validated or clamped, and a bad line falls back to the default.
+function validStation(st) {
+  return !!st && typeof st.name === 'string' && st.name.length > 0 && st.name.length <= 40 &&
+    Array.isArray(st.geo) && st.geo.length === 2 &&
+    Number.isFinite(st.geo[0]) && Number.isFinite(st.geo[1]) &&
+    st.geo[0] > 59.0 && st.geo[0] < 59.6 && st.geo[1] > 17.5 && st.geo[1] < 18.6 &&
+    (st.anchor === null || (Number.isInteger(st.anchor) && st.anchor >= 0 && st.anchor < ANCHORS.length)) &&
+    (st.mult === 1 || st.mult === BAL.freeSpotDemand);
+}
+
+const posInt = (v, max) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));
 
 export function hydrate(raw) {
   const g = newGame();
@@ -269,18 +283,27 @@ export function hydrate(raw) {
   let s;
   try { s = JSON.parse(raw); } catch { return g; }
   if (!s || typeof s.saveVersion !== 'number') return g;
-  g.money = s.money ?? g.money;
-  g.owned = { ...g.owned, ...s.owned };
-  g.totalDelivered = s.totalDelivered ?? 0;
+  g.money = Math.max(0, Number(s.money) || 0);
+  for (const item of SHOP) g.owned[item.id] = posInt(s.owned?.[item.id], item.max);
+  g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   if (s.saveVersion === 2 && typeof s.built === 'number') {
     // v2 stored a station count along the fixed 1950 sequence.
     const n = Math.min(ANCHORS.length, Math.max(START_BUILT, s.built));
     g.line = Array.from({ length: n }, (_, i) => anchorStation(i));
-  } else if (s.saveVersion >= 3 && Array.isArray(s.line) && s.line.length >= 2) {
-    g.line = s.line;
-    g.freeSpots = s.freeSpots ?? 0;
+  } else if (s.saveVersion >= 3 && Array.isArray(s.line) &&
+             s.line.length >= 2 && s.line.length <= BAL.maxStations &&
+             s.line.every(validStation)) {
+    g.line = s.line.map((st) => ({
+      name: st.name, geo: [st.geo[0], st.geo[1]], anchor: st.anchor, mult: st.mult,
+    }));
+    g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
   }
-  g.waiting = g.line.map((st) => BAL.seedWaiting * st.mult);
+  const capMax = stationCap(g);
+  g.waiting = g.line.map((st, i) => {
+    const saved = Array.isArray(s.waiting) ? Number(s.waiting[i]) : NaN;
+    const fallback = BAL.seedWaiting * st.mult;
+    return Number.isFinite(saved) ? Math.min(capMax * st.mult, Math.max(0, saved)) : fallback;
+  });
   for (let i = 0; i < g.owned.train; i++) g.trains.push({ at: 0, run: null });
   return g;
 }

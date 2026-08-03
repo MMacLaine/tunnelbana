@@ -17,14 +17,12 @@ const COL = {
   trainText: '#08130c',
 };
 
-export const SNAP_PX = 22;   // drag snap radius to an anchor
-export const GRAB_PX = 18;   // grab radius for line ends
-
 let canvas, ctx, dpr;
 let W = 0, H = 0;
-let hasBasemap = false;
+let basemap = 'off'; // 'pending' | 'on' | 'off'; fallback water draws only when off
 let drag = null;   // {x, y, end, snap, cost, problem} set by main.js each move
 let floats = [];   // {geo, text, age}
+let clockT = 0;    // render-local time for idle animations
 
 // --- Projection ---
 
@@ -54,12 +52,29 @@ export function setProjector(fn) {
   projector = fn || fallbackProject;
 }
 
-export function setBasemap(on) {
-  hasBasemap = on;
+export function setBasemap(state) {
+  basemap = state;
 }
 
 export function project(geo) {
   return projector(geo);
+}
+
+// Current map scale, so hit radii mean ground distance instead of screen pixels.
+export function pxPerKm() {
+  const a = project([59.29, 18.08]);
+  const b = project([59.29 + 1 / 111.32, 18.08]);
+  return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+}
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+export function grabRadius() {
+  return clamp(0.20 * pxPerKm(), 12, 30); // ~200 m of ground
+}
+
+export function snapRadius() {
+  return clamp(0.25 * pxPerKm(), 14, 34); // ~250 m of ground
 }
 
 // --- Setup ---
@@ -93,16 +108,17 @@ export function addFloatGeo(geo, text) {
 // --- Hit helpers (canvas px) ---
 
 export function nearEnd(g, p) {
+  const r = grabRadius();
   for (const end of ['head', 'tail']) {
     const s = project(endStation(g, end).geo);
-    if (Math.hypot(p.x - s.x, p.y - s.y) < GRAB_PX) return end;
+    if (Math.hypot(p.x - s.x, p.y - s.y) < r) return end;
   }
   return null;
 }
 
 export function nearAnchor(g, p) {
   const used = usedAnchors(g);
-  let best = null, bestD = SNAP_PX;
+  let best = null, bestD = snapRadius();
   ANCHORS.forEach((a, i) => {
     if (used.has(i)) return;
     const ap = project(a.geo);
@@ -151,10 +167,12 @@ function drawTease() {
   ctx.fillText(TEASE.label, lp.x, lp.y);
 }
 
-// Unconnected anchors: the "logical spots", faint dashed rings.
+// Unconnected anchors: the "logical spots", dashed rings, named at rest when
+// zoomed close enough that the map should teach the mechanic on its own.
 function drawAnchors(g) {
   const used = usedAnchors(g);
   const hot = drag ? drag.snap : null;
+  const namesAtRest = pxPerKm() >= 60;
   ANCHORS.forEach((a, i) => {
     if (used.has(i)) return;
     const p = project(a.geo);
@@ -166,14 +184,34 @@ function drawAnchors(g) {
     ctx.strokeStyle = isHot ? COL.ink : COL.ghost;
     ctx.stroke();
     ctx.setLineDash([]);
-    if (isHot) {
-      ctx.font = mono(12);
-      ctx.fillStyle = COL.ink;
+    if (isHot || namesAtRest) {
+      ctx.font = mono(isHot ? 12 : 10);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(a.name).width;
+      ctx.fillStyle = 'rgba(11, 15, 20, 0.55)';
+      ctx.fillRect(p.x + 10, p.y - 7, tw + 8, 14);
+      ctx.fillStyle = isHot ? COL.ink : COL.ghost;
       ctx.fillText(a.name, p.x + 14, p.y);
     }
   });
+}
+
+// The primary verb needs a visible handle: pulsing rings on both line ends.
+function drawEndHandles(g) {
+  if (g.line.length >= 2) {
+    for (const end of ['head', 'tail']) {
+      const p = project(endStation(g, end).geo);
+      const r = 10.5 + Math.sin(clockT * 2.2) * 1.4;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = LINE.color;
+      ctx.globalAlpha = 0.9;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
 }
 
 function linePoints(g) {
@@ -319,12 +357,14 @@ function drawFloats(dt) {
 }
 
 export function draw(g, dt) {
+  clockT += dt;
   ctx.clearRect(0, 0, W, H);
-  if (!hasBasemap) drawWaterFallback();
+  if (basemap === 'off') drawWaterFallback();
   drawTease();
   drawAnchors(g);
   const P = linePoints(g);
   drawLine(g, P);
+  drawEndHandles(g);
   drawDragPreview(g);
   drawStations(g, P);
   drawTrains(g, P);
