@@ -1,12 +1,13 @@
-// Simulation for M0: one hardcoded line, trains, fares, upkeep, a few purchases.
+// Simulation: one line with free station placement, trains, fares, upkeep, purchases.
 // DOM-free on purpose so it can run under node for smoke tests.
 
-import { STATIONS, SEG_KM, START_BUILT } from './data.js';
+import { ANCHORS, START_BUILT, WATER, kmBetween, crossesWater, inRing } from './data.js';
 
 export const BAL = {
   startMoney: 300,
   fare: 3,                 // kr per delivered passenger
-  spawnPerSec: 0.5,        // base passengers per station per second
+  spawnPerSec: 0.5,        // base passengers per station per second (anchors)
+  freeSpotDemand: 0.5,     // demand multiplier for stations placed off-anchor
   stationCapBase: 80,      // base waiting cap per station
   cityGrowthDiv: 900,      // demand multiplier = 1 + delivered / this
   trainCapBase: 120,
@@ -16,7 +17,13 @@ export const BAL = {
   dwell: 0.32,             // per-stop time added to each segment
   dispatchBase: 8,         // drivers auto-dispatch interval, seconds
   dispatchPerLevel: 0.82,  // timetable: interval multiplier per level
-  seedWaiting: 8,          // passengers already on platforms at game start
+  seedWaiting: 8,          // passengers on a platform when it opens
+  stationBase: 150,        // flat station cost, grows with count
+  stationGrowth: 1.25,
+  trackPerKm: 150,         // kr per km of track
+  waterMult: 2.0,          // track cost multiplier when the segment crosses water
+  minSpacingKm: 0.35,      // stations may not land closer than this
+  maxStations: 30,         // M0 cap
 };
 
 export const SHOP = [
@@ -26,14 +33,20 @@ export const SHOP = [
   { id: 'capacity',  base: 800,  growth: 1.7, max: 6 },
 ];
 
+function anchorStation(i) {
+  const a = ANCHORS[i];
+  return { name: a.name, geo: a.geo, anchor: i, mult: 1 };
+}
+
 export function newGame() {
   return {
     clock: 0,
     money: BAL.startMoney,
-    built: START_BUILT,
-    waiting: STATIONS.map((s, i) => (i < START_BUILT ? BAL.seedWaiting : 0)),
+    line: Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)),
+    waiting: Array.from({ length: START_BUILT }, () => BAL.seedWaiting),
     trains: [{ at: 0, run: null }],
     owned: { train: 0, drivers: 0, timetable: 0, capacity: 0 },
+    freeSpots: 0,
     autoTimer: 0,
     totalDelivered: 0,
     grossLog: [],   // recent payouts, for the income-per-second display
@@ -69,8 +82,12 @@ export function grossRate(g) {
   return sum / 10;
 }
 
-function segTime(i) {
-  return SEG_KM[i] * BAL.secondsPerKm + BAL.dwell;
+export function usedAnchors(g) {
+  return new Set(g.line.map((s) => s.anchor).filter((a) => a !== null));
+}
+
+function segTimeBetween(a, b) {
+  return kmBetween(a.geo, b.geo) * BAL.secondsPerKm + BAL.dwell;
 }
 
 function pickUp(g, train, idx) {
@@ -90,7 +107,9 @@ export function dispatch(g) {
   const train = idleTrains(g)[0];
   if (!train) return false;
   const dir = train.at === 0 ? 1 : -1;
-  train.run = { dir, from: train.at, t: 0, onboard: 0 };
+  const next = g.line[train.at + dir];
+  if (!next) return false;
+  train.run = { dir, from: train.at, t: 0, onboard: 0, dur: segTimeBetween(g.line[train.at], next) };
   pickUp(g, train, train.at);
   return true;
 }
@@ -100,28 +119,30 @@ function arrive(g, train) {
   run.from += run.dir;
   run.t = 0;
   pickUp(g, train, run.from);
-  const atTerminus = run.from === 0 || run.from === g.built - 1;
+  const atTerminus = run.from === 0 || run.from === g.line.length - 1;
   if (atTerminus) {
     const amt = run.onboard * BAL.fare;
     if (run.onboard > 0) {
       g.money += amt;
       g.totalDelivered += run.onboard;
       g.grossLog.push({ t: g.clock, amt });
-      g.events.push({ type: 'payout', station: run.from, amt });
+      g.events.push({ type: 'payout', geo: g.line[run.from].geo, amt });
     }
     train.at = run.from;
     train.run = null;
+  } else {
+    run.dur = segTimeBetween(g.line[run.from], g.line[run.from + run.dir]);
   }
 }
 
 export function tick(g, dt) {
   g.clock += dt;
 
-  // Passengers gather on built platforms; demand grows with everyone you have moved.
+  // Passengers gather on platforms; demand grows with everyone you have moved.
   const cap = stationCap(g);
   const spawn = BAL.spawnPerSec * cityMult(g) * dt;
-  for (let i = 0; i < g.built; i++) {
-    g.waiting[i] = Math.min(cap, g.waiting[i] + spawn);
+  for (let i = 0; i < g.line.length; i++) {
+    g.waiting[i] = Math.min(cap * g.line[i].mult, g.waiting[i] + spawn * g.line[i].mult);
   }
 
   // Upkeep drains, floored at zero (deficit rules proper arrive in M1).
@@ -131,9 +152,8 @@ export function tick(g, dt) {
   for (const train of g.trains) {
     if (!train.run) continue;
     train.run.t += dt;
-    // A big dt (tab regains focus) can cross several stations in one tick.
-    while (train.run && train.run.t >= segTime(Math.min(train.run.from, train.run.from + train.run.dir))) {
-      train.run.t -= segTime(Math.min(train.run.from, train.run.from + train.run.dir));
+    while (train.run && train.run.t >= train.run.dur) {
+      train.run.t -= train.run.dur;
       arrive(g, train);
     }
   }
@@ -152,26 +172,60 @@ export function tick(g, dt) {
   while (g.grossLog.length && g.grossLog[0].t < cutoff) g.grossLog.shift();
 }
 
-// --- Line extensions ---
+// --- Extending the line: from either end, to an anchor or a free spot ---
 
-export function nextStation(g) {
-  return g.built < STATIONS.length ? STATIONS[g.built] : null;
+// end: 'head' (index 0) or 'tail' (last index).
+export function endStation(g, end) {
+  return end === 'head' ? g.line[0] : g.line[g.line.length - 1];
 }
 
-export function canExtend(g) {
-  const next = nextStation(g);
-  return !!next && g.money >= next.ext.cost;
+export function extensionCost(g, end, geo) {
+  const from = endStation(g, end);
+  const km = kmBetween(from.geo, geo);
+  const station = BAL.stationBase * Math.pow(BAL.stationGrowth, g.line.length - START_BUILT);
+  const track = km * BAL.trackPerKm * (crossesWater(from.geo, geo) ? BAL.waterMult : 1);
+  return Math.round(station + track);
 }
 
-export function extend(g) {
-  if (!canExtend(g)) return false;
-  const next = nextStation(g);
-  g.money -= next.ext.cost;
-  g.waiting[g.built] = BAL.seedWaiting;
-  g.built += 1;
-  g.events.push({ type: 'extend', station: g.built - 1 });
+// Returns a reason string when placement is invalid, else null.
+export function placementProblem(g, end, geo) {
+  if (g.line.length >= BAL.maxStations) return 'max';
+  for (const w of WATER) if (inRing(geo, w.ring)) return 'water';
+  for (const s of g.line) {
+    if (kmBetween(s.geo, geo) < BAL.minSpacingKm) return 'tooClose';
+  }
+  if (g.money < extensionCost(g, end, geo)) return 'money';
+  return null;
+}
+
+// anchorIdx is null for a free spot. Returns true on success.
+export function extendTo(g, end, geo, anchorIdx) {
+  if (anchorIdx !== null && usedAnchors(g).has(anchorIdx)) return false;
+  if (placementProblem(g, end, geo)) return false;
+  g.money -= extensionCost(g, end, geo);
+  let station;
+  if (anchorIdx !== null) {
+    station = anchorStation(anchorIdx);
+  } else {
+    g.freeSpots += 1;
+    station = { name: 'Ny station ' + g.freeSpots, geo, anchor: null, mult: BAL.freeSpotDemand };
+  }
+  if (end === 'head') {
+    g.line.unshift(station);
+    g.waiting.unshift(BAL.seedWaiting * station.mult);
+    for (const t of g.trains) {
+      t.at += 1;
+      if (t.run) t.run.from += 1;
+    }
+  } else {
+    g.line.push(station);
+    g.waiting.push(BAL.seedWaiting * station.mult);
+  }
+  g.events.push({ type: 'extend', geo: station.geo, name: station.name });
   return true;
 }
+
+// --- Shop ---
 
 export function shopCost(g, id) {
   const item = SHOP.find((s) => s.id === id);
@@ -194,15 +248,16 @@ export function buy(g, id) {
   return true;
 }
 
-// --- Save / load (M0: minimal; saveVersion is monotonic from day one) ---
+// --- Save / load (saveVersion is monotonic; forward-only migrations) ---
 
 export const SAVE_KEY = 'tunnelbana_save';
 
 export function serialize(g) {
   return JSON.stringify({
-    saveVersion: 2,
+    saveVersion: 3,
     money: Math.round(g.money),
-    built: g.built,
+    line: g.line,
+    freeSpots: g.freeSpots,
     owned: g.owned,
     totalDelivered: Math.round(g.totalDelivered),
   });
@@ -214,12 +269,18 @@ export function hydrate(raw) {
   let s;
   try { s = JSON.parse(raw); } catch { return g; }
   if (!s || typeof s.saveVersion !== 'number') return g;
-  // v1 saves predate progressive extension: keep money and upgrades, line restarts short.
   g.money = s.money ?? g.money;
   g.owned = { ...g.owned, ...s.owned };
   g.totalDelivered = s.totalDelivered ?? 0;
-  if (s.saveVersion >= 2) g.built = Math.min(STATIONS.length, Math.max(START_BUILT, s.built ?? START_BUILT));
-  for (let i = 0; i < g.built; i++) g.waiting[i] = Math.max(g.waiting[i], BAL.seedWaiting);
+  if (s.saveVersion === 2 && typeof s.built === 'number') {
+    // v2 stored a station count along the fixed 1950 sequence.
+    const n = Math.min(ANCHORS.length, Math.max(START_BUILT, s.built));
+    g.line = Array.from({ length: n }, (_, i) => anchorStation(i));
+  } else if (s.saveVersion >= 3 && Array.isArray(s.line) && s.line.length >= 2) {
+    g.line = s.line;
+    g.freeSpots = s.freeSpots ?? 0;
+  }
+  g.waiting = g.line.map((st) => BAL.seedWaiting * st.mult);
   for (let i = 0; i < g.owned.train; i++) g.trains.push({ at: 0, run: null });
   return g;
 }
