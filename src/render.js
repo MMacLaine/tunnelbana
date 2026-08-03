@@ -134,6 +134,30 @@ function mono(size, weight) {
   return (weight ? weight + ' ' : '') + size + 'px ui-monospace, "SF Mono", Menlo, monospace';
 }
 
+// The earned map (report 624 §2, owner-approved): the basemap ships dimmed and is
+// revealed within the catchment of built stations. The unbuilt city is a promise.
+const VEIL = 'rgba(8, 11, 16, 0.78)';
+const REVEAL_KM = 0.65; // catchment radius a station lights up
+
+function drawVeil(g) {
+  ctx.save();
+  ctx.fillStyle = VEIL;
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'destination-out';
+  const r = Math.max(24, REVEAL_KM * pxPerKm());
+  for (const s of g.line) {
+    const p = project(s.geo);
+    const grad = ctx.createRadialGradient(p.x, p.y, r * 0.4, p.x, p.y, r);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 1)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawWaterFallback() {
   for (const w of WATER) {
     ctx.beginPath();
@@ -360,6 +384,7 @@ export function draw(g, dt) {
   clockT += dt;
   ctx.clearRect(0, 0, W, H);
   if (basemap === 'off') drawWaterFallback();
+  if (basemap === 'on') drawVeil(g);
   drawTease();
   drawAnchors(g);
   const P = linePoints(g);
