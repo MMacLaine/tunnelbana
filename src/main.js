@@ -77,12 +77,13 @@ if (window.maplibregl) {
       basemapUp = true;
       render.setBasemap('on');
     });
-    // THE ONLY DRAW PATH while a basemap exists. The overlay must never be
-    // drawn from our own animation frame: two clocks means the overlay paints
-    // against a camera one frame off the tiles and stations swim during pans.
-    // The game loop calls map.triggerRepaint() instead, so every overlay frame
-    // is painted against exactly the camera the tiles just rendered.
-    map.on('render', () => render.draw(g));
+    // The game is rendered INSIDE the map's WebGL frame as a custom layer:
+    // the 2D canvas is drawn offscreen and uploaded as a texture within the
+    // same GL frame as the tiles. Two separate canvases can be presented on
+    // different vsyncs by the compositor (the "stations swim while panning"
+    // bug, observed on real GPUs and invisible in software rendering); one
+    // canvas makes the skew impossible by construction.
+    map.on('load', () => map.addLayer(gameLayer()));
     setTimeout(() => { if (!basemapUp) basemapFailed(); }, 8000);
   } catch {
     map = null; // no WebGL: the static fallback projector still renders the game
@@ -90,6 +91,58 @@ if (window.maplibregl) {
   }
 } else {
   basemapFailed();
+}
+
+// MapLibre custom layer: draws the game canvas as a full-viewport textured quad
+// inside the map's own GL frame.
+function gameLayer() {
+  let prog, tex, buf, aPos, uTex;
+  return {
+    id: 'tb-game',
+    type: 'custom',
+    renderingMode: '2d',
+    onAdd(m, gl) {
+      const vs = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vs, 'attribute vec2 p; varying vec2 v; void main() { v = (p + 1.0) * 0.5; gl_Position = vec4(p, 0.0, 1.0); }');
+      gl.compileShader(vs);
+      const fs = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fs, 'precision mediump float; uniform sampler2D t; varying vec2 v; void main() { gl_FragColor = texture2D(t, vec2(v.x, 1.0 - v.y)); }');
+      gl.compileShader(fs);
+      prog = gl.createProgram();
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      aPos = gl.getAttribLocation(prog, 'p');
+      uTex = gl.getUniformLocation(prog, 't');
+      buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      // The DOM overlay canvas is now a render surface only.
+      $('map').style.display = 'none';
+    },
+    render(gl) {
+      render.draw(g); // paint game state at exactly this frame's camera
+      gl.useProgram(prog);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, render.canvasEl());
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform1i(uTex, 0);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    },
+  };
 }
 
 function geoAt(p) {
@@ -374,3 +427,13 @@ $('hints').textContent = STR.hints;
 showMenu('start');
 updateUI();
 requestAnimationFrame(frame);
+
+// Debug handle for probes (_dev/); not part of the game surface.
+window.__tb = {
+  map,
+  sim,
+  render,
+  get g() { return g; },
+  get basemapUp() { return basemapUp; },
+  closeMenu,
+};

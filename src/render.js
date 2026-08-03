@@ -91,6 +91,10 @@ export function init(el) {
   resize();
 }
 
+export function canvasEl() {
+  return canvas;
+}
+
 export function resize() {
   const box = canvas.parentElement.getBoundingClientRect();
   W = Math.round(box.width);
