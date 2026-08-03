@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tunnelbana · Build Stockholm</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121926;
+    --line: #1f2a3a;
+    --ink: #e9eef4;
+    --muted: #8b98a6;
+    --green: #2fa860;
+    --amber: #d9a441;
+    --red: #c25549;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    min-height: 100vh;
+  }
+  .layout {
+    display: flex;
+    gap: 2rem;
+    padding: 2rem;
+    align-items: flex-start;
+    max-width: 1000px;
+  }
+  canvas { display: block; }
+
+  .side { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1.25rem; }
+
+  h1 { font-size: 1.15rem; letter-spacing: 0.35em; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.75rem; margin-top: 0.35rem; line-height: 1.5; }
+
+  .money-block { border: 1px solid var(--line); background: var(--panel); padding: 1rem 1.1rem; }
+  #money { font-size: 1.9rem; font-weight: 600; letter-spacing: 0.02em; }
+  .rates { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.72rem; color: var(--muted); }
+  #rate-net { color: var(--green); }
+  #rate-net.neg { color: var(--red); }
+
+  #bell {
+    font-family: var(--mono);
+    background: none;
+    border: 2px solid var(--green);
+    color: var(--ink);
+    padding: 1rem;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+  }
+  #bell:hover { background: rgba(47, 168, 96, 0.12); }
+  #bell.rang { animation: ring 0.25s ease; }
+  @keyframes ring {
+    0% { background: rgba(47, 168, 96, 0.45); }
+    100% { background: rgba(47, 168, 96, 0); }
+  }
+  .bell-title { display: block; font-size: 1.1rem; letter-spacing: 0.25em; font-weight: 600; }
+  .bell-sub { display: block; color: var(--muted); font-size: 0.72rem; margin-top: 0.3rem; }
+  .bell-hint { color: var(--muted); font-size: 0.68rem; margin-top: -0.75rem; }
+
+  #shop { display: flex; flex-direction: column; gap: 0.5rem; }
+  .shop-card {
+    font-family: var(--mono);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 0.7rem 0.85rem;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: border-color 0.15s ease;
+  }
+  .shop-card:hover:not(:disabled) { border-color: var(--green); }
+  .shop-card:disabled { opacity: 0.45; cursor: default; }
+  .shop-top { display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 600; }
+  .shop-cost { color: var(--amber); font-weight: 400; }
+  .shop-desc { color: var(--muted); font-size: 0.7rem; line-height: 1.45; }
+  .shop-owned { color: var(--green); font-size: 0.68rem; min-height: 0.9em; }
+
+  .stats { font-size: 0.74rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.3rem; }
+  .stats span { color: var(--ink); }
+
+  footer { color: var(--muted); font-size: 0.66rem; line-height: 1.6; border-top: 1px solid var(--line); padding-top: 0.8rem; }
+
+  @media (max-width: 860px) {
+    .layout { flex-direction: column; padding: 1.25rem; }
+    .side { width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="layout">
+    <canvas id="map"></canvas>
+    <div class="side">
+      <header>
+        <h1>TUNNELBANA</h1>
+        <p class="sub">Build Stockholm. Milestone 0: the 1950 line, Slussen to Hökarängen.</p>
+      </header>
+
+      <div class="money-block">
+        <div id="money">0 kr</div>
+        <div class="rates">
+          <span id="rate-gross">+0.0 kr/s fares</span>
+          <span id="rate-upkeep">−0.0 kr/s upkeep</span>
+          <span id="rate-net">+0.0 kr/s</span>
+        </div>
+      </div>
+
+      <button id="bell">
+        <span class="bell-title">AVGÅNG</span>
+        <span class="bell-sub">Dispatch a train</span>
+      </button>
+      <p class="bell-hint">Space works too. Fare: 3 kr per passenger delivered.</p>
+
+      <div id="shop"></div>
+
+      <div class="stats">
+        <div>Passengers delivered: <span id="stat-delivered">0</span></div>
+        <div>City demand: <span id="stat-demand">×1.00</span></div>
+        <div>Trains idle / total: <span id="stat-trains">1 / 1</span></div>
+      </div>
+
+      <footer>
+        Unofficial fan work. Not affiliated with SL or Region Stockholm.<br>
+        M0 toy build. Everything you see is subject to change.
+      </footer>
+    </div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
