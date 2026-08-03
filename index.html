@@ -44,6 +44,16 @@
   }
   #basemap { position: absolute; inset: 0; }
   #map { position: absolute; inset: 0; pointer-events: none; }
+  #map-status {
+    position: absolute;
+    left: 0.6rem;
+    bottom: 0.6rem;
+    color: var(--muted);
+    font-size: 0.66rem;
+    background: rgba(11, 15, 20, 0.7);
+    padding: 0.25rem 0.5rem;
+    z-index: 2;
+  }
   canvas { display: block; }
 
   .side { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1.25rem; }
@@ -115,6 +125,7 @@
     <div id="map-wrap">
       <div id="basemap"></div>
       <canvas id="map"></canvas>
+      <div id="map-status" hidden></div>
     </div>
     <div class="side">
       <header>
@@ -135,7 +146,7 @@
         <span class="bell-title">AVGÅNG</span>
         <span class="bell-sub">Dispatch a train</span>
       </button>
-      <p class="bell-hint">Space works too. Fare: 3 kr per passenger delivered.</p>
+      <p class="bell-hint" id="fare-hint"></p>
       <p class="bell-hint" id="extend-hint"></p>
 
       <div id="shop"></div>

@@ -3,11 +3,16 @@ import * as render from './render.js';
 import { ANCHORS } from './data.js';
 
 // All strings in one table (plan §7). English only at launch; station names stay Swedish.
+// UI copy interpolates from BAL so a balance change can never make the interface lie.
+const B = sim.BAL;
 const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
   noIdle: 'All trains are out',
-  extendHint: 'Drag either end of the line anywhere on the map. Dashed rings mark good spots: real stations with full demand.',
+  fareHint: 'Space works too. Fare: ' + B.fare + ' kr per passenger delivered.',
+  extendHint: 'Drag either end of the line anywhere on the map. Dashed rings are real stations: full demand there, ' + B.freeSpotDemand + 'x anywhere else.',
+  freeSpotTag: ' · ' + B.freeSpotDemand + 'x demand',
+  mapDown: 'Basemap unavailable. Playing on the fallback map.',
   problems: {
     money: 'Need',
     tooClose: 'Too close to another station',
@@ -15,10 +20,10 @@ const STR = {
     max: 'The line is at its limit for now',
   },
   shop: {
-    train:     { name: 'New train',        desc: 'One more train on the line. Upkeep 1.2 kr/s.' },
+    train:     { name: 'New train',        desc: 'One more train on the line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
     drivers:   { name: 'Hire drivers',     desc: 'Trains dispatch themselves. You can still ring the bell.' },
-    timetable: { name: 'Tighter timetable', desc: 'Drivers dispatch 18% faster per level.' },
-    capacity:  { name: 'Longer trains',    desc: '+60 passengers per train.' },
+    timetable: { name: 'Tighter timetable', desc: 'Drivers dispatch ' + Math.round((1 - B.dispatchPerLevel) * 100) + '% faster per level.' },
+    capacity:  { name: 'Longer trains',    desc: '+' + B.capPerLevel + ' passengers per train.' },
   },
   owned: 'Owned',
   level: 'Level',
@@ -36,6 +41,12 @@ const wrap = $('map-wrap');
 render.init($('map'));
 
 let map = null;
+let basemapUp = false;
+function basemapFailed() {
+  render.setBasemap('off');
+  $('map-status').hidden = false;
+  $('map-status').textContent = STR.mapDown;
+}
 if (window.maplibregl) {
   try {
     map = new maplibregl.Map({
@@ -43,6 +54,8 @@ if (window.maplibregl) {
       style: 'https://tiles.openfreemap.org/styles/dark',
       center: [18.082, 59.291],
       zoom: 11.8,
+      minZoom: 10.3,
+      maxZoom: 14.5,
       attributionControl: false,
       dragRotate: false,
       pitchWithRotate: false,
@@ -50,11 +63,19 @@ if (window.maplibregl) {
     map.touchZoomRotate.disableRotation();
     map.doubleClickZoom.disable();
     render.setProjector((geo) => map.project([geo[1], geo[0]]));
-    map.on('load', () => render.setBasemap(true));
-    map.on('error', () => {}); // tile hiccups are non-fatal; fallback stays usable
+    render.setBasemap('pending');
+    map.on('load', () => {
+      basemapUp = true;
+      render.setBasemap('on');
+    });
+    // Tile hiccups after load are non-fatal; a style that never loads is not.
+    setTimeout(() => { if (!basemapUp) basemapFailed(); }, 8000);
   } catch {
     map = null; // no WebGL: the static fallback projector still renders the game
+    basemapFailed();
   }
+} else {
+  basemapFailed();
 }
 
 function geoAt(p) {
@@ -98,9 +119,11 @@ function dragState(p) {
   const geo = snap !== null ? ANCHORS[snap].geo : geoAt(p);
   const cost = sim.extensionCost(g, dragEnd, geo);
   const problem = sim.placementProblem(g, dragEnd, geo);
-  const label = !problem || problem === 'money'
+  let label = !problem || problem === 'money'
     ? (problem === 'money' ? STR.problems.money + ' ' : '') + fmt(cost) + ' kr'
     : STR.problems[problem];
+  // A free spot must say what it is worth, not just what it costs.
+  if (snap === null && (!problem || problem === 'money')) label += STR.freeSpotTag;
   return { x: p.x, y: p.y, end: dragEnd, snap, geo, cost, problem, label };
 }
 
@@ -115,14 +138,18 @@ wrap.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     return;
   }
-  // Click on a dashed anchor ring: extend from the nearest end.
+  // Click on a dashed anchor ring: extend from the nearest end, but fall back
+  // to the other end if only that one is a legal move.
   const a = render.nearAnchor(g, p);
   if (a !== null) {
     const headP = render.project(sim.endStation(g, 'head').geo);
     const tailP = render.project(sim.endStation(g, 'tail').geo);
     const ap = render.project(ANCHORS[a].geo);
-    dragEnd = Math.hypot(ap.x - headP.x, ap.y - headP.y) < Math.hypot(ap.x - tailP.x, ap.y - tailP.y)
+    const nearest = Math.hypot(ap.x - headP.x, ap.y - headP.y) < Math.hypot(ap.x - tailP.x, ap.y - tailP.y)
       ? 'head' : 'tail';
+    const other = nearest === 'head' ? 'tail' : 'head';
+    dragEnd = (sim.placementProblem(g, nearest, ANCHORS[a].geo) &&
+               !sim.placementProblem(g, other, ANCHORS[a].geo)) ? other : nearest;
     tryExtend(dragState(p));
     dragEnd = null;
     e.stopPropagation();
@@ -256,5 +283,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') save();
 });
 
+$('fare-hint').textContent = STR.fareHint;
 updateUI();
 requestAnimationFrame(frame);
