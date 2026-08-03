@@ -1,17 +1,17 @@
 // Simulation for M0: one hardcoded line, trains, fares, upkeep, a few purchases.
 // DOM-free on purpose so it can run under node for smoke tests.
 
-import { STATIONS, SEG_KM } from './data.js';
+import { STATIONS, SEG_KM, START_BUILT } from './data.js';
 
 export const BAL = {
   startMoney: 300,
   fare: 3,                 // kr per delivered passenger
-  spawnPerSec: 0.35,       // base passengers per station per second
+  spawnPerSec: 0.5,        // base passengers per station per second
   stationCapBase: 80,      // base waiting cap per station
-  cityGrowthDiv: 1500,     // demand multiplier = 1 + delivered / this
+  cityGrowthDiv: 900,      // demand multiplier = 1 + delivered / this
   trainCapBase: 120,
   capPerLevel: 60,
-  upkeepPerTrainPerSec: 1.5,
+  upkeepPerTrainPerSec: 1.2,
   secondsPerKm: 1.05,      // ride time from geo distance
   dwell: 0.32,             // per-stop time added to each segment
   dispatchBase: 8,         // drivers auto-dispatch interval, seconds
@@ -26,13 +26,12 @@ export const SHOP = [
   { id: 'capacity',  base: 800,  growth: 1.7, max: 6 },
 ];
 
-const LAST = STATIONS.length - 1;
-
 export function newGame() {
   return {
     clock: 0,
     money: BAL.startMoney,
-    waiting: STATIONS.map(() => BAL.seedWaiting),
+    built: START_BUILT,
+    waiting: STATIONS.map((s, i) => (i < START_BUILT ? BAL.seedWaiting : 0)),
     trains: [{ at: 0, run: null }],
     owned: { train: 0, drivers: 0, timetable: 0, capacity: 0 },
     autoTimer: 0,
@@ -101,7 +100,7 @@ function arrive(g, train) {
   run.from += run.dir;
   run.t = 0;
   pickUp(g, train, run.from);
-  const atTerminus = run.from === 0 || run.from === LAST;
+  const atTerminus = run.from === 0 || run.from === g.built - 1;
   if (atTerminus) {
     const amt = run.onboard * BAL.fare;
     if (run.onboard > 0) {
@@ -118,10 +117,10 @@ function arrive(g, train) {
 export function tick(g, dt) {
   g.clock += dt;
 
-  // Passengers gather on platforms; demand grows with everyone you have moved.
+  // Passengers gather on built platforms; demand grows with everyone you have moved.
   const cap = stationCap(g);
   const spawn = BAL.spawnPerSec * cityMult(g) * dt;
-  for (let i = 0; i < g.waiting.length; i++) {
+  for (let i = 0; i < g.built; i++) {
     g.waiting[i] = Math.min(cap, g.waiting[i] + spawn);
   }
 
@@ -153,6 +152,27 @@ export function tick(g, dt) {
   while (g.grossLog.length && g.grossLog[0].t < cutoff) g.grossLog.shift();
 }
 
+// --- Line extensions ---
+
+export function nextStation(g) {
+  return g.built < STATIONS.length ? STATIONS[g.built] : null;
+}
+
+export function canExtend(g) {
+  const next = nextStation(g);
+  return !!next && g.money >= next.ext.cost;
+}
+
+export function extend(g) {
+  if (!canExtend(g)) return false;
+  const next = nextStation(g);
+  g.money -= next.ext.cost;
+  g.waiting[g.built] = BAL.seedWaiting;
+  g.built += 1;
+  g.events.push({ type: 'extend', station: g.built - 1 });
+  return true;
+}
+
 export function shopCost(g, id) {
   const item = SHOP.find((s) => s.id === id);
   return Math.round(item.base * Math.pow(item.growth, g.owned[id]));
@@ -180,8 +200,9 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 export function serialize(g) {
   return JSON.stringify({
-    saveVersion: 1,
+    saveVersion: 2,
     money: Math.round(g.money),
+    built: g.built,
     owned: g.owned,
     totalDelivered: Math.round(g.totalDelivered),
   });
@@ -193,9 +214,12 @@ export function hydrate(raw) {
   let s;
   try { s = JSON.parse(raw); } catch { return g; }
   if (!s || typeof s.saveVersion !== 'number') return g;
+  // v1 saves predate progressive extension: keep money and upgrades, line restarts short.
   g.money = s.money ?? g.money;
   g.owned = { ...g.owned, ...s.owned };
   g.totalDelivered = s.totalDelivered ?? 0;
+  if (s.saveVersion >= 2) g.built = Math.min(STATIONS.length, Math.max(START_BUILT, s.built ?? START_BUILT));
+  for (let i = 0; i < g.built; i++) g.waiting[i] = Math.max(g.waiting[i], BAL.seedWaiting);
   for (let i = 0; i < g.owned.train; i++) g.trains.push({ at: 0, run: null });
   return g;
 }

@@ -1,13 +1,18 @@
 import * as sim from './sim.js';
 import * as render from './render.js';
+import { STATIONS } from './data.js';
 
 // All strings in one table (plan §7). English only at launch; station names stay Swedish.
 const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
   noIdle: 'All trains are out',
+  extendTo: 'Extend to',
+  extendDesc: 'One more station on the line.',
+  lineDone: 'Line complete',
+  lineDoneDesc: 'Hökarängen reached. The 1950 line is done.',
   shop: {
-    train:     { name: 'New train',        desc: 'One more train on the line. Upkeep 1.5 kr/s.' },
+    train:     { name: 'New train',        desc: 'One more train on the line. Upkeep 1.2 kr/s.' },
     drivers:   { name: 'Hire drivers',     desc: 'Trains dispatch themselves. You can still ring the bell.' },
     timetable: { name: 'Tighter timetable', desc: 'Drivers dispatch 18% faster per level.' },
     capacity:  { name: 'Longer trains',    desc: '+60 passengers per train.' },
@@ -46,6 +51,32 @@ window.addEventListener('keydown', (e) => {
 // --- Shop ---
 const shopEl = $('shop');
 const cards = {};
+
+// Line extension: the headline purchase, first in the list.
+const extendCard = document.createElement('button');
+extendCard.className = 'shop-card';
+extendCard.innerHTML =
+  '<span class="shop-top"><span class="shop-name"></span><span class="shop-cost"></span></span>' +
+  '<span class="shop-desc"></span><span class="shop-owned"></span>';
+extendCard.addEventListener('click', () => {
+  if (sim.extend(g)) updateUI();
+});
+shopEl.appendChild(extendCard);
+
+function updateExtendCard() {
+  const next = sim.nextStation(g);
+  if (next) {
+    extendCard.querySelector('.shop-name').textContent = STR.extendTo + ' ' + next.name;
+    extendCard.querySelector('.shop-cost').textContent = fmt(next.ext.cost) + ' kr';
+    extendCard.querySelector('.shop-desc').textContent = next.ext.note || STR.extendDesc;
+    extendCard.disabled = !sim.canExtend(g);
+  } else {
+    extendCard.querySelector('.shop-name').textContent = STR.lineDone;
+    extendCard.querySelector('.shop-cost').textContent = '';
+    extendCard.querySelector('.shop-desc').textContent = STR.lineDoneDesc;
+    extendCard.disabled = true;
+  }
+}
 for (const item of sim.SHOP) {
   const s = STR.shop[item.id];
   const card = document.createElement('button');
@@ -63,6 +94,7 @@ for (const item of sim.SHOP) {
 }
 
 function updateShop() {
+  updateExtendCard();
   for (const item of sim.SHOP) {
     const card = cards[item.id];
     const owned = g.owned[item.id];
@@ -91,6 +123,7 @@ function updateUI() {
   netEl.textContent = (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(1) + ' kr/s';
   netEl.classList.toggle('neg', net < 0);
   $('stat-delivered').textContent = fmt(g.totalDelivered);
+  $('stat-stations').textContent = g.built + ' / ' + STATIONS.length;
   $('stat-demand').textContent = '×' + sim.cityMult(g).toFixed(2);
   $('stat-trains').textContent =
     sim.idleTrains(g).length + ' / ' + g.trains.length;
@@ -114,6 +147,7 @@ function frame(now) {
   }
   for (const e of g.events) {
     if (e.type === 'payout') render.addFloat(e.station, '+' + fmt(e.amt));
+    if (e.type === 'extend') render.addFloat(e.station, STATIONS[e.station].name);
   }
   g.events.length = 0;
   const dt = (now - lastFrame) / 1000;
