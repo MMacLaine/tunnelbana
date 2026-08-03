@@ -77,8 +77,11 @@ if (window.maplibregl) {
       basemapUp = true;
       render.setBasemap('on');
     });
-    // Redraw the overlay inside the map's own frame so the game layer stays
-    // locked to the tiles during pans and zooms (rAF alone lags a frame).
+    // THE ONLY DRAW PATH while a basemap exists. The overlay must never be
+    // drawn from our own animation frame: two clocks means the overlay paints
+    // against a camera one frame off the tiles and stations swim during pans.
+    // The game loop calls map.triggerRepaint() instead, so every overlay frame
+    // is painted against exactly the camera the tiles just rendered.
     map.on('render', () => render.draw(g));
     setTimeout(() => { if (!basemapUp) basemapFailed(); }, 8000);
   } catch {
@@ -349,7 +352,11 @@ function frame(now) {
     if (e.type === 'demolish') render.addFloatGeo(e.geo, e.name + ' ' + STR.demolished);
   }
   g.events.length = 0;
-  render.draw(g);
+  if (map && basemapUp) {
+    map.triggerRepaint(); // drawing happens in the map's render event, never here
+  } else {
+    render.draw(g);
+  }
   updateUI();
   requestAnimationFrame(frame);
 }
