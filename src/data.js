@@ -5,7 +5,7 @@
 
 export const LINE = {
   id: 'green-1950',
-  color: '#2fa860',
+  color: '#35a86b', // --tb-net-green
   opened: 1950,
 };
 

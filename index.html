@@ -4,20 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tunnelbana · Build Stockholm</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link rel="stylesheet" href="tokens.css">
 <style>
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+    font-weight: 600;
+    font-display: swap;
+  }
+  /* Legacy names mapped onto the pass-01 design tokens (tokens.css). */
   :root {
-    --bg: #0b0f14;
-    --panel: #121926;
-    --panel-t: rgba(13, 19, 29, 0.86);
-    --line: #1f2a3a;
-    --ink: #e9eef4;
-    --muted: #8b98a6;
-    --green: #2fa860;
-    --amber: #d9a441;
-    --red: #c25549;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --bg: var(--tb-bg);
+    --panel: var(--tb-panel);
+    --panel-t: var(--tb-panel-t);
+    --line: var(--tb-line);
+    --ink: var(--tb-ink);
+    --muted: var(--tb-muted);
+    --green: var(--tb-green);
+    --amber: var(--tb-amber);
+    --red: var(--tb-red);
+    --mono: var(--tb-mono);
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; overflow: hidden; }
@@ -52,9 +67,10 @@
     -webkit-backdrop-filter: blur(6px);
   }
 
-  #hud-tl { top: 1rem; left: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
-  #hud-tl h1 { font-size: 0.85rem; letter-spacing: 0.35em; font-weight: 600; }
-  #hud-tl .sub { color: var(--muted); font-size: 0.62rem; margin-top: 0.2rem; }
+  #hud-tl { top: 1rem; left: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand h1 { font-size: 0.85rem; letter-spacing: 0.32em; font-weight: 600; }
+  .brand .sub { color: var(--muted); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
   .money-block { padding: 0.7rem 0.9rem; min-width: 240px; }
   #money { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.02em; }
   .rates { display: flex; gap: 0.8rem; margin-top: 0.35rem; font-size: 0.66rem; color: var(--muted); }
@@ -70,10 +86,23 @@
     padding: 0.85rem 1rem;
     cursor: pointer;
     text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     transition: background 0.15s ease;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
   }
+  #bell .disc {
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--green);
+    border-radius: 50%;
+    flex: none;
+    display: grid;
+    place-items: center;
+  }
+  #bell .disc svg { display: block; }
   #bell:hover { background: rgba(47, 168, 96, 0.16); }
   #bell.rang { animation: ring 0.25s ease; }
   @keyframes ring {
@@ -201,9 +230,16 @@
   </div>
 
   <div class="hud" id="hud-tl">
-    <div>
-      <h1>TUNNELBANA</h1>
-      <p class="sub">Build Stockholm · M0</p>
+    <div class="brand">
+      <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
+        <path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="#e6edf4" stroke-width="5"></path>
+        <path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="#35a86b" stroke-width="4.4"></path>
+        <path d="M5 41h38" stroke="#e6edf4" stroke-width="3"></path>
+      </svg>
+      <div>
+        <h1>TUNNELBANA</h1>
+        <p class="sub">Build Stockholm · M0</p>
+      </div>
     </div>
     <div class="money-block hud-panel">
       <div id="money">0 kr</div>
@@ -217,8 +253,15 @@
 
   <div class="hud" id="hud-bl">
     <button id="bell">
-      <span class="bell-title">AVGÅNG</span>
-      <span class="bell-sub">Dispatch a train</span>
+      <span class="disc">
+        <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+          <path d="M5 3l6 5-6 5" fill="none" stroke="#35a86b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </span>
+      <span>
+        <span class="bell-title">AVGÅNG</span>
+        <span class="bell-sub">Dispatch a train</span>
+      </span>
     </button>
     <p class="hints hud-panel" id="hints"></p>
   </div>
@@ -234,7 +277,7 @@
   </div>
 
   <div class="hud" id="hud-br">
-    Unofficial fan work · not affiliated with SL or Region Stockholm<br>
+    Unofficial fan work · not affiliated with any transit operator or Region Stockholm<br>
     Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · tiles by <a href="https://openfreemap.org">OpenFreeMap</a>
   </div>
 
@@ -248,8 +291,8 @@
         <button class="menu-btn" id="menu-quit" hidden>Quit to menu</button>
         <p class="menu-note">
           An incremental game about building Stockholm's rail transit, starting from the
-          1950 tunnelbana. Unofficial fan work, not affiliated with SL or Region Stockholm.
-          Everything you see is subject to change.
+          1950 tunnelbana. Unofficial fan work, not affiliated with any transit operator
+          or Region Stockholm. Everything you see is subject to change.
         </p>
       </div>
       <div id="settings-view" hidden>
