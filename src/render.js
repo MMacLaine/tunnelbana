@@ -6,15 +6,21 @@
 import { ANCHORS, LINE, WATER, TEASE } from './data.js';
 import { stationCap, usedAnchors, endStation } from './sim.js';
 
+// Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs literals).
 const COL = {
   bg: '#0b0f14',
-  water: '#0e1a29',
-  ink: '#e9eef4',
-  muted: '#8b98a6',
+  void: '#070a0e',
+  water: '#091320',
+  ink: '#e6edf4',
+  muted: '#8996a5',
   ghost: '#5a6673',
-  amber: '#d9a441',
-  red: '#c25549',
-  trainText: '#08130c',
+  amber: '#e0a63c',
+  red: '#c8544a',
+  lineHi: 'rgba(44, 61, 80, 0.85)',
+  plate: 'rgba(7, 10, 14, 0.62)',
+  train1950: '#6f7f5e',
+  trainInk: '#08130c',
+  trainDetail: 'rgba(11, 15, 20, 0.55)',
 };
 
 let canvas, ctx, dpr;
@@ -132,7 +138,28 @@ export function nearAnchor(g, p) {
 // --- Drawing ---
 
 function mono(size, weight) {
-  return (weight ? weight + ' ' : '') + size + 'px ui-monospace, "SF Mono", Menlo, monospace';
+  return (weight ? weight + ' ' : '') + size + 'px "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace';
+}
+
+// Labels get a halo in void, never a plate (design doc §4). The one exception,
+// the snapped anchor during a drag, passes plate: true because it must win
+// against everything.
+function label(text, x, y, colour, size, opts) {
+  ctx.font = mono(size || 12, opts && opts.weight);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  if (opts && opts.plate) {
+    const tw = ctx.measureText(text).width;
+    ctx.fillStyle = COL.plate;
+    ctx.fillRect(x - 4, y - (size || 12) * 0.7, tw + 8, (size || 12) * 1.4);
+  } else {
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = COL.void;
+    ctx.lineWidth = 3.5;
+    ctx.strokeText(text, x, y);
+  }
+  ctx.fillStyle = colour;
+  ctx.fillText(text, x, y);
 }
 
 // The earned map (report 624 §2, owner-approved): the basemap ships dimmed and is
@@ -148,8 +175,10 @@ function drawVeil(g) {
   const r = Math.max(24, REVEAL_KM * pxPerKm());
   for (const s of g.line) {
     const p = project(s.geo);
-    const grad = ctx.createRadialGradient(p.x, p.y, r * 0.4, p.x, p.y, r);
+    // Hard edge with a 3px feather (design doc §8): the edge is a decision.
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
     grad.addColorStop(0, 'rgba(0, 0, 0, 1)');
+    grad.addColorStop(Math.max(0, 1 - 3 / r), 'rgba(0, 0, 0, 1)');
     grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -157,6 +186,15 @@ function drawVeil(g) {
     ctx.fill();
   }
   ctx.restore();
+  // A 1px line-hi ring on the boundary so the edge reads as drawn, not smudged.
+  ctx.strokeStyle = COL.lineHi;
+  ctx.lineWidth = 1;
+  for (const s of g.line) {
+    const p = project(s.geo);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 }
 
 function drawWaterFallback() {
@@ -185,11 +223,7 @@ function drawTease() {
   ctx.stroke();
   ctx.setLineDash([]);
   const lp = project(TEASE.labelAt);
-  ctx.font = 'italic ' + mono(10);
-  ctx.fillStyle = COL.ghost;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(TEASE.label, lp.x, lp.y);
+  label(TEASE.label, lp.x, lp.y, COL.ghost, 10);
 }
 
 // Unconnected anchors: the "logical spots", dashed rings, named at rest when
@@ -201,23 +235,27 @@ function drawAnchors(g) {
   ANCHORS.forEach((a, i) => {
     if (used.has(i)) return;
     const p = project(a.geo);
-    const isHot = i === hot;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, isHot ? 8 : 5, 0, Math.PI * 2);
-    ctx.setLineDash(isHot ? [] : [2, 3]);
-    ctx.lineWidth = isHot ? 2.5 : 1.5;
-    ctx.strokeStyle = isHot ? COL.ink : COL.ghost;
-    ctx.stroke();
-    ctx.setLineDash([]);
-    if (isHot || namesAtRest) {
-      ctx.font = mono(isHot ? 12 : 10);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      const tw = ctx.measureText(a.name).width;
-      ctx.fillStyle = 'rgba(11, 15, 20, 0.55)';
-      ctx.fillRect(p.x + 10, p.y - 7, tw + 8, 14);
-      ctx.fillStyle = isHot ? COL.ink : COL.ghost;
-      ctx.fillText(a.name, p.x + 14, p.y);
+    if (i === hot) {
+      // Snapped: ink ring with a core dot, and the one plate label in the game.
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = COL.ink;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = COL.ink;
+      ctx.fill();
+      label(a.name, p.x + 14, p.y, COL.ink, 12, { plate: true });
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.setLineDash([2, 3]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = COL.ghost;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (namesAtRest) label(a.name, p.x + 12, p.y, COL.ghost, 11);
     }
   });
 }
@@ -274,31 +312,48 @@ function drawDragPreview(g) {
   ctx.globalAlpha = 1;
   ctx.setLineDash([]);
 
-  ctx.font = mono(12, 'bold');
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = ok ? COL.amber : COL.red;
-  ctx.fillText(drag.label, to.x + 14, to.y - 10);
+  label(drag.label, to.x + 14, to.y - 16, ok ? COL.amber : COL.red, 12, { weight: 600 });
 }
 
-// Waiting passengers as dots, Mini Metro style: rows of pips left of the station.
+// Waiting passengers, design doc §6: a dot is one unit of the displayed
+// denomination, the denomination is printed as soon as it stops being one,
+// and nothing is rounded away silently.
 function drawWaitingDots(g, i, p) {
   const n = Math.floor(g.waiting[i]);
-  const shown = Math.min(n, 18);
+  if (!n) return;
+  let denom = 1;
+  if (n > 180) denom = 100;
+  else if (n > 18) denom = 10;
+  const units = Math.max(1, Math.floor(n / denom));
+  const shown = Math.min(units, 18);
+  const sp = denom === 1 ? 7 : 8.5;
   const nearFull = n >= stationCap(g) * g.line[i].mult * 0.75;
-  ctx.fillStyle = nearFull ? COL.amber : COL.muted;
+  const colour = nearFull ? COL.amber : COL.muted;
   for (let k = 0; k < shown; k++) {
-    const row = Math.floor(k / 6);
-    const col = k % 6;
-    ctx.beginPath();
-    ctx.arc(p.x - 18 - col * 7, p.y - 7 + row * 7, 2.1, 0, Math.PI * 2);
-    ctx.fill();
+    const x = p.x - 18 - (k % 6) * sp;
+    const y = p.y - 7 + Math.floor(k / 6) * sp;
+    if (denom === 1) {
+      ctx.beginPath();
+      ctx.arc(x, y, 2.1, 0, Math.PI * 2);
+      ctx.fillStyle = colour;
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, y, denom === 10 ? 3.0 : 3.4, 0, Math.PI * 2);
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = colour;
+      ctx.stroke();
+      if (denom === 100) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.1, 0, Math.PI * 2);
+        ctx.fillStyle = colour;
+        ctx.fill();
+      }
+    }
   }
-  if (n > shown) {
-    ctx.font = mono(9);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('+' + (n - shown), p.x - 18 - 6 * 7, p.y);
+  if (denom > 1) {
+    ctx.textAlign = 'left';
+    label('×' + denom, p.x - 18 - 6 * sp - 24, p.y, colour, 9);
   }
 }
 
@@ -307,26 +362,24 @@ function drawStations(g, P) {
   for (let i = 0; i < g.line.length; i++) {
     const p = P[i];
     const terminus = i === 0 || i === g.line.length - 1;
+    const freeSpot = g.line[i].anchor === null;
 
     ctx.beginPath();
     ctx.arc(p.x, p.y, terminus ? 6.5 : 5, 0, Math.PI * 2);
     ctx.fillStyle = COL.bg;
     ctx.fill();
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = COL.ink;
+    ctx.strokeStyle = freeSpot && !terminus ? COL.muted : COL.ink;
     ctx.stroke();
+    if (freeSpot) {
+      // Invented place, not a real one: a small core marks it (design doc §4).
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = COL.muted;
+      ctx.fill();
+    }
 
-    ctx.font = mono(12);
-    ctx.fillStyle = terminus ? COL.ink : COL.muted;
-    ctx.textAlign = 'left';
-    // A soft plate behind labels keeps them readable over the basemap.
-    const name = g.line[i].name;
-    const tw = ctx.measureText(name).width;
-    ctx.fillStyle = 'rgba(11, 15, 20, 0.55)';
-    ctx.fillRect(p.x + 12, p.y - 8, tw + 8, 16);
-    ctx.fillStyle = terminus ? COL.ink : COL.muted;
-    ctx.fillText(name, p.x + 16, p.y);
-
+    label(g.line[i].name, p.x + 13, p.y, terminus ? COL.ink : COL.muted, 12);
     drawWaitingDots(g, i, p);
   }
 }
@@ -341,15 +394,20 @@ function drawTrains(g, P) {
     const f = Math.min(1, run.t / run.dur);
     const x = a.x + (b.x - a.x) * f;
     const y = a.y + (b.y - a.y) * f;
+    // 1950 stock: olive, boxy (r 2.5), three roof vents (design doc §5).
     ctx.beginPath();
-    ctx.roundRect(x - 14, y - 8, 28, 16, 5);
-    ctx.fillStyle = LINE.color;
+    ctx.roundRect(x - 14, y - 8, 28, 16, 2.5);
+    ctx.fillStyle = COL.train1950;
     ctx.fill();
-    ctx.fillStyle = COL.trainText;
-    ctx.font = mono(9, 'bold');
+    ctx.fillStyle = COL.trainDetail;
+    ctx.fillRect(x - 9, y - 5, 4, 3);
+    ctx.fillRect(x - 2, y - 5, 4, 3);
+    ctx.fillRect(x + 5, y - 5, 4, 3);
+    ctx.fillStyle = COL.trainInk;
+    ctx.font = mono(9, 600);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(run.onboard), x, y + 0.5);
+    ctx.fillText(String(run.onboard), x, y + 2.5);
   }
   // Idle trains wait as pips beside their station.
   const idleAt = {};
@@ -368,7 +426,7 @@ function drawTrains(g, P) {
 
 function drawFloats(dt) {
   floats = floats.filter((f) => f.age < 1.2);
-  ctx.font = mono(13, 'bold');
+  ctx.font = mono(13, 600);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   for (const f of floats) {

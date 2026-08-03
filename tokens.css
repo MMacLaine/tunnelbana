@@ -1,0 +1,43 @@
+/* Tunnelbana design tokens, generated from the asset kit.
+   Names mirror the interim CSS variables so the swap is mechanical. */
+:root {
+  --tb-base: #0b0f14;
+  --tb-surface: #111823;
+  --tb-void: #070a0e;
+  --tb-bg: #0b0f14;
+  --tb-panel: #111823;
+  --tb-panel-t: rgba(11,15,20,0.86);
+  --tb-raised: #16202d;
+  --tb-line: #1e2b3a;
+  --tb-line-hi: #2c3d50;
+  --tb-ink: #e6edf4;
+  --tb-muted: #8996a5;
+  --tb-ghost: #5a6673;
+  --tb-amber: #e0a63c;
+  --tb-amber-dim: #8a6a2c;
+  --tb-green: #35a86b;
+  --tb-green-dim: #1e6b45;
+  --tb-red: #c8544a;
+  --tb-politic: #9b8cc9;
+  --tb-net-green: #35a86b;
+  --tb-net-red: #c8544a;
+  --tb-net-blue: #4f8fd4;
+  --tb-net-commuter: #b06fa8;
+  --tb-net-tram: #8fae4a;
+  --tb-net-future: #6fd6b0;
+
+  --tb-veil: rgba(7, 10, 14, 0.78);
+  --tb-plate: rgba(7, 10, 14, 0.62);
+  --tb-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --tb-stroke-map: 2.5px;
+  --tb-stroke-icon: 2px;
+  --tb-stroke-hair: 1px;
+  --tb-space-1: 4px;
+  --tb-space-2: 8px;
+  --tb-space-3: 12px;
+  --tb-space-4: 16px;
+  --tb-space-5: 24px;
+  --tb-space-6: 40px;
+  --tb-space-7: 64px;
+  --tb-reveal-km: 0.65;
+}

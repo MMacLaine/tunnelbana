@@ -1,0 +1,60 @@
+{
+  "version": 8,
+  "name": "Tunnelbana Night",
+  "metadata": {
+    "tb:note": "Authored from DESIGN-DOC.md section 12 (pass 01). No symbol layers on purpose: the game layer owns every name, and no glyph fetch can hold up style load. Nothing here may be brighter than line-hi #2c3d50."
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet"
+    }
+  },
+  "layers": [
+    { "id": "ground", "type": "background",
+      "paint": { "background-color": "#101722" } },
+
+    { "id": "park", "type": "fill", "source": "openmaptiles", "source-layer": "park",
+      "paint": { "fill-color": "#0f1d20" } },
+    { "id": "landcover-green", "type": "fill", "source": "openmaptiles", "source-layer": "landcover",
+      "filter": ["match", ["get", "class"], ["grass", "wood", "farmland"], true, false],
+      "paint": { "fill-color": "#0f1d20" } },
+
+    { "id": "water", "type": "fill", "source": "openmaptiles", "source-layer": "water",
+      "paint": { "fill-color": "#091320" } },
+    { "id": "waterway", "type": "line", "source": "openmaptiles", "source-layer": "waterway",
+      "paint": { "line-color": "#091320",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 15, 2.5] } },
+
+    { "id": "boundary", "type": "line", "source": "openmaptiles", "source-layer": "boundary",
+      "filter": ["<=", ["get", "admin_level"], 6],
+      "paint": { "line-color": "#1e2b3a", "line-dasharray": [3, 3], "line-width": 1 } },
+
+    { "id": "building", "type": "fill", "source": "openmaptiles", "source-layer": "building",
+      "minzoom": 13,
+      "paint": { "fill-color": "#1b2634",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0.3, 16, 0.9] } },
+
+    { "id": "road-minor", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+      "filter": ["match", ["get", "class"], ["minor", "service"], true, false],
+      "paint": { "line-color": "#1a232f",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.5, 15, 1.8] } },
+    { "id": "road-tertiary", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+      "filter": ["match", ["get", "class"], ["tertiary", "secondary"], true, false],
+      "paint": { "line-color": "#1f2a38",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.8, 15, 2.6] } },
+    { "id": "road-primary", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+      "filter": ["match", ["get", "class"], ["primary", "trunk"], true, false],
+      "paint": { "line-color": "#222f40",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1, 15, 3.2] } },
+    { "id": "road-motorway", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+      "filter": ["==", ["get", "class"], "motorway"],
+      "paint": { "line-color": "#27384c",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.2, 15, 4 ] } },
+
+    { "id": "rail", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+      "filter": ["match", ["get", "class"], ["rail", "transit"], true, false],
+      "paint": { "line-color": "#1f2a38", "line-dasharray": [4, 3],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 15, 1.6] } }
+  ]
+}

@@ -42,7 +42,8 @@ let g = sim.hydrate(localStorage.getItem(sim.SAVE_KEY));
 let paused = true; // boot into the menu
 
 const $ = (id) => document.getElementById(id);
-const fmt = (n) => Math.floor(n).toLocaleString('sv-SE');
+// sv-SE groups with NBSP; the design system wants a plain thin gap (1 240 kr).
+const fmt = (n) => Math.floor(n).toLocaleString('sv-SE').replace(/ /g, ' ');
 
 // --- Basemap (MapLibre + OpenFreeMap, same stack as the SL map) ---
 const wrap = $('map-wrap');
@@ -59,7 +60,7 @@ if (window.maplibregl) {
   try {
     map = new maplibregl.Map({
       container: 'basemap',
-      style: 'https://tiles.openfreemap.org/styles/dark',
+      style: 'basemap/tunnelbana-night.json',
       center: [18.082, 59.291],
       zoom: 11.8,
       minZoom: 10.3,
