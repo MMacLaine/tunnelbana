@@ -1,5 +1,12 @@
 # Tunnelbana · Design Handover
 
+> **Status update**: pass 01 received and integrated (see `tunnelbana-assets-pass01/` and
+> its DESIGN-DOC.md, which is now the visual source of truth alongside `tokens.css`).
+> One ruling from the flagged contradiction in section 3: the operator-neutral disclaimer
+> wording ("not affiliated with any transit operator or Region Stockholm") is adopted for
+> in-game copy and art; plain-text store pages may name the operator nominatively in the
+> disclaimer sentence only. Open asks for pass 02 are tracked with the owner.
+
 For the design team, from the dev side. You have **full creative control** over everything
 visual in this document except the constraints in section 3, which are legal or technical.
 Everything currently on screen is programmer art and carries no attachment; replace freely.
