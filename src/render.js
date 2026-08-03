@@ -23,11 +23,15 @@ const COL = {
   muted: '#66727f',
   ghost: '#4a5663',
   amber: '#d9a441',
+  red: '#c25549',
   trainText: '#08130c',
 };
 
+const SNAP = 20; // px within which a drag snaps to the ghost station
+
 let canvas, ctx, dpr;
 let floats = []; // {x, y, text, age}
+let drag = null; // cursor position while dragging the line end, canvas coords
 
 function project(geo) {
   return {
@@ -52,6 +56,48 @@ export function init(el) {
 export function addFloat(stationIdx, text) {
   const p = P[stationIdx];
   floats.push({ x: p.x + 22, y: p.y - 12, text, age: 0 });
+}
+
+// --- Drag interaction (main.js owns the pointer events; preview only, no sim state) ---
+
+export function setDrag(p) {
+  drag = p;
+}
+
+export function terminusPos(g) {
+  return P[g.built - 1];
+}
+
+export function ghostPos(g) {
+  return g.built < STATIONS.length ? P[g.built] : null;
+}
+
+export function nearGhost(g, p) {
+  const gp = ghostPos(g);
+  return !!gp && Math.hypot(p.x - gp.x, p.y - gp.y) < SNAP;
+}
+
+export function nearTerminus(g, p) {
+  const t = terminusPos(g);
+  return Math.hypot(p.x - t.x, p.y - t.y) < SNAP;
+}
+
+function drawDragPreview(g, affordable) {
+  if (!drag) return;
+  const from = terminusPos(g);
+  const snap = nearGhost(g, drag);
+  const to = snap ? ghostPos(g) : drag;
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.setLineDash(snap ? [] : [5, 5]);
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = affordable ? LINE.color : COL.red;
+  ctx.globalAlpha = 0.85;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
 }
 
 function mono(size, weight) {
@@ -124,11 +170,12 @@ function drawGhost(g) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  const hot = drag && nearGhost(g, drag);
   ctx.beginPath();
-  ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
-  ctx.setLineDash([2, 3]);
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = COL.ghost;
+  ctx.arc(b.x, b.y, hot ? 7 : 5, 0, Math.PI * 2);
+  ctx.setLineDash(hot ? [] : [2, 3]);
+  ctx.lineWidth = hot ? 2.5 : 1.5;
+  ctx.strokeStyle = hot ? COL.ink : COL.ghost;
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -237,12 +284,13 @@ function drawFloats(dt) {
   ctx.globalAlpha = 1;
 }
 
-export function draw(g, dt) {
+export function draw(g, dt, affordable) {
   ctx.clearRect(0, 0, W, H);
   drawWater();
   drawTease();
   drawGhost(g);
   drawLine(g);
+  drawDragPreview(g, affordable);
   drawStations(g);
   drawTrains(g);
   drawFloats(dt);
