@@ -10,6 +10,7 @@
   :root {
     --bg: #0b0f14;
     --panel: #121926;
+    --panel-t: rgba(13, 19, 29, 0.86);
     --line: #1f2a3a;
     --ink: #e9eef4;
     --muted: #8b98a6;
@@ -19,152 +20,250 @@
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
   body {
     background: var(--bg);
     color: var(--ink);
     font-family: var(--mono);
-    min-height: 100vh;
   }
-  .layout {
-    display: flex;
-    gap: 2rem;
-    padding: 2rem;
-    align-items: flex-start;
-    max-width: 1000px;
-  }
-  #map-wrap {
-    position: relative;
-    width: 560px;
-    height: 700px;
-    flex-shrink: 0;
-    border: 1px solid var(--line);
-    background: var(--bg);
-    touch-action: none;
-    overflow: hidden;
-  }
+
+  /* The map IS the window */
+  #map-wrap { position: fixed; inset: 0; touch-action: none; }
   #basemap { position: absolute; inset: 0; }
   #map { position: absolute; inset: 0; pointer-events: none; }
+  canvas { display: block; }
   #map-status {
     position: absolute;
     left: 0.6rem;
-    bottom: 0.6rem;
+    bottom: 1.6rem;
     color: var(--muted);
     font-size: 0.66rem;
-    background: rgba(11, 15, 20, 0.7);
+    background: var(--panel-t);
     padding: 0.25rem 0.5rem;
     z-index: 2;
   }
-  canvas { display: block; }
 
-  .side { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1.25rem; }
+  /* HUD overlays */
+  .hud { position: fixed; z-index: 5; }
+  .hud-panel {
+    background: var(--panel-t);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
 
-  h1 { font-size: 1.15rem; letter-spacing: 0.35em; font-weight: 600; }
-  .sub { color: var(--muted); font-size: 0.75rem; margin-top: 0.35rem; line-height: 1.5; }
-
-  .money-block { border: 1px solid var(--line); background: var(--panel); padding: 1rem 1.1rem; }
-  #money { font-size: 1.9rem; font-weight: 600; letter-spacing: 0.02em; }
-  .rates { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.72rem; color: var(--muted); }
+  #hud-tl { top: 1rem; left: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  #hud-tl h1 { font-size: 0.85rem; letter-spacing: 0.35em; font-weight: 600; }
+  #hud-tl .sub { color: var(--muted); font-size: 0.62rem; margin-top: 0.2rem; }
+  .money-block { padding: 0.7rem 0.9rem; min-width: 240px; }
+  #money { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.02em; }
+  .rates { display: flex; gap: 0.8rem; margin-top: 0.35rem; font-size: 0.66rem; color: var(--muted); }
   #rate-net { color: var(--green); }
   #rate-net.neg { color: var(--red); }
 
+  #hud-bl { bottom: 1.4rem; left: 1rem; display: flex; flex-direction: column; gap: 0.5rem; max-width: 320px; }
   #bell {
     font-family: var(--mono);
-    background: none;
+    background: var(--panel-t);
     border: 2px solid var(--green);
     color: var(--ink);
-    padding: 1rem;
+    padding: 0.85rem 1rem;
     cursor: pointer;
     text-align: left;
     transition: background 0.15s ease;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
-  #bell:hover { background: rgba(47, 168, 96, 0.12); }
+  #bell:hover { background: rgba(47, 168, 96, 0.16); }
   #bell.rang { animation: ring 0.25s ease; }
   @keyframes ring {
     0% { background: rgba(47, 168, 96, 0.45); }
     100% { background: rgba(47, 168, 96, 0); }
   }
-  .bell-title { display: block; font-size: 1.1rem; letter-spacing: 0.25em; font-weight: 600; }
-  .bell-sub { display: block; color: var(--muted); font-size: 0.72rem; margin-top: 0.3rem; }
-  .bell-hint { color: var(--muted); font-size: 0.68rem; margin-top: -0.75rem; }
+  .bell-title { display: block; font-size: 1rem; letter-spacing: 0.25em; font-weight: 600; }
+  .bell-sub { display: block; color: var(--muted); font-size: 0.68rem; margin-top: 0.25rem; }
+  .hints { color: var(--muted); font-size: 0.64rem; line-height: 1.5; padding: 0.45rem 0.6rem; }
 
-  #shop { display: flex; flex-direction: column; gap: 0.5rem; }
+  #hud-r {
+    top: 1rem;
+    right: 1rem;
+    width: 300px;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    scrollbar-width: thin;
+  }
   .shop-card {
     font-family: var(--mono);
-    background: var(--panel);
+    background: var(--panel-t);
     border: 1px solid var(--line);
     color: var(--ink);
-    padding: 0.7rem 0.85rem;
+    padding: 0.6rem 0.75rem;
     cursor: pointer;
     text-align: left;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.2rem;
     transition: border-color 0.15s ease;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
   .shop-card:hover:not(:disabled) { border-color: var(--green); }
   .shop-card:disabled { opacity: 0.45; cursor: default; }
-  .shop-top { display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 600; }
+  .shop-top { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600; }
   .shop-cost { color: var(--amber); font-weight: 400; }
-  .shop-desc { color: var(--muted); font-size: 0.7rem; line-height: 1.45; }
-  .shop-owned { color: var(--green); font-size: 0.68rem; min-height: 0.9em; }
-
-  .stats { font-size: 0.74rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.3rem; }
+  .shop-desc { color: var(--muted); font-size: 0.66rem; line-height: 1.45; }
+  .shop-owned { color: var(--green); font-size: 0.64rem; min-height: 0.9em; }
+  .stats {
+    font-size: 0.68rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    padding: 0.6rem 0.75rem;
+  }
   .stats span { color: var(--ink); }
 
-  footer { color: var(--muted); font-size: 0.66rem; line-height: 1.6; border-top: 1px solid var(--line); padding-top: 0.8rem; }
+  #hud-br {
+    bottom: 0.4rem;
+    right: 0.6rem;
+    color: var(--muted);
+    font-size: 0.6rem;
+    text-align: right;
+    opacity: 0.85;
+  }
+  #hud-br a { color: inherit; }
 
-  @media (max-width: 1000px) {
-    .layout { flex-direction: column; padding: 1.25rem; }
-    #map-wrap { width: 100%; height: 70vh; }
-    .side { width: 100%; }
+  /* Menu */
+  #menu {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(5, 8, 12, 0.74);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  #menu[hidden] { display: none; }
+  .menu-panel {
+    margin-left: clamp(1.5rem, 8vw, 7rem);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 2rem 2.2rem;
+    width: min(360px, calc(100vw - 3rem));
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .menu-panel h1 { font-size: 1.5rem; letter-spacing: 0.35em; font-weight: 600; }
+  .menu-panel .sub { color: var(--muted); font-size: 0.72rem; margin-bottom: 1rem; }
+  .menu-btn {
+    font-family: var(--mono);
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 0.7rem 0.9rem;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .menu-btn:hover { border-color: var(--green); }
+  .menu-btn.primary { border-color: var(--green); font-weight: 600; }
+  .menu-btn.danger:hover { border-color: var(--red); color: var(--red); }
+  .menu-note { color: var(--muted); font-size: 0.62rem; line-height: 1.6; margin-top: 1rem; }
+  #settings-view[hidden], #main-view[hidden] { display: none; }
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.74rem;
+    padding: 0.55rem 0.1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  @media (max-width: 760px) {
+    #hud-r { width: 236px; }
+    .money-block { min-width: 200px; }
+    #money { font-size: 1.3rem; }
   }
 </style>
 </head>
 <body>
-  <div class="layout">
-    <div id="map-wrap">
-      <div id="basemap"></div>
-      <canvas id="map"></canvas>
-      <div id="map-status" hidden></div>
+  <div id="map-wrap">
+    <div id="basemap"></div>
+    <canvas id="map"></canvas>
+    <div id="map-status" hidden></div>
+  </div>
+
+  <div class="hud" id="hud-tl">
+    <div>
+      <h1>TUNNELBANA</h1>
+      <p class="sub">Build Stockholm · M0</p>
     </div>
-    <div class="side">
-      <header>
-        <h1>TUNNELBANA</h1>
-        <p class="sub">Build Stockholm. Milestone 0: the 1950 line, Slussen to Hökarängen.</p>
-      </header>
-
-      <div class="money-block">
-        <div id="money">0 kr</div>
-        <div class="rates">
-          <span id="rate-gross">+0.0 kr/s fares</span>
-          <span id="rate-upkeep">−0.0 kr/s upkeep</span>
-          <span id="rate-net">+0.0 kr/s</span>
-        </div>
+    <div class="money-block hud-panel">
+      <div id="money">0 kr</div>
+      <div class="rates">
+        <span id="rate-gross">+0.0 kr/s fares</span>
+        <span id="rate-upkeep">−0.0 kr/s upkeep</span>
+        <span id="rate-net">+0.0 kr/s</span>
       </div>
-
-      <button id="bell">
-        <span class="bell-title">AVGÅNG</span>
-        <span class="bell-sub">Dispatch a train</span>
-      </button>
-      <p class="bell-hint" id="fare-hint"></p>
-      <p class="bell-hint" id="extend-hint"></p>
-
-      <div id="shop"></div>
-
-      <div class="stats">
-        <div>Stations: <span id="stat-stations">3</span></div>
-        <div>Passengers delivered: <span id="stat-delivered">0</span></div>
-        <div>City demand: <span id="stat-demand">×1.00</span></div>
-        <div>Trains idle / total: <span id="stat-trains">1 / 1</span></div>
-      </div>
-
-      <footer>
-        Unofficial fan work. Not affiliated with SL or Region Stockholm.<br>
-        Map data &copy; <a href="https://www.openstreetmap.org/copyright" style="color:inherit">OpenStreetMap</a> contributors, tiles by <a href="https://openfreemap.org" style="color:inherit">OpenFreeMap</a>.<br>
-        M0 toy build. Everything you see is subject to change.
-      </footer>
     </div>
   </div>
+
+  <div class="hud" id="hud-bl">
+    <button id="bell">
+      <span class="bell-title">AVGÅNG</span>
+      <span class="bell-sub">Dispatch a train</span>
+    </button>
+    <p class="hints hud-panel" id="hints"></p>
+  </div>
+
+  <div class="hud" id="hud-r">
+    <div id="shop" style="display:contents"></div>
+    <div class="stats hud-panel">
+      <div>Stations: <span id="stat-stations">3</span></div>
+      <div>Passengers delivered: <span id="stat-delivered">0</span></div>
+      <div>City demand: <span id="stat-demand">×1.00</span></div>
+      <div>Trains idle / total: <span id="stat-trains">1 / 1</span></div>
+    </div>
+  </div>
+
+  <div class="hud" id="hud-br">
+    Unofficial fan work · not affiliated with SL or Region Stockholm<br>
+    Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · tiles by <a href="https://openfreemap.org">OpenFreeMap</a>
+  </div>
+
+  <div id="menu">
+    <div class="menu-panel">
+      <div id="main-view">
+        <h1>TUNNELBANA</h1>
+        <p class="sub">Build Stockholm. Milestone 0: the 1950 line.</p>
+        <button class="menu-btn primary" id="menu-resume">Start</button>
+        <button class="menu-btn" id="menu-settings">Settings</button>
+        <button class="menu-btn" id="menu-quit" hidden>Quit to menu</button>
+        <p class="menu-note">
+          An incremental game about building Stockholm's rail transit, starting from the
+          1950 tunnelbana. Unofficial fan work, not affiliated with SL or Region Stockholm.
+          Everything you see is subject to change.
+        </p>
+      </div>
+      <div id="settings-view" hidden>
+        <h1>SETTINGS</h1>
+        <p class="sub">Placeholders mostly, for now.</p>
+        <div class="setting-row"><span>Sound</span><span>coming later</span></div>
+        <div class="setting-row"><span>Language</span><span>English</span></div>
+        <div class="setting-row"><span>Save</span><span>automatic, local</span></div>
+        <button class="menu-btn danger" id="settings-reset" style="margin-top:1rem">Reset progress</button>
+        <button class="menu-btn" id="settings-back">Back</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

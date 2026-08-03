@@ -48,6 +48,44 @@ export const TEASE = {
   labelAt: [59.3278, 18.0730],
 };
 
+// Authored population-density blobs: the first cut of the density field. A free
+// spot's demand multiplier comes from the strongest blob at that point (anchors
+// stay 1.0). Weights are hand-guessed for M0; SCB data replaces them at M1.
+export const DISTRICTS = [
+  { name: 'Södermalm',      geo: [59.3140, 18.0700], rKm: 1.2, w: 0.90 },
+  { name: 'Gamla stan',     geo: [59.3250, 18.0710], rKm: 0.4, w: 0.70 },
+  { name: 'Norrmalm',       geo: [59.3320, 18.0630], rKm: 1.0, w: 0.95 },
+  { name: 'Årsta',          geo: [59.2980, 18.0490], rKm: 0.9, w: 0.60 },
+  { name: 'Johanneshov',    geo: [59.2970, 18.0780], rKm: 0.7, w: 0.70 },
+  { name: 'Hammarbyhöjden', geo: [59.2950, 18.1050], rKm: 0.8, w: 0.60 },
+  { name: 'Enskede',        geo: [59.2850, 18.0750], rKm: 1.0, w: 0.55 },
+  { name: 'Björkhagen',     geo: [59.2910, 18.1160], rKm: 0.7, w: 0.55 },
+  { name: 'Bandhagen',      geo: [59.2700, 18.0490], rKm: 0.8, w: 0.50 },
+  { name: 'Älvsjö',         geo: [59.2780, 17.9960], rKm: 0.9, w: 0.55 },
+  { name: 'Sköndal',        geo: [59.2530, 18.1080], rKm: 0.8, w: 0.50 },
+  { name: 'Farsta',         geo: [59.2430, 18.0930], rKm: 1.0, w: 0.60 },
+];
+
+const DENSITY_FLOOR = 0.35;
+const DENSITY_CAP = 0.95; // anchors (1.0) always beat free spots
+
+// Demand multiplier + district name for a free spot at geo.
+export function densityAt(geo) {
+  let mult = DENSITY_FLOOR;
+  let district = null;
+  for (const d of DISTRICTS) {
+    const dist = kmBetween(geo, d.geo);
+    if (dist > d.rKm * 1.4) continue;
+    const score = d.w * Math.max(0, 1 - (dist / d.rKm) ** 2);
+    if (score > mult) {
+      mult = score;
+      district = d.name;
+    }
+    if (district === null && dist <= d.rKm * 1.4) district = d.name;
+  }
+  return { mult: Math.min(DENSITY_CAP, Math.round(mult * 100) / 100), district };
+}
+
 const KM_PER_DEG_LAT = 111.32;
 
 export function kmBetween(a, b) {
