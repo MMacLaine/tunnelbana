@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tunnelbana · Build Stockholm</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root {
     --bg: #0b0f14;
@@ -30,6 +32,18 @@
     align-items: flex-start;
     max-width: 1000px;
   }
+  #map-wrap {
+    position: relative;
+    width: 560px;
+    height: 700px;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    touch-action: none;
+    overflow: hidden;
+  }
+  #basemap { position: absolute; inset: 0; }
+  #map { position: absolute; inset: 0; pointer-events: none; }
   canvas { display: block; }
 
   .side { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1.25rem; }
@@ -89,15 +103,19 @@
 
   footer { color: var(--muted); font-size: 0.66rem; line-height: 1.6; border-top: 1px solid var(--line); padding-top: 0.8rem; }
 
-  @media (max-width: 860px) {
+  @media (max-width: 1000px) {
     .layout { flex-direction: column; padding: 1.25rem; }
+    #map-wrap { width: 100%; height: 70vh; }
     .side { width: 100%; }
   }
 </style>
 </head>
 <body>
   <div class="layout">
-    <canvas id="map"></canvas>
+    <div id="map-wrap">
+      <div id="basemap"></div>
+      <canvas id="map"></canvas>
+    </div>
     <div class="side">
       <header>
         <h1>TUNNELBANA</h1>
@@ -123,7 +141,7 @@
       <div id="shop"></div>
 
       <div class="stats">
-        <div>Stations: <span id="stat-stations">3 / 11</span></div>
+        <div>Stations: <span id="stat-stations">3</span></div>
         <div>Passengers delivered: <span id="stat-delivered">0</span></div>
         <div>City demand: <span id="stat-demand">×1.00</span></div>
         <div>Trains idle / total: <span id="stat-trains">1 / 1</span></div>
@@ -131,6 +149,7 @@
 
       <footer>
         Unofficial fan work. Not affiliated with SL or Region Stockholm.<br>
+        Map data &copy; <a href="https://www.openstreetmap.org/copyright" style="color:inherit">OpenStreetMap</a> contributors, tiles by <a href="https://openfreemap.org" style="color:inherit">OpenFreeMap</a>.<br>
         M0 toy build. Everything you see is subject to change.
       </footer>
     </div>

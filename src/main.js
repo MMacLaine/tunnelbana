@@ -1,15 +1,19 @@
 import * as sim from './sim.js';
 import * as render from './render.js';
-import { STATIONS } from './data.js';
+import { ANCHORS } from './data.js';
 
 // All strings in one table (plan §7). English only at launch; station names stay Swedish.
 const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
   noIdle: 'All trains are out',
-  extendHint: 'Drag the end of the line to the next station to extend it.',
-  lineDoneDesc: 'Hökarängen reached. The 1950 line is done.',
-  need: 'Need',
+  extendHint: 'Drag either end of the line anywhere on the map. Dashed rings mark good spots: real stations with full demand.',
+  problems: {
+    money: 'Need',
+    tooClose: 'Too close to another station',
+    water: 'Cannot build in the water (yet)',
+    max: 'The line is at its limit for now',
+  },
   shop: {
     train:     { name: 'New train',        desc: 'One more train on the line. Upkeep 1.2 kr/s.' },
     drivers:   { name: 'Hire drivers',     desc: 'Trains dispatch themselves. You can still ring the bell.' },
@@ -27,7 +31,41 @@ let g = sim.hydrate(localStorage.getItem(sim.SAVE_KEY));
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.floor(n).toLocaleString('sv-SE');
 
+// --- Basemap (MapLibre + OpenFreeMap, same stack as the SL map) ---
+const wrap = $('map-wrap');
 render.init($('map'));
+
+let map = null;
+if (window.maplibregl) {
+  try {
+    map = new maplibregl.Map({
+      container: 'basemap',
+      style: 'https://tiles.openfreemap.org/styles/dark',
+      center: [18.082, 59.291],
+      zoom: 11.8,
+      attributionControl: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+    });
+    map.touchZoomRotate.disableRotation();
+    map.doubleClickZoom.disable();
+    render.setProjector((geo) => map.project([geo[1], geo[0]]));
+    map.on('load', () => render.setBasemap(true));
+    map.on('error', () => {}); // tile hiccups are non-fatal; fallback stays usable
+  } catch {
+    map = null; // no WebGL: the static fallback projector still renders the game
+  }
+}
+
+function geoAt(p) {
+  if (map) {
+    const ll = map.unproject([p.x, p.y]);
+    return [ll.lat, ll.lng];
+  }
+  return render.fallbackUnproject(p);
+}
+
+window.addEventListener('resize', () => render.resize());
 
 // --- Bell ---
 const bell = $('bell');
@@ -47,55 +85,83 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Extending: drag the line's end on the map (Mini Metro verb) ---
-const mapEl = $('map');
-mapEl.style.touchAction = 'none';
-let dragFrom = null; // 'terminus' | 'ghost' | null
+// --- Extending: drag either line end anywhere; anchors snap (Mini Metro verb) ---
+let dragEnd = null; // 'head' | 'tail' | null
 
 function canvasPos(e) {
-  const r = mapEl.getBoundingClientRect();
+  const r = wrap.getBoundingClientRect();
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
-function tryExtend() {
-  if (sim.extend(g)) {
-    updateUI();
+function dragState(p) {
+  const snap = render.nearAnchor(g, p);
+  const geo = snap !== null ? ANCHORS[snap].geo : geoAt(p);
+  const cost = sim.extensionCost(g, dragEnd, geo);
+  const problem = sim.placementProblem(g, dragEnd, geo);
+  const label = !problem || problem === 'money'
+    ? (problem === 'money' ? STR.problems.money + ' ' : '') + fmt(cost) + ' kr'
+    : STR.problems[problem];
+  return { x: p.x, y: p.y, end: dragEnd, snap, geo, cost, problem, label };
+}
+
+wrap.addEventListener('pointerdown', (e) => {
+  const p = canvasPos(e);
+  const end = render.nearEnd(g, p);
+  if (end) {
+    dragEnd = end;
+    render.setDrag(dragState(p));
+    if (map) map.dragPan.disable();
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
+  // Click on a dashed anchor ring: extend from the nearest end.
+  const a = render.nearAnchor(g, p);
+  if (a !== null) {
+    const headP = render.project(sim.endStation(g, 'head').geo);
+    const tailP = render.project(sim.endStation(g, 'tail').geo);
+    const ap = render.project(ANCHORS[a].geo);
+    dragEnd = Math.hypot(ap.x - headP.x, ap.y - headP.y) < Math.hypot(ap.x - tailP.x, ap.y - tailP.y)
+      ? 'head' : 'tail';
+    tryExtend(dragState(p));
+    dragEnd = null;
+    e.stopPropagation();
+    e.preventDefault();
+  }
+}, true);
+
+wrap.addEventListener('pointermove', (e) => {
+  const p = canvasPos(e);
+  if (dragEnd) {
+    render.setDrag(dragState(p));
   } else {
-    const next = sim.nextStation(g);
-    if (next) render.addFloat(g.built, STR.need + ' ' + fmt(next.ext.cost) + ' kr');
+    wrap.style.cursor =
+      render.nearEnd(g, p) || render.nearAnchor(g, p) !== null ? 'pointer' : '';
+  }
+});
+
+function endDrag(e) {
+  if (!dragEnd) return;
+  const d = dragState(canvasPos(e));
+  tryExtend(d);
+  dragEnd = null;
+  render.setDrag(null);
+  if (map) map.dragPan.enable();
+}
+
+function tryExtend(d) {
+  if (sim.extendTo(g, d.end, d.geo, d.snap)) {
+    updateUI();
+  } else if (d.problem) {
+    render.addFloatGeo(d.geo, d.label);
   }
 }
 
-mapEl.addEventListener('pointerdown', (e) => {
-  const p = canvasPos(e);
-  if (!sim.nextStation(g)) return;
-  if (render.nearTerminus(g, p)) {
-    dragFrom = 'terminus';
-    render.setDrag(p);
-    mapEl.setPointerCapture(e.pointerId);
-  } else if (render.nearGhost(g, p)) {
-    dragFrom = 'ghost';
-  }
-});
-mapEl.addEventListener('pointermove', (e) => {
-  const p = canvasPos(e);
-  if (dragFrom === 'terminus') {
-    render.setDrag(p);
-  } else {
-    mapEl.style.cursor =
-      sim.nextStation(g) && (render.nearTerminus(g, p) || render.nearGhost(g, p))
-        ? 'pointer' : 'default';
-  }
-});
-mapEl.addEventListener('pointerup', (e) => {
-  const p = canvasPos(e);
-  if (dragFrom && render.nearGhost(g, p)) tryExtend();
-  dragFrom = null;
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', () => {
+  dragEnd = null;
   render.setDrag(null);
-});
-mapEl.addEventListener('pointercancel', () => {
-  dragFrom = null;
-  render.setDrag(null);
+  if (map) map.dragPan.enable();
 });
 
 // --- Shop ---
@@ -146,13 +212,13 @@ function updateUI() {
   netEl.textContent = (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(1) + ' kr/s';
   netEl.classList.toggle('neg', net < 0);
   $('stat-delivered').textContent = fmt(g.totalDelivered);
-  $('stat-stations').textContent = g.built + ' / ' + STATIONS.length;
-  $('extend-hint').textContent = sim.nextStation(g) ? STR.extendHint : STR.lineDoneDesc;
+  $('stat-stations').textContent = String(g.line.length);
   $('stat-demand').textContent = '×' + sim.cityMult(g).toFixed(2);
   $('stat-trains').textContent =
     sim.idleTrains(g).length + ' / ' + g.trains.length;
   bell.querySelector('.bell-sub').textContent =
     sim.idleTrains(g).length ? STR.dispatchSub : STR.noIdle;
+  $('extend-hint').textContent = STR.extendHint;
   updateShop();
 }
 
@@ -170,13 +236,13 @@ function frame(now) {
     acc -= STEP;
   }
   for (const e of g.events) {
-    if (e.type === 'payout') render.addFloat(e.station, '+' + fmt(e.amt));
-    if (e.type === 'extend') render.addFloat(e.station, STATIONS[e.station].name);
+    if (e.type === 'payout') render.addFloatGeo(e.geo, '+' + fmt(e.amt));
+    if (e.type === 'extend') render.addFloatGeo(e.geo, e.name);
   }
   g.events.length = 0;
   const dt = (now - lastFrame) / 1000;
   lastFrame = now;
-  render.draw(g, dt, sim.canExtend(g));
+  render.draw(g, dt);
   updateUI();
   requestAnimationFrame(frame);
 }
