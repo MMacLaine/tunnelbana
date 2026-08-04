@@ -84,7 +84,9 @@ export const BAL = {
   trackPerKm: 150,         // kr per km of track
   waterMult: 2.0,          // track cost multiplier when the segment crosses water
   minSpacingKm: 0.35,      // same-line stations may not land closer than this
-  maxStations: 40,         // network-wide cap (upgrades can raise it)
+  maxStations: 90,         // network-wide cap (upgrades can raise it). Was 40
+                           // pre-campaign; the campaign authors 59 anchors, so
+                           // the cap must leave room for them plus free spots
   pkFullRatePerSec: 0.02,  // political capital per second at 100% regional coverage
   surgeEvery: 120,         // seconds between rush events
   surgeDur: 25,            // seconds a rush lasts
@@ -102,17 +104,18 @@ export const BAL = {
 // era unlocks its slice of the catalog (and the Västerort megaproject in 1952).
 // Thresholds derived post-638 against measured greedy pacing (~2,900
 // delivered/min single-line late; multi-line projected 2-3x): gates land at
-// roughly 1h / 4h / 9h / 15h of active play on the way to the 20 h arc.
+// roughly 1h / 4h / 8h / 12h / 16h of active play on the way to the 20 h arc.
 // Coarse by design; the owner's playtests refine them. Rescaled x0.35 with
-// the 2026-08-04 slowdown (were 120k/700k/2M/3.8M): the smoke arc measured
-// delivered-per-second at 0.35x the old rate, so the counts move with it or
-// every era silently triples in hours.
+// the 2026-08-04 slowdown; reshaped the same day for the CAMPAIGN (owner
+// direction): each era is one real line's story, and the final era is the
+// sandbox, "Hela Stockholm", where the last constraints lift.
 export const ERAS = [
   { year: 1950 },
   { year: 1952, pk: 5,  delivered: 40000 },
   { year: 1957, pk: 12, delivered: 250000 },
-  { year: 1965, pk: 25, delivered: 700000 },
+  { year: 1964, pk: 25, delivered: 700000 },
   { year: 1975, pk: 50, delivered: 1300000 },
+  { year: 2000, pk: 90, delivered: 2200000 },
 ];
 
 // The upgrade CATALOG (plan §6, Cookie Clicker direction): upgrades are DATA, and
@@ -140,6 +143,12 @@ export const CATALOG = [
   { id: 'turnstiles', base: 1600, growth: 1,   max: 1, era: 1950,
     mult: { fare: 1.05 } },
   { id: 'westline',   base: 5,    growth: 1,   max: 1, era: 1952, currency: 'pk', kind: 'project' },
+  // The campaign charters (owner direction 2026-08-04): each era's line can be
+  // chartered as a megaproject seeding T-Centralen plus the corridor's first
+  // stop, with a gift train; or the player ignores it and builds there
+  // themselves (the corridor's stakes appear either way).
+  { id: 'redline',    base: 10,   growth: 1,   max: 1, era: 1964, currency: 'pk', kind: 'project' },
+  { id: 'blueline',   base: 16,   growth: 1,   max: 1, era: 1975, currency: 'pk', kind: 'project' },
   { id: 'entrances',  base: 2200, growth: 1.7, max: 3, era: 1952,
     add: { demand: 0.1 } },
   { id: 'through',    base: 8,    growth: 1,   max: 1, era: 1957, currency: 'pk',
@@ -150,8 +159,8 @@ export const CATALOG = [
   // terminus dispatch already regularises the service, so holding rarely fires
   // until event-driven turnaround lands in M5; a legibility purchase must not
   // be graded by the kr/s gate). Cheap on purpose.
-  { id: 'atc',        base: 2,    growth: 1,   max: 1, era: 1965, currency: 'pk', kind: 'holding' },
-  { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1965,
+  { id: 'atc',        base: 2,    growth: 1,   max: 1, era: 1964, currency: 'pk', kind: 'holding' },
+  { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1964,
     mult: { speed: 0.9 } },
   // 'depot' removed pending M4: the fleet knee sits near 3 trains per line at
   // current demand ceilings (value-gate measurement), so raising fleetMax is
@@ -163,7 +172,7 @@ export const CATALOG = [
     mult: { fare: 1.15 } },
   // Late sinks (report 638 §5): thresholds without sinks just make the player
   // wait with a full wallet.
-  { id: 'artstation', base: 45000, growth: 1,  max: 1, era: 1965,
+  { id: 'artstation', base: 45000, growth: 1,  max: 1, era: 1964,
     add: { demand: 0.15 } },
   // cbtc is frequency AND speed (moving-block signalling lets trains run
   // closer and brake later); pure frequency saturates at reachable demand.
@@ -219,11 +228,32 @@ function anchorStation(i) {
 // Founding-order palette; the real green stays line 1's (report 634 risk 3).
 export const LINE_COLORS = ['#35a86b', '#4f8fd4', '#c8544a', '#b06fa8', '#8fae4a', '#6fd6b0'];
 export const MAX_LINES = LINE_COLORS.length;
+export const SANDBOX_MAX_LINES = 16; // the final era lifts the cap (perf floor, not a rule)
+
+// The sandbox era removes the line-count constraint (owner direction: "have
+// as many lines as they want"). Before it, the authored palette is the cap.
+export function maxLinesNow(g) {
+  return eraYear(g) >= 2000 ? SANDBOX_MAX_LINES : MAX_LINES;
+}
+
+// Line colours beyond the authored palette (sandbox): hues spread by the
+// golden angle, emitted as HEX because hexA() tints the glow from this value.
+export function lineColor(idx) {
+  if (idx < LINE_COLORS.length) return LINE_COLORS[idx];
+  const h = (idx * 137.508) % 360, l = 0.55;
+  const a = 0.45 * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * c).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+}
 
 function newLine(stations, colorIdx) {
   return {
     stations,
-    color: LINE_COLORS[colorIdx % LINE_COLORS.length],
+    color: lineColor(colorIdx),
     waitingF: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     waitingB: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     left60: stations.map(() => 0),
@@ -1465,16 +1495,25 @@ export function buy(g, id) {
     }
     g.trains.push({ line: li, at: 0, run: null, mothballed: false, readyAt: 0 });
   }
-  if (id === 'westline') {
-    // The 1952 megaproject: a new line seeded T-Centralen to Hötorget, with a
-    // gift train. T-Centralen becomes the network's first interchange.
-    g.lines.push(newLine([anchorStation(0), anchorStation(WEST_FIRST)], g.lines.length));
+  if (PROJECT_SEEDS[id]) {
+    // A charter megaproject: a new line seeded T-Centralen to its corridor's
+    // first stop, with a gift train. T-Centralen grows as an interchange.
+    const first = PROJECT_SEEDS[id]();
+    g.lines.push(newLine([anchorStation(0), anchorStation(first)], g.lines.length));
     g.trains.push({ line: g.lines.length - 1, at: 0, run: null, mothballed: false, readyAt: 0 });
     computeDemand(g);
-    g.events.push({ type: 'newline', geo: ANCHORS[WEST_FIRST].geo, name: ANCHORS[WEST_FIRST].name });
+    g.events.push({ type: 'newline', geo: ANCHORS[first].geo, name: ANCHORS[first].name });
   }
   return true;
 }
+
+// Which corridor each charter seeds toward; the corridor's first anchor is
+// the seeded second stop.
+const PROJECT_SEEDS = {
+  westline: () => CORRIDORS.find((c) => c.id === 'green-west').start,
+  redline:  () => CORRIDORS.find((c) => c.id === 'red-south').start,
+  blueline: () => CORRIDORS.find((c) => c.id === 'blue-main').start,
+};
 
 // Tier downgrade (report 638 §4): agency over upkeep. No refund, the map stays
 // intact, and a born Knutpunkt (T-Centralen) never falls below its rank.
@@ -1506,7 +1545,7 @@ export function downgradeTier(g, li, i) {
 
 export function canFoundLine(g, li, i) {
   const st = g.lines[li].stations[i];
-  return st.tier >= 3 && g.lines.length < MAX_LINES &&
+  return st.tier >= 3 && g.lines.length < maxLinesNow(g) &&
     g.money >= BAL.foundLineKr && g.pk >= BAL.foundLinePk;
 }
 
@@ -1657,7 +1696,7 @@ export function hydrate(raw) {
       s.lines.reduce((a, L) => a + L.stations.length, 0) <= BAL.maxStations + 16) {
     g.lines = s.lines.map((L, idx) => ({
       stations: sanitizeLine(L.stations),
-      color: LINE_COLORS[idx % LINE_COLORS.length],
+      color: lineColor(idx),
       waitingF: [],
       waitingB: [],
       left60: [],
