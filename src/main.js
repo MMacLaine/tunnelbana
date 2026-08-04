@@ -54,6 +54,10 @@ const STR = {
     needsTier2: 'A junction needs a Tier 2 station first',
   },
   junction: 'Bytespunkt',
+  riders: 'riders',
+  ridersCarried: 'riders carried',
+  perMin: '/min',
+  everyS: 'every ',
   openingDay: 'ÖPPNINGSDAG',
   ribbonCut: 'INVIGNING · the line is open',
   fbOpen: 'Feedback',
@@ -698,7 +702,8 @@ function updateLineRows() {
     const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
     rows.push(
       '<div class="line-row"><span class="chip" style="background:' + g.lines[li].color + '"></span>' +
-      'Linje ' + (li + 1) + ' · ' + g.lines[li].stations.length + ' st · ' + active + ' 🚆 ' +
+      'Linje ' + (li + 1) + ' · ' + g.lines[li].stations.length + ' st · ' + active + ' 🚆 · ' +
+      (active ? STR.everyS + Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + ' ' +
       (g.lines.length > 1 ? '<button class="mini-btn" data-li="' + li + '">' + STR.addTrain + '</button>' : '') +
       '</div>'
     );
@@ -754,7 +759,7 @@ function updateShop() {
     $('era-btn').hidden = false;
     $('era-btn').textContent = STR.advance + ' ' + next.year + ' (' + next.pk + ' pk)';
     $('era-btn').disabled = !sim.canAdvanceEra(g);
-    $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' delivered · ' + next.pk + ' pk';
+    $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' ' + STR.riders + ' · ' + next.pk + ' pk';
   } else {
     $('era-btn').hidden = true;
     $('era-needs').textContent = STR.arcDone;
@@ -773,6 +778,9 @@ function updateUI() {
   netEl.textContent = (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(1) + ' kr/s';
   netEl.classList.toggle('neg', net < 0);
   $('stat-delivered').textContent = fmt(g.totalDelivered);
+  $('riders-label').textContent = STR.ridersCarried;
+  // Riders per minute, from the sim's own 60 s window.
+  $('riders-rate').textContent = g.deliv60 > 0 ? '· ' + fmt(g.deliv60 * 60) + STR.perMin : '';
   $('stat-stations').textContent = sim.stationCount(g) + ' · ' + STR.linesStat + ': ' + g.lines.length;
   $('stat-demand').textContent = '×' + sim.cityMult(g).toFixed(2);
   const mb = sim.mothballedTrains(g).length;
@@ -853,7 +861,7 @@ if (offline) {
   $('offline-note').hidden = false;
   $('offline-note').textContent =
     STR.awayTitle + ' (' + (h ? h + ' h ' : '') + m + ' min): +' + fmt(offline.earned) +
-    ' kr, ' + fmt(offline.delivered) + ' passengers delivered.';
+    ' kr, ' + fmt(offline.delivered) + ' ' + STR.riders + ' carried.';
   save();
 }
 showMenu('start');
