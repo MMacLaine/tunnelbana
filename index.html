@@ -76,6 +76,20 @@
   .rates { display: flex; gap: 0.8rem; margin-top: 0.35rem; font-size: 0.66rem; color: var(--muted); }
   #rate-net { color: var(--green); }
   #rate-net.neg { color: var(--red); }
+  .pk-line { margin-top: 0.4rem; font-size: 0.68rem; color: var(--tb-politic); }
+  .train-btns { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+  .mini-btn {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 0.3rem 0.5rem;
+    cursor: pointer;
+  }
+  .mini-btn:hover:not(:disabled) { border-color: var(--green); color: var(--ink); }
+  .mini-btn:disabled { opacity: 0.4; cursor: default; }
 
   #hud-bl { bottom: 1.4rem; left: 1rem; display: flex; flex-direction: column; gap: 0.5rem; max-width: 320px; }
   #bell {
@@ -248,6 +262,7 @@
         <span id="rate-upkeep">−0.0 kr/s upkeep</span>
         <span id="rate-net">+0.0 kr/s</span>
       </div>
+      <div class="pk-line"><span id="pk">0.0 pk</span> · <span id="pk-cov">0% coverage</span></div>
     </div>
   </div>
 
@@ -272,7 +287,11 @@
       <div>Stations: <span id="stat-stations">3</span></div>
       <div>Passengers delivered: <span id="stat-delivered">0</span></div>
       <div>City demand: <span id="stat-demand">×1.00</span></div>
-      <div>Trains idle / total: <span id="stat-trains">1 / 1</span></div>
+      <div>Trains idle / active: <span id="stat-trains">1 / 1</span></div>
+      <div class="train-btns">
+        <button class="mini-btn" id="btn-mothball"></button>
+        <button class="mini-btn" id="btn-reactivate"></button>
+      </div>
     </div>
   </div>
 
@@ -286,6 +305,7 @@
       <div id="main-view">
         <h1>TUNNELBANA</h1>
         <p class="sub">Build Stockholm. Milestone 0: the 1950 line.</p>
+        <p class="menu-note" id="offline-note" hidden style="color: var(--amber); margin-top: 0;"></p>
         <button class="menu-btn primary" id="menu-resume">Start</button>
         <button class="menu-btn" id="menu-settings">Settings</button>
         <button class="menu-btn" id="menu-quit" hidden>Quit to menu</button>

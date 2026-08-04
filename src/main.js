@@ -11,10 +11,17 @@ const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
   noIdle: 'All trains are out',
-  hints: 'Fare: ' + B.fare + ' kr per delivered passenger (space rings the bell too). ' +
-    'Drag either end of the line anywhere on the map: dashed rings are real stations with full demand, ' +
-    'anywhere else earns what the label says. Right-click a line end to demolish it (' + B.demolishCost + ' kr). ' +
-    'Esc for the menu.',
+  hints: 'Fares pay ' + B.farePerKm + ' kr per passenger-kilometre, collected as passengers board ' +
+    '(space rings the bell too). Drag either end of the line anywhere on the map: dashed rings are ' +
+    'real stations with full demand, anywhere else earns what the label says. Right-click a line end ' +
+    'to demolish it (' + B.demolishCost + ' kr). Political capital (pk) grows with how much of the ' +
+    'region you serve. Esc for the menu.',
+  mothballBtn: 'Mothball idle train',
+  reactivateBtn: 'Reactivate train',
+  mothballedFloat: 'mothballed',
+  mothballedTag: 'mothballed',
+  awayTitle: 'While you were away',
+  coverage: 'coverage',
   demolished: '−' + B.demolishCost + ' kr',
   cantDemolish: 'Cannot demolish now',
   menuStart: 'Start',
@@ -43,7 +50,15 @@ const STR = {
   needsDrivers: 'Hire drivers first',
 };
 
-let g = sim.hydrate(localStorage.getItem(sim.SAVE_KEY));
+const savedRaw = localStorage.getItem(sim.SAVE_KEY);
+let g = sim.hydrate(savedRaw);
+let offline = null;
+try {
+  const sv = JSON.parse(savedRaw);
+  if (sv && typeof sv.savedAt === 'number') {
+    offline = sim.simulateOffline(g, (Date.now() - sv.savedAt) / 1000);
+  }
+} catch {}
 let paused = true; // boot into the menu
 
 const $ = (id) => document.getElementById(id);
@@ -380,8 +395,14 @@ function updateUI() {
   $('stat-delivered').textContent = fmt(g.totalDelivered);
   $('stat-stations').textContent = String(g.line.length);
   $('stat-demand').textContent = '×' + sim.cityMult(g).toFixed(2);
+  const mb = sim.mothballedTrains(g).length;
   $('stat-trains').textContent =
-    sim.idleTrains(g).length + ' / ' + g.trains.length;
+    sim.idleTrains(g).length + ' / ' + (g.trains.length - mb) +
+    (mb ? ' (+' + mb + ' ' + STR.mothballedTag + ')' : '');
+  $('pk').textContent = g.pk.toFixed(1) + ' pk';
+  $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage;
+  $('btn-mothball').disabled = sim.idleTrains(g).length === 0 || g.trains.length - mb <= 1;
+  $('btn-reactivate').disabled = mb === 0;
   bell.querySelector('.bell-sub').textContent =
     sim.idleTrains(g).length ? STR.dispatchSub : STR.noIdle;
   updateShop();
@@ -408,6 +429,8 @@ function frame(now) {
     if (e.type === 'payout') render.addFloatGeo(e.geo, '+' + fmt(e.amt));
     if (e.type === 'extend') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'demolish') render.addFloatGeo(e.geo, e.name + ' ' + STR.demolished);
+    if (e.type === 'alight') render.addFloatGeo(e.geo, '↓' + fmt(e.n), 'muted');
+    if (e.type === 'mothball') render.addFloatGeo(e.geo, STR.mothballedFloat, 'muted');
   }
   g.events.length = 0;
   if (map && basemapUp) {
@@ -429,6 +452,19 @@ document.addEventListener('visibilitychange', () => {
 });
 
 $('hints').textContent = STR.hints;
+$('btn-mothball').textContent = STR.mothballBtn;
+$('btn-reactivate').textContent = STR.reactivateBtn;
+$('btn-mothball').addEventListener('click', () => { if (sim.mothball(g)) updateUI(); });
+$('btn-reactivate').addEventListener('click', () => { if (sim.reactivate(g)) updateUI(); });
+if (offline) {
+  const h = Math.floor(offline.seconds / 3600);
+  const m = Math.floor((offline.seconds % 3600) / 60);
+  $('offline-note').hidden = false;
+  $('offline-note').textContent =
+    STR.awayTitle + ' (' + (h ? h + ' h ' : '') + m + ' min): +' + fmt(offline.earned) +
+    ' kr, ' + fmt(offline.delivered) + ' passengers delivered.';
+  save();
+}
 showMenu('start');
 updateUI();
 requestAnimationFrame(frame);
