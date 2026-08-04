@@ -9,18 +9,18 @@ const CAT = Object.fromEntries(sim.CATALOG.map((u) => [u.id, u]));
 const pct = (x) => Math.round(Math.abs(1 - x) * 100);
 const STR = {
   dispatch: 'AVGÅNG',
-  dispatchSub: 'Dispatch a train',
+  dispatchSub: 'Dispatch a train (avgång = departure)',
   noIdle: 'All trains are out',
   hints: 'Fares pay ' + B.farePerKm + ' kr per passenger-kilometre, collected as passengers board ' +
     '(space rings the bell too). Drag either end of the line anywhere on the map: dashed rings are ' +
     'real stations with full demand, anywhere else earns what the label says. Right-click a line end ' +
     'to demolish it (' + B.demolishCost + ' kr). Trust grows with how much of the ' +
     'region you serve, and buys the big projects. Esc for the menu.',
-  tiers: ['', 'Hållplats', 'Station', 'Knutpunkt'],
-  tierUp: ['', 'Upgrade to Station', 'Upgrade to Knutpunkt', ''],
-  tierMax: 'Knutpunkt, fully built',
+  tiers: ['', 'Hållplats · stop', 'Station', 'Knutpunkt · hub'],
+  tierUp: ['', 'Upgrade to Station', 'Upgrade to Knutpunkt (hub)', ''],
+  tierMax: 'Knutpunkt (hub), fully built',
   tierDown: 'Downgrade tier (no refund)',
-  tierEraGate: 'Knutpunkt unlocks in 1957',
+  tierEraGate: 'Knutpunkt (hub) unlocks in 1957',
   entRow: 'Entrances',
   gatesRow: 'Gates',
   panelDemand: 'Demand',
@@ -38,7 +38,7 @@ const STR = {
   mothballedTag: 'mothballed',
   awayTitle: 'While you were away',
   coverage: 'coverage',
-  phases: ['MORGONRUSNING', '', 'KVÄLLSRUSNING', 'NATT'],
+  phases: ['MORGONRUSNING · morning rush', '', 'KVÄLLSRUSNING · evening rush', 'NATT · night'],
   demolished: '−' + B.demolishCost + ' kr',
   cantDemolish: 'Cannot demolish now',
   menuStart: 'Start',
@@ -53,17 +53,19 @@ const STR = {
     max: 'The line is at its limit for now',
     needsTier2: 'A junction needs a Tier 2 station first',
   },
-  junction: 'Bytespunkt',
+  junction: 'Bytespunkt · interchange',
   riders: 'riders',
   // 'pk' (political capital) read as jargon to the owner. The shop already
   // said "the city pays in trust", so the copy just caught up with itself.
   // The internal key stays `pk`: saves and the catalog do not need churning.
   trust: 'trust',
+  krTitle: 'kr = kronor, the Swedish currency (SEK)',
   ridersCarried: 'riders carried',
   perMin: '/min',
   everyS: 'every ',
-  openingDay: 'ÖPPNINGSDAG',
+  openingDay: 'ÖPPNINGSDAG · opening day',
   ribbonCut: 'INVIGNING · the line is open',
+  stops: 'stops',
   fbOpen: 'Feedback',
   fbTitle: 'What broke, or what would you love?',
   fbSend: 'Submit',
@@ -105,7 +107,7 @@ const STR = {
   arcDone: 'The arc is complete, for now.',
   linesStat: 'Lines',
   ending: {
-    title: 'SLUTSTATION',
+    title: 'SLUTSTATION · last stop',
     blurb: 'Every station on the map has a line. The arc from 1950 is complete. ' +
       'This is the end of the story, and the trains keep running: your city does not stop because the chapter does.',
   },
@@ -709,7 +711,7 @@ function updateLineRows() {
     const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
     rows.push(
       '<div class="line-row"><span class="chip" style="background:' + g.lines[li].color + '"></span>' +
-      'Linje ' + (li + 1) + ' · ' + g.lines[li].stations.length + ' st · ' + active + ' 🚆 · ' +
+      'Linje ' + (li + 1) + ' · ' + g.lines[li].stations.length + ' ' + STR.stops + ' · ' + active + ' 🚆 · ' +
       (active ? STR.everyS + Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + ' ' +
       (g.lines.length > 1 ? '<button class="mini-btn" data-li="' + li + '">' + STR.addTrain + '</button>' : '') +
       '</div>'
@@ -786,6 +788,7 @@ function updateUI() {
   netEl.classList.toggle('neg', net < 0);
   $('stat-delivered').textContent = fmt(g.totalDelivered);
   $('riders-label').textContent = STR.ridersCarried;
+  $('money').title = STR.krTitle;
   // Riders per minute, from the sim's own 60 s window.
   $('riders-rate').textContent = g.deliv60 > 0 ? '· ' + fmt(g.deliv60 * 60) + STR.perMin : '';
   $('stat-stations').textContent = sim.stationCount(g) + ' · ' + STR.linesStat + ': ' + g.lines.length;
