@@ -27,6 +27,28 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.canBuy(g, 'westline')) err('westline must be era-gated');
 }
 
+// --- Opening day (report 643): the game cannot lose before the player acts.
+// Upkeep and abandonment hold until the first dispatch; the bell is the
+// invigning. ---
+{
+  const g = sim.newGame();
+  const m0 = g.money;
+  for (let t = 0; t < 200; t += 0.05) {
+    sim.tick(g, 0.05);
+    for (const e of g.events) if (e.type === 'abandon') err('no abandonment before opening day');
+    g.events.length = 0;
+  }
+  if (g.opened) err('reading the menus must not open the line');
+  if (g.money !== m0) err('no upkeep before opening day, money moved ' + (g.money - m0));
+  if (!sim.dispatch(g)) err('first dispatch failed');
+  if (!g.opened) err('the first dispatch must cut the ribbon');
+  if (!g.events.some((e) => e.type === 'open')) err('opening should announce itself');
+  g.events.length = 0;
+  const m1 = g.money;
+  for (let t = 0; t < 30; t += 0.05) { sim.tick(g, 0.05); g.events.length = 0; }
+  if (!(g.money !== m1)) err('after opening, money must move (fares and upkeep are live)');
+}
+
 // --- Fares are paid at boarding, per passenger-kilometre ---
 {
   const g = sim.newGame();
@@ -129,9 +151,11 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!moved) err('moveTrain should reassign an idle train');
   if (g.trains.filter((t) => t.line === nl).length !== before + 1) err('moveTrain count wrong');
 
-  // Abandonment: cram a platform and watch it leak.
+  // Abandonment: cram a platform and watch it leak. The line must be OPEN
+  // first (643): an unopened line holds its crowd.
   const a = sim.newGame();
   a.totalDelivered = 60000; // demand-heavy
+  sim.dispatch(a);
   for (let t = 0; t < 120; t += 0.05) { sim.tick(a, 0.05); a.events.length = 0; }
   const leftTotal = a.lines[0].left60.reduce((x, y) => x + y, 0);
   if (!(leftTotal > 0)) err('crowded platforms should leak passengers (abandonment)');

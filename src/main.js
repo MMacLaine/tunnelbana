@@ -54,24 +54,26 @@ const STR = {
     needsTier2: 'A junction needs a Tier 2 station first',
   },
   junction: 'Bytespunkt',
+  openingDay: 'ÖPPNINGSDAG',
+  ribbonCut: 'INVIGNING · the line is open',
   mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
     train:      { name: 'New train',         desc: 'One more train, on the emptiest line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
     drivers:    { name: 'Hire drivers',      desc: 'Trains dispatch themselves. You can still ring the bell.' },
     timetable:  { name: 'Tighter timetable', desc: 'Departures run at even intervals on every line, and the signalling floor drops ' + pct(CAT.timetable.mult.dispatchInterval) + '%.' },
     capacity:   { name: 'Longer trains',     desc: '+' + CAT.capacity.add.trainCap + ' passengers per train.' },
-    bogies:     { name: 'C1 bogie service',  desc: 'Trains run ' + pct(CAT.bogies.mult.speed) + '% faster.' },
+    bogies:     { name: 'C1 bogie service',  desc: 'Top speed and acceleration up ' + pct(CAT.bogies.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
     entrances:  { name: 'Extra entrances',   desc: 'Wider catchment: +' + Math.round(CAT.entrances.add.demand * 100) + '% demand everywhere, per level.' },
     through:    { name: 'Through-running',   desc: 'Megaproject: changing lines gets easier, so more of the city rides across them.' },
-    stock1957:  { name: '1957 stock',        desc: 'Trains run ' + pct(CAT.stock1957.mult.speed) + '% faster.' },
-    c4stock:    { name: 'C4 stock',          desc: 'Trains run ' + pct(CAT.c4stock.mult.speed) + '% faster.' },
-    c14stock:   { name: 'C14 stock',         desc: 'Trains run ' + pct(CAT.c14stock.mult.speed) + '% faster.' },
+    stock1957:  { name: '1957 stock',        desc: 'Top speed and acceleration up ' + pct(CAT.stock1957.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
+    c4stock:    { name: 'C4 stock',          desc: 'Top speed and acceleration up ' + pct(CAT.c4stock.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
+    c14stock:   { name: 'C14 stock',         desc: 'Top speed and acceleration up ' + pct(CAT.c14stock.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     zonefare:   { name: 'Zone fares',        desc: 'Fares worth ' + pct(CAT.zonefare.mult.fare) + '% more.' },
     atc:        { name: 'ATC holding',       desc: 'Comfort: trains stop bunching onto each other. You can watch it work.' },
     artstation: { name: 'Konst i tunnelbanan', desc: 'Art in the stations: +' + Math.round(CAT.artstation.add.demand * 100) + '% demand everywhere. The world\'s longest gallery.' },
-    cbtc:       { name: 'CBTC signalling',   desc: 'Moving-block signalling: dispatch ' + pct(CAT.cbtc.mult.dispatchInterval) + '% faster, trains ' + pct(CAT.cbtc.mult.speed) + '% quicker.' },
+    cbtc:       { name: 'CBTC signalling',   desc: 'Moving-block signalling: trains brake later and run ' + pct(CAT.cbtc.mult.speed) + '% harder, and the signalling floor drops ' + pct(CAT.cbtc.mult.dispatchInterval) + '%.' },
     nightservice: { name: 'Nattrafik',       desc: 'The city never fully sleeps: night demand doubled.' },
   },
   eras: {
@@ -726,7 +728,7 @@ function updateUI() {
     sim.idleTrains(g).length + ' / ' + (g.trains.length - mb) +
     (mb ? ' (+' + mb + ' ' + STR.mothballedTag + ')' : '');
   $('pk').textContent = g.pk.toFixed(1) + ' pk';
-  const phase = STR.phases[sim.dayPhase(g)];
+  const phase = g.opened ? STR.phases[sim.dayPhase(g)] : STR.openingDay;
   $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage +
     (phase ? ' · ' + phase : '');
   $('btn-mothball').disabled = sim.idleTrains(g).length === 0 || g.trains.length - mb <= 1;
@@ -765,6 +767,7 @@ function frame(now) {
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
+    if (e.type === 'open') render.addFloatGeo(e.geo, STR.ribbonCut);
     if (e.type === 'era') showMoment(e.year);
     if (e.type === 'ending') showEnding();
   }

@@ -42,8 +42,12 @@ export const BAL = {
                            // Was 1.35: owner playtest 2026-08-04 read it as far
                            // too fast; the base is deliberately sedate so the
                            // four stock upgrades are FELT speed, not decoration.
-  accelKmS2: 1.4,          // acceleration = braking; v^2/a ≈ 0.35 km, so normal
-                           // spacing cruises while 350 m infill never does
+  accelKmS2: 1.4,          // acceleration = braking. Report 643 corrected the
+                           // old story here: at these values a 0.36 km infill
+                           // segment DOES cruise (v^2/a = 0.35 km); the real
+                           // cost of an added stop is the extra accel/brake
+                           // cycle (~+0.5 s) plus the fixed dwell, so accel is
+                           // the lever if infill ever needs to hurt more
   minDwell: 0.2,           // fixed dwell never goes below this
   baseDwell: [0, 0.45, 0.35, 0.3],   // fixed doors/departure cost by tier (1-indexed)
   // A separate 'platforms' dwell axis was measured redundant with gates (two
@@ -240,6 +244,11 @@ export function newGame() {
     nextSurgeAt: 90,
     surgeCounter: 0,
     endingSeen: false,
+    // Opening day (report 643): the network is not OPEN until the first
+    // dispatch, so a new player reading menus cannot lose before acting.
+    // Upkeep and abandonment hold until the ribbon is cut; the first bell
+    // is the invigning.
+    opened: false,
     events: [],
   };
   computeDemand(g);
@@ -798,6 +807,10 @@ export function dispatchFrom(g, li, end, ignoreReady) {
   const took = board(g, train, idx);
   train.run.dur = dwellFor(g, L.stations[idx], took);
   L.lastDepart[end === 'head' ? 0 : 1] = g.clock;
+  if (!g.opened) {
+    g.opened = true;
+    g.events.push({ type: 'open', geo: L.stations[idx].geo });
+  }
   return true;
 }
 
@@ -992,8 +1005,9 @@ export function tick(g, dt) {
       L.waitingB[i] += add * (1 - fShare);
       // Abandonment (report 634 risk 1): the missing cost of overcrowding.
       // Crowded platforms leak passengers, quadratically with crowding.
+      // Held until opening day: an unopened line has no service to abandon.
       const crowd = waitingAt(g, li, i) / (cap * s.mult);
-      if (crowd > 0.25) {
+      if (g.opened && crowd > 0.25) {
         const leaveK = BAL.abandonPerSec * crowd * crowd * dt;
         const lost = (L.waitingF[i] + L.waitingB[i]) * leaveK;
         L.waitingF[i] -= L.waitingF[i] * leaveK;
@@ -1010,17 +1024,21 @@ export function tick(g, dt) {
   }
 
   // Upkeep drains, floored at zero; a sustained deficit mothballs a train.
-  g.money = Math.max(0, g.money - upkeepRate(g) * dt);
-  const losing = g.money < upkeepRate(g) * 10 && grossRate(g) < upkeepRate(g);
-  g.deficitT = losing ? g.deficitT + dt : Math.max(0, g.deficitT - dt * 0.5);
-  if (g.deficitT >= BAL.deficitMothballAfter) {
-    const active = g.trains.filter((t) => !t.mothballed);
-    const cand = active.find((t) => !t.run);
-    if (active.length > 1 && cand) {
-      cand.mothballed = true;
-      g.events.push({ type: 'mothball', geo: g.lines[cand.line].stations[cand.at].geo });
+  // Nothing is billed before opening day (report 643: the game could lose
+  // itself at 128 s of menu-reading otherwise).
+  if (g.opened) {
+    g.money = Math.max(0, g.money - upkeepRate(g) * dt);
+    const losing = g.money < upkeepRate(g) * 10 && grossRate(g) < upkeepRate(g);
+    g.deficitT = losing ? g.deficitT + dt : Math.max(0, g.deficitT - dt * 0.5);
+    if (g.deficitT >= BAL.deficitMothballAfter) {
+      const active = g.trains.filter((t) => !t.mothballed);
+      const cand = active.find((t) => !t.run);
+      if (active.length > 1 && cand) {
+        cand.mothballed = true;
+        g.events.push({ type: 'mothball', geo: g.lines[cand.line].stations[cand.at].geo });
+      }
+      g.deficitT = 0;
     }
-    g.deficitT = 0;
   }
 
   // Trains move.
@@ -1521,6 +1539,7 @@ export function serialize(g) {
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
+    opened: g.opened,
     srcW: g.srcW.map((w) => Math.round(w * 1000) / 1000),
     gross60: Math.round(g.gross60 * 100) / 100,
     deliv60: Math.round(g.deliv60 * 100) / 100,
@@ -1561,6 +1580,8 @@ export function hydrate(raw) {
   g.pk = Math.max(0, Number(s.pk) || 0);
   g.era = posInt(s.era, ERAS.length - 1);
   g.endingSeen = !!s.endingSeen;
+  // Saves from before opening day existed: any delivery proves the ribbon cut.
+  g.opened = !!s.opened || g.totalDelivered > 0;
   g.gross60 = Math.max(0, Number(s.gross60) || 0);
   g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
   if (Array.isArray(s.srcW) && s.srcW.length === g.srcW.length) {
