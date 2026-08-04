@@ -45,7 +45,7 @@ function build(owned, demand) {
     if (id === 'train') {
       for (let i = 0; i < n; i++) {
         // With two lines, bought trains alternate so both are staffed.
-        g.trains.push({ line: owned.westline ? i % 2 : 0, at: 0, run: null, mothballed: false });
+        g.trains.push({ line: owned.westline ? i % 2 : 0, at: 0, run: null, mothballed: false, readyAt: 0 });
       }
     }
   }
@@ -94,8 +94,11 @@ const CASES = [
   { id: 'drivers',    demand: 'low',  base: {},                                        buy: { drivers: 1 } },
   { id: 'train #2',   demand: 'high', base: { drivers: 1 },                            buy: { train: 1 } },
   { id: 'train 2-line',demand: 'high', base: { drivers: 1, westline: 1 },              buy: { train: 1 } },
+  // timetable 1 pays as REGULARITY (even-interval terminus dispatch: less
+  // bunching, less abandonment); deep levels pay on a DENSE line, where the
+  // signalling floor itself binds the even-headway target.
   { id: 'timetable',  demand: 'high', base: { drivers: 1, train: 3 },                  buy: { timetable: 1 } },
-  { id: 'timetable 3',demand: 'mid',  base: { drivers: 1, train: 4, timetable: 2 },    buy: { timetable: 3 } },
+  { id: 'timetable 3',demand: 'high', base: { drivers: 1, train: 9, timetable: 2 },    buy: { timetable: 3 } },
   { id: 'capacity',   demand: 'high', base: { drivers: 1, train: 1 },                  buy: { capacity: 1 } },
   { id: 'bogies',     demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { bogies: 1 } },
   { id: 'turnstiles', demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { turnstiles: 1 } },

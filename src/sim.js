@@ -12,7 +12,12 @@ export const BAL = {
   gravityFloorKm: 0.4,     // distances below this stop mattering to destination choice
   spawnPerSec: 1.6,        // base passengers per station per second at authored population
                            // (demand-per-headway is THE capacity knob, report 638 §2)
-  transferSpawn: 0.6,      // extra spawn per second per OTHER *running* line at an interchange
+  transferPenalty: 6,      // seconds a transfer 'costs' in route choice; through-running divides it
+  transferKmEq: 2.0,       // km-equivalent friction per line change in DESTINATION choice
+                           // (route choice alone gave 'through' nothing to do: most
+                           // origin-destination pairs have one sensible route, so a cheaper
+                           // transfer flipped no paths; deterrence in the weights means
+                           // through-running measurably grows cross-line ridership)
   demolishCost: 150,       // flat cost to remove a line end; provisional
   stationCapBase: 80,      // base waiting cap per station
   growthCap: 2.5,          // a district can grow to this multiple of its authored pop
@@ -100,6 +105,9 @@ export const CATALOG = [
   // timetable max is 3, not 6: the value gate measured levels beyond 3 dead at
   // any realistic fleet (the spawn ceiling drains first). Deeper signalling
   // returns with M4's holding control and demand growth.
+  // Owning ANY timetable level also switches terminus dispatch to even
+  // intervals (lineCycleEst): level 1 buys regularity, deeper levels buy the
+  // lower signalling floor that binds on dense lines (M5 slice 2 measurement).
   { id: 'timetable',  base: 1400, growth: 1.8, max: 3, era: 1950, needs: 'drivers',
     mult: { dispatchInterval: 0.82 } },
   { id: 'capacity',   base: 800,  growth: 1.7, max: 6, era: 1950,
@@ -262,6 +270,27 @@ export function minHeadway(g) {
   return BAL.headwayBase * effectMult(g, 'dispatchInterval');
 }
 
+// A timetable dispatches at EVEN intervals, not merely no-sooner-than the
+// signalling floor. Measured (M5 slice 2 gate): with a fixed fleet under
+// event-driven turnaround, lowering the floor alone only loosened terminus
+// regularisation (departure-gap sd 5.2 -> 8.1, abandonment +40%), because the
+// floor was the only thing respacing bunched arrivals. Target spacing =
+// full-cycle estimate / active fleet, floored by signalling. The estimate
+// deliberately EXCLUDES boarding time, so it sits below true capability: a
+// low target only regularises, it never throttles throughput. Deep timetable
+// levels then pay on DENSE lines, where the floor itself binds the target.
+export function lineCycleEst(g, li) {
+  const L = g.lines[li];
+  let t = 2 * BAL.turnaroundS;
+  for (let i = 0; i + 1 < L.stations.length; i++) {
+    t += 2 * moveTime(g, kmBetween(L.stations[i].geo, L.stations[i + 1].geo));
+  }
+  for (let i = 1; i + 1 < L.stations.length; i++) {
+    t += 2 * Math.max(BAL.minDwell, BAL.baseDwell[L.stations[i].tier]);
+  }
+  return t;
+}
+
 export function upkeepRate(g) {
   let r = 0;
   for (const t of g.trains) r += BAL.upkeepPerTrainPerSec * (t.mothballed ? BAL.mothballShare : 1);
@@ -314,18 +343,7 @@ export function linesAtAnchor(g, anchor) {
   return n;
 }
 
-// Transfer traffic only flows between lines that actually RUN: two or more
-// stations and at least one active train (report 638 §2: five empty chartered
-// lines must not farm transfer spawn).
-export function runningLinesAtAnchor(g, anchor) {
-  let n = 0;
-  for (let li = 0; li < g.lines.length; li++) {
-    if (g.lines[li].stations.length < 2) continue;
-    if (!g.trains.some((t) => t.line === li && !t.mothballed)) continue;
-    if (g.lines[li].stations.some((s) => s.anchor === anchor)) n++;
-  }
-  return n;
-}
+// (transfer-spawn fudge deleted: real network transfers replaced it, M5)
 
 // --- Demand: districts are population BUDGETS their stations share, not a
 // field each station samples (report 634 risk 2: field-sampling let four
@@ -462,54 +480,210 @@ export function freeSpotValue(g, geo) {
   return Math.round(m * 100) / 100;
 }
 
-// --- Gravity origin-destination model (aggregate flows, cached per line rev) ---
 
-function od(g, li) {
-  const L = g.lines[li];
-  if (L._odRev === L.rev && L._od) return L._od;
-  const n = L.stations.length;
-  const fwd = [], bwd = [], splitF = [];
-  for (let i = 0; i < n; i++) {
-    const f = [], b = [];
-    let fSum = 0, bSum = 0;
-    for (let j = 0; j < n; j++) {
-      if (j === i) continue;
-      const d = Math.max(0.25, kmBetween(L.stations[i].geo, L.stations[j].geo));
-      const w = L.stations[j].mult / Math.pow(Math.max(BAL.gravityFloorKm, d), BAL.gravityExp);
-      if (j > i) { f.push([j, w, d]); fSum += w; }
-      else { b.push([j, w, d]); bSum += w; }
-    }
-    fwd.push({ list: f, sum: fSum });
-    bwd.push({ list: b, sum: bSum });
-    splitF.push(fSum + bSum > 0 ? fSum / (fSum + bSum) : 0.5);
-  }
-  L._od = { fwd, bwd, splitF };
-  L._odRev = L.rev;
-  return L._od;
+function physKeyOf(st) {
+  return st.anchor !== null ? 'a' + st.anchor : st.geo[0].toFixed(4) + ',' + st.geo[1].toFixed(4);
 }
 
-// Accel / cruise / brake time for a segment of d km (report 634 §2a). Short
-// segments never reach cruise speed: infill physically slows the line.
-// Top destinations for a platform's current crowd, read straight from the OD
-// weights and the directional queue split (a display of the sim's own numbers,
-// never a second model). Used by the station panel.
-export function odWeights(g, li, i) {
-  const L = g.lines[li];
-  const dirs = od(g, li);
-  const wf = L.waitingF[i], wb = L.waitingB[i];
-  const total = wf + wb;
-  if (total <= 0) return [];
-  const acc = new Map();
-  for (const [side, q] of [[dirs.fwd[i], wf], [dirs.bwd[i], wb]]) {
-    if (!side.sum || !q) continue;
-    for (const [j, w] of side.list) {
-      acc.set(j, (acc.get(j) || 0) + (w / side.sum) * (q / total));
+// --- The network (M5 headline): routing over the whole system, so a journey
+// can change lines at an interchange. Aggregate flows over cached shortest
+// paths, never agents. Cached per structural revision; three day-phase
+// variants keep the peaks. Continuing passengers re-enter their transfer
+// node's own distribution (documented approximation). ---
+
+function phaseVariantIdx(g) {
+  const ph = dayPhase(g);
+  return ph === 0 ? 0 : ph === 2 ? 2 : 1;
+}
+
+export function networkCache(g) {
+  const structRev = g.lines.map((L) => L.stations.length).join(',') + '|' + g.lines.length;
+  if (g._netRev2 === structRev && g._net) {
+    const vRev = netRev(g);
+    if (g._netVarRev !== vRev && g.clock - g._netVarAt >= VARIANT_REFRESH_S) {
+      buildVariants(g, g._net);
+      g._netVarRev = vRev;
+      g._netVarAt = g.clock;
+    }
+    return g._net;
+  }
+  const phys = physicalStations(g);
+  const keys = [...phys.keys()];
+
+  const ENT = [];
+  const entOf = new Map();
+  g.lines.forEach((L, li) => L.stations.forEach((st, i) => {
+    entOf.set(li + ':' + i, ENT.length);
+    ENT.push({ li, i, key: physKeyOf(st) });
+  }));
+
+  const prefix = g.lines.map((L) => {
+    const pk = [0];
+    for (let i = 1; i < L.stations.length; i++) {
+      pk.push(pk[i - 1] + kmBetween(L.stations[i - 1].geo, L.stations[i].geo));
+    }
+    return pk;
+  });
+
+  const edges = ENT.map(() => []);
+  const transferCost = BAL.transferPenalty / effectMult(g, 'transfer');
+  g.lines.forEach((L, li) => {
+    for (let i = 0; i + 1 < L.stations.length; i++) {
+      const a = entOf.get(li + ':' + i), b = entOf.get(li + ':' + (i + 1));
+      const d = kmBetween(L.stations[i].geo, L.stations[i + 1].geo);
+      const t = moveTime(g, d) + 0.5;
+      edges[a].push([b, t, d]);
+      edges[b].push([a, t, d]);
+    }
+  });
+  const byKey = new Map();
+  ENT.forEach((e, idx) => {
+    if (!byKey.has(e.key)) byKey.set(e.key, []);
+    byKey.get(e.key).push(idx);
+  });
+  for (const group of byKey.values()) {
+    for (const a of group) for (const b of group) {
+      if (a !== b && ENT[a].li !== ENT[b].li) edges[a].push([b, transferCost, 0]);
     }
   }
-  return [...acc.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([j, share]) => ({ name: L.stations[j].name, share }));
+
+  const routes = new Map();
+  for (const oKey of keys) {
+    const dist = new Array(ENT.length).fill(Infinity);
+    const kmAt = new Array(ENT.length).fill(0);
+    const prev = new Array(ENT.length).fill(-1);
+    const pq = [];
+    for (const e of byKey.get(oKey)) { dist[e] = 0; pq.push([0, e]); }
+    while (pq.length) {
+      let bi = 0;
+      for (let k = 1; k < pq.length; k++) if (pq[k][0] < pq[bi][0]) bi = k;
+      const [dc, u] = pq.splice(bi, 1)[0];
+      if (dc > dist[u]) continue;
+      for (const [v, t, km] of edges[u]) {
+        if (dc + t < dist[v] - 1e-9) {
+          dist[v] = dc + t;
+          kmAt[v] = kmAt[u] + km;
+          prev[v] = u;
+          pq.push([dist[v], v]);
+        }
+      }
+    }
+    const destMap = new Map();
+    for (const dKey of keys) {
+      if (dKey === oKey) continue;
+      let best = -1;
+      for (const e of byKey.get(dKey)) if (best < 0 || dist[e] < dist[best]) best = e;
+      if (best < 0 || !isFinite(dist[best])) continue;
+      const path = [];
+      for (let u = best; u >= 0; u = prev[u]) path.push(u);
+      path.reverse();
+      let legEnd = 1;
+      while (legEnd < path.length && ENT[path[legEnd]].li === ENT[path[0]].li) legEnd++;
+      const a = ENT[path[0]];
+      const b = ENT[path[legEnd - 1]];
+      if (a.li !== b.li || a.i === b.i) continue;
+      let nX = 0;
+      for (let p = 1; p < path.length; p++) if (ENT[path[p]].li !== ENT[path[p - 1]].li) nX++;
+      const legKm = Math.abs(prefix[a.li][b.i] - prefix[a.li][a.i]);
+      destMap.set(dKey, {
+        km: kmAt[best],
+        nX,
+        firstLeg: {
+          li: a.li,
+          dir: b.i > a.i ? 1 : -1,
+          alightI: b.i,
+          legKm,
+          cont: legEnd - 1 < path.length - 1,
+        },
+      });
+    }
+    routes.set(oKey, destMap);
+  }
+
+  let hubKey = keys[0];
+  for (const [k, p] of phys) if (p.catch > phys.get(hubKey).catch) hubKey = k;
+
+  g._net = { phys, keys, routes, hubKey, byKey, ENT };
+  g._netRev2 = structRev;
+  buildVariants(g, g._net);
+  g._netVarRev = netRev(g);
+  g._netVarAt = g.clock;
+  return g._net;
+}
+
+// Level 2 of the network cache: destination WEIGHTS over the cached routes.
+// Station multipliers are living numbers (growth, upgrades), so the variants
+// re-derive from them whenever netRev has moved, throttled to every few
+// seconds: growCity bumps netRev nearly every tick while a district is
+// filling in, and mult drift has a 240 s time constant, so seconds of
+// staleness are invisible while a per-tick rebuild would not be.
+const VARIANT_REFRESH_S = 5;
+
+function buildVariants(g, net) {
+  const { keys, routes, hubKey, byKey, ENT } = net;
+  const multOf = new Map();
+  g.lines.forEach((L) => L.stations.forEach((st) => multOf.set(physKeyOf(st), st.mult)));
+  // Destination-choice friction per line change; through-running relieves it.
+  const xferFrict = BAL.transferKmEq / effectMult(g, 'transfer');
+
+  net.variants = [0, 1, 2].map((v) => {
+    const boardDist = new Map();
+    const entryShares = new Map();
+    const destTop = new Map();
+    for (const oKey of keys) {
+      const destMap = routes.get(oKey);
+      let W = 0;
+      const rows = [];
+      for (const [dKey, r] of destMap) {
+        let w = (multOf.get(dKey) || DEMAND_FLOOR) /
+          Math.pow(Math.max(BAL.gravityFloorKm, r.km + r.nX * xferFrict), BAL.gravityExp);
+        if (v === 0 && dKey === hubKey) w *= 1 + BAL.peakBias;
+        if (v === 2 && dKey === hubKey) w /= 1 + BAL.peakBias;
+        W += w;
+        rows.push([dKey, w, r.firstLeg]);
+      }
+      if (W <= 0) continue;
+      destTop.set(oKey, rows.slice().sort((x, y) => y[1] - x[1]).slice(0, 3)
+        .map(([dKey, w]) => ({ key: dKey, share: w / W })));
+      for (const [, w, leg] of rows) {
+        const bKey = oKey + '|' + leg.li + '|' + leg.dir;
+        if (!boardDist.has(bKey)) boardDist.set(bKey, { sum: 0, list: [] });
+        const bd = boardDist.get(bKey);
+        bd.sum += w;
+        bd.list.push({ alightI: leg.alightI, w, legKm: leg.legKm, cont: leg.cont });
+      }
+      const hop = new Map();
+      for (const [, w, leg] of rows) {
+        const hKey = leg.li + '|' + leg.dir;
+        hop.set(hKey, (hop.get(hKey) || 0) + w / W);
+      }
+      for (const e of byKey.get(oKey)) {
+        const { li, i } = ENT[e];
+        entryShares.set(li + ':' + i, {
+          f: hop.get(li + '|1') || 0,
+          b: hop.get(li + '|-1') || 0,
+        });
+      }
+    }
+    for (const bd of boardDist.values()) {
+      bd.list = bd.list.map((x) => ({ ...x, share: x.w / bd.sum }));
+    }
+    return { boardDist, entryShares, destTop };
+  });
+}
+
+// Top destinations for a platform's crowd, straight from the network routing
+// (a display of the sim's own numbers, never a second model). Names can be on
+// OTHER lines now: that is the point.
+export function odWeights(g, li, i) {
+  const net = networkCache(g);
+  const variant = net.variants[phaseVariantIdx(g)];
+  const top = variant.destTop.get(physKeyOf(g.lines[li].stations[i])) || [];
+  return top.map(({ key, share }) => {
+    const p = net.phys.get(key);
+    const [l2, i2] = p.entries[0];
+    return { name: g.lines[l2].stations[i2].name, share };
+  });
 }
 
 export function moveTime(g, d) {
@@ -554,9 +728,10 @@ function board(g, train, i) {
   const li = train.line;
   const L = g.lines[li];
   const run = train.run;
-  const dirs = od(g, li);
-  const side = run.dir === 1 ? dirs.fwd[i] : dirs.bwd[i];
-  if (!side.sum) return 0;
+  const net = networkCache(g);
+  const variant = net.variants[phaseVariantIdx(g)];
+  const bd = variant.boardDist.get(physKeyOf(L.stations[i]) + '|' + li + '|' + run.dir);
+  if (!bd || !bd.sum) return 0;
   const queue = run.dir === 1 ? L.waitingF : L.waitingB;
   const room = trainCap(g) - run.onboard;
   const take = Math.min(queue[i], room);
@@ -564,10 +739,11 @@ function board(g, train, i) {
   queue[i] -= take;
   run.onboard += take;
   let paxKm = 0;
-  for (const [j, w, d] of side.list) {
-    const cnt = take * (w / side.sum);
-    run.dest[j] += cnt;
-    paxKm += cnt * d;
+  for (const e of bd.list) {
+    const cnt = take * e.share;
+    if (e.cont) run.destCont[e.alightI] += cnt;
+    else run.dest[e.alightI] += cnt;
+    paxKm += cnt * e.legKm;
   }
   let amt = paxKm * BAL.farePerKm * effectMult(g, 'fare');
   if (surgedAt(g, li, i)) amt *= BAL.surgeFareMult;
@@ -608,6 +784,7 @@ export function dispatchFrom(g, li, end, ignoreReady) {
   train.run = {
     phase: 'dwell', dir, from: idx, t: 0, onboard: 0,
     dest: new Array(L.stations.length).fill(0),
+    destCont: new Array(L.stations.length).fill(0),
     dur: 0,
   };
   const took = board(g, train, idx);
@@ -671,10 +848,42 @@ function advancePhase(g, train) {
     g.deliv60 += off / 60;
     if (off >= 1) g.events.push({ type: 'alight', geo: L.stations[k].geo, n: Math.round(off) });
   }
+  // Transfers: continuing passengers step off and join this node's queues on
+  // the OTHER lines (their destinations re-draw from the node's distribution;
+  // documented approximation). Nowhere to go = journey ends here.
+  const cont = run.destCont[k] || 0;
+  if (cont > 0) {
+    run.destCont[k] = 0;
+    run.onboard = Math.max(0, run.onboard - cont);
+    const net = networkCache(g);
+    const variant = net.variants[phaseVariantIdx(g)];
+    const key = physKeyOf(L.stations[k]);
+    const options = [];
+    let total = 0;
+    for (let l2 = 0; l2 < g.lines.length; l2++) {
+      if (l2 === train.line) continue;
+      g.lines[l2].stations.forEach((st2, i2) => {
+        if (physKeyOf(st2) !== key) return;
+        const sh = variant.entryShares.get(l2 + ':' + i2);
+        if (!sh) return;
+        if (sh.f > 0) { options.push([l2, i2, 'f', sh.f]); total += sh.f; }
+        if (sh.b > 0) { options.push([l2, i2, 'b', sh.b]); total += sh.b; }
+      });
+    }
+    if (total <= 0) {
+      g.totalDelivered += cont;
+      g.deliv60 += cont / 60;
+    } else {
+      for (const [l2, i2, d2, sh] of options) {
+        const q = d2 === 'f' ? g.lines[l2].waitingF : g.lines[l2].waitingB;
+        q[i2] += cont * (sh / total);
+      }
+      g.events.push({ type: 'transfer', geo: L.stations[k].geo, n: Math.round(cont) });
+    }
+  }
   const atTerminus = k === 0 || k === L.stations.length - 1;
   if (atTerminus) {
-    g.totalDelivered += Math.max(0, run.onboard);
-    g.deliv60 += Math.max(0, run.onboard) / 60;
+    g.totalDelivered += Math.max(0, run.onboard); // numerical dust only
     train.at = k;
     train.run = null;
     train.readyAt = g.clock + BAL.turnaroundS;
@@ -752,38 +961,27 @@ export function tick(g, dt) {
     g.events.push({ type: 'surge', geo: g.lines[li].stations[i].geo, name: g.surge.name });
   }
 
-  // Passengers gather, split by direction from the gravity weights. Demand
-  // lives in the district budgets (which grow when served); the day cycle
-  // breathes on top, biasing peaks toward and away from the busiest station.
+  // Passengers gather where the NETWORK says they should: each station's spawn
+  // splits across its lines and directions by the first hop of real shortest
+  // paths (peak variants bias destinations toward/away from the hub). Demand
+  // lives in the district budgets; the day cycle breathes on top.
   const cap = stationCap(g);
   const demandMult = 1 + effectAdd(g, 'demand');
   const dMult = dayMult(g);
-  const ph = dayPhase(g);
+  const netC = networkCache(g);
+  const variant = netC.variants[phaseVariantIdx(g)];
   for (let li = 0; li < g.lines.length; li++) {
     const L = g.lines[li];
-    const dirs = od(g, li);
-    let hubIdx = 0;
-    for (let k = 1; k < L.stations.length; k++) {
-      if (L.stations[k].mult > L.stations[hubIdx].mult) hubIdx = k;
-    }
     for (let i = 0; i < L.stations.length; i++) {
       const s = L.stations[i];
-      let rate = BAL.spawnPerSec * s.mult * demandMult * dMult;
-      if (s.anchor !== null) {
-        const others = runningLinesAtAnchor(g, s.anchor) - 1;
-        if (others > 0) rate += BAL.transferSpawn * others * effectMult(g, 'transfer') * dMult;
-      }
+      const sh = variant.entryShares.get(li + ':' + i) || { f: 0, b: 0 };
+      let rate = BAL.spawnPerSec * s.mult * demandMult * dMult * (sh.f + sh.b);
       if (surgedAt(g, li, i)) rate *= BAL.surgeSpawnMult;
       const room = cap * s.mult - waitingAt(g, li, i);
       const add = Math.min(Math.max(0, room), rate * dt);
-      let f = dirs.splitF[i];
-      if (ph === 0 || ph === 2) {
-        const hubward = i < hubIdx ? 1 : i > hubIdx ? 0 : f; // F points to higher indices
-        const target = ph === 0 ? hubward : 1 - hubward;
-        f = f * (1 - BAL.peakBias) + target * BAL.peakBias;
-      }
-      L.waitingF[i] += add * f;
-      L.waitingB[i] += add * (1 - f);
+      const fShare = sh.f + sh.b > 0 ? sh.f / (sh.f + sh.b) : 0.5;
+      L.waitingF[i] += add * fShare;
+      L.waitingB[i] += add * (1 - fShare);
       // Abandonment (report 634 risk 1): the missing cost of overcrowding.
       // Crowded platforms leak passengers, quadratically with crowding.
       const crowd = waitingAt(g, li, i) / (cap * s.mult);
@@ -835,8 +1033,13 @@ export function tick(g, dt) {
     const floor = minHeadway(g);
     for (let li = 0; li < g.lines.length; li++) {
       const L = g.lines[li];
-      if (g.clock - L.lastDepart[0] >= floor) dispatchFrom(g, li, 'head', false);
-      if (g.clock - L.lastDepart[1] >= floor) dispatchFrom(g, li, 'tail', false);
+      let target = floor;
+      if (g.owned.timetable) {
+        const active = g.trains.reduce((n, t) => n + (t.line === li && !t.mothballed ? 1 : 0), 0);
+        if (active > 0) target = Math.max(floor, lineCycleEst(g, li) / active);
+      }
+      if (g.clock - L.lastDepart[0] >= target) dispatchFrom(g, li, 'head', false);
+      if (g.clock - L.lastDepart[1] >= target) dispatchFrom(g, li, 'tail', false);
     }
   }
 
@@ -1023,6 +1226,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
       if (t.run) {
         t.run.from += 1;
         t.run.dest.unshift(0);
+        t.run.destCont.unshift(0);
       }
     }
   } else {
@@ -1033,7 +1237,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.leaveAcc.push(0);
     L.lastPassF.push(-Infinity);
     L.lastPassB.push(-Infinity);
-    for (const t of g.trains) if (t.line === li && t.run) t.run.dest.push(0);
+    for (const t of g.trains) if (t.line === li && t.run) { t.run.dest.push(0); t.run.destCont.push(0); }
   }
   L.rev += 1;
   computeDemand(g);
@@ -1074,6 +1278,7 @@ export function demolish(g, li, end) {
       if (t.run) {
         t.run.from -= 1;
         t.run.dest.shift();
+        t.run.destCont.shift();
       }
     }
   } else {
@@ -1087,7 +1292,7 @@ export function demolish(g, li, end) {
     for (const t of g.trains) {
       if (t.line !== li) continue;
       if (t.at >= L.stations.length) t.at = L.stations.length - 1;
-      if (t.run) t.run.dest.pop();
+      if (t.run) { t.run.dest.pop(); t.run.destCont.pop(); }
     }
   }
   L.rev += 1;
@@ -1127,6 +1332,10 @@ export function buy(g, id) {
   if (item.currency === 'pk') g.pk -= cost;
   else g.money -= cost;
   g.owned[id] += 1;
+  // Routing-relevant effects (transfer penalty, ride speed) re-route the city.
+  if (item.mult && (item.mult.transfer || item.mult.speed || item.mult.dispatchInterval)) {
+    g._netRev2 = undefined;
+  }
   if (id === 'train') {
     // The new train joins the line with the fewest trains.
     let li = 0, best = Infinity;
