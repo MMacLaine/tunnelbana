@@ -758,27 +758,9 @@ export function hydrate(raw) {
     return g;
   }
 
-  // Single-line era saves (v2-v5) migrate into lines[0].
-  if (s.saveVersion === 2 && typeof s.built === 'number') {
-    const n = Math.min(ANCHORS.length, Math.max(START_BUILT, s.built + 2));
-    g.lines = [newLine(Array.from({ length: n }, (_, i) => anchorStation(i)))];
-  } else if (s.saveVersion >= 3 && okLine(s.line) && s.line.length <= BAL.maxStations) {
-    const shift = s.saveVersion < 5 ? 2 : 0;
-    const stations = sanitizeLine(s.line, shift);
-    const wf = s.saveVersion >= 4 ? s.waitingF : s.waiting;
-    const wb = s.saveVersion >= 4 ? s.waitingB : s.waiting;
-    g.lines = [{
-      stations,
-      waitingF: stations.map((st, i) => readQueue(wf, i, st, s.saveVersion >= 4 ? 0.5 : 0.25)),
-      waitingB: stations.map((st, i) => readQueue(wb, i, st, s.saveVersion >= 4 ? 0.5 : 0.25)),
-      rev: 0,
-    }];
-    g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
-  }
-  for (let i = 0; i < posInt(s.owned?.train, 16); i++) {
-    g.trains.push({ line: 0, at: 0, run: null, mothballed: false });
-  }
-  const mb = posInt(s.mothballed, Math.max(0, g.trains.length - 1));
-  for (let i = 0; i < mb; i++) g.trains[g.trains.length - 1 - i].mothballed = true;
-  return g;
+  // Pre-v6 saves (the single-line era, some predating the T-Centralen hub)
+  // are RETIRED: they start fresh. Pre-1.0 save policy allows this, and a
+  // faithfully migrated pre-hub line kept resurrecting a Slussen start that
+  // no longer matches the game.
+  return newGame();
 }

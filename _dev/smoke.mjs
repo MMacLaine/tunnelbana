@@ -120,7 +120,8 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (back.trains.length !== g.trains.length) err('save round-trip lost trains');
 }
 
-// Pre-v5 saves used anchor indices without T-Centralen/Gamla stan: remap +2.
+// Pre-v6 saves are retired: they must come back as a FRESH hub start, never
+// as a resurrected pre-hub line.
 {
   const legacy = JSON.stringify({
     saveVersion: 3, money: 500, freeSpots: 0,
@@ -134,8 +135,10 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
     waiting: [8, 8, 8],
   });
   const m = sim.hydrate(legacy);
-  if (m.lines[0].stations[0].anchor !== 2) err('v3 anchor remap failed');
-  if (m.lines[0].stations[0].name !== 'Slussen') err('v3 remap should keep names');
+  if (m.lines[0].stations[0].name !== 'T-Centralen' || !m.lines[0].stations[0].hub) {
+    err('pre-v6 saves must start fresh at the hub, got ' + m.lines[0].stations[0].name);
+  }
+  if (m.money !== sim.BAL.startMoney) err('retired saves must not keep money');
 }
 
 // --- Deficit: auto-mothballing reaches a floor instead of a death spiral ---
