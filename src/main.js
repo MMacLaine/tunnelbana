@@ -7,6 +7,7 @@ import { ANCHORS } from './data.js';
 const B = sim.BAL;
 const CAT = Object.fromEntries(sim.CATALOG.map((u) => [u.id, u]));
 const pct = (x) => Math.round(Math.abs(1 - x) * 100);
+const FEEDBACK_TO_LABEL = 'matthew@maclaine.se';
 const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
@@ -68,9 +69,12 @@ const STR = {
   stops: 'stops',
   fbOpen: 'Feedback',
   fbTitle: 'What broke, or what would you love?',
+  fbHint: 'Goes to ' + FEEDBACK_TO_LABEL + ' by email.',
   fbSend: 'Submit',
   fbPlaceholder: 'Write anything: bugs, ideas, confusion...',
-  fbThanks: 'Copied! Paste it in the itch comments.',
+  fbThanks: 'Opening your email app (and copied, just in case).',
+  fbCopied: 'Copied. Send it to ' + FEEDBACK_TO_LABEL + ' when you can.',
+  fbManual: 'Could not send. Email ' + FEEDBACK_TO_LABEL + ' instead.',
   fbEmpty: 'Write something first.',
   mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
@@ -336,32 +340,52 @@ $('fb-open').textContent = STR.fbOpen;
 $('fb-title').textContent = STR.fbTitle;
 $('fb-send').textContent = STR.fbSend;
 $('fb-text').placeholder = STR.fbPlaceholder;
+$('fb-note').textContent = STR.fbHint;
 $('fb-open').addEventListener('click', () => {
   const p = $('fb-panel');
   p.hidden = !p.hidden;
-  $('fb-note').textContent = '';
+  $('fb-note').textContent = STR.fbHint;
   if (!p.hidden) $('fb-text').focus();
 });
 $('fb-close').addEventListener('click', () => { $('fb-panel').hidden = true; });
+const FEEDBACK_TO = 'matthew@maclaine.se';
+
+// The game is a static page (itch zip, no backend), so submitting opens the
+// player's mail client prefilled. The clipboard copy stays as the fallback for
+// anyone without one, or when an itch iframe blocks the handler: the note under
+// the button says so, because a submit button that silently does nothing is
+// worse than one that asks for a second step.
 async function submitFeedback(text) {
-  const ctx = 'Tunnelbana · era ' + sim.eraYear(g) + ' · ' + sim.stationCount(g) +
-    ' stations · ' + new Date().toISOString().slice(0, 10);
+  const ctx = 'era ' + sim.eraYear(g) + ' · ' + sim.stationCount(g) + ' stations · ' +
+    sim.CATALOG.filter((i) => g.owned[i.id]).length + ' upgrades';
+  const body = text + '\n\n---\nTunnelbana · ' + ctx;
+  let copied = false;
   try {
-    await navigator.clipboard.writeText(text + '\n\n[' + ctx + ']');
-    return true;
+    await navigator.clipboard.writeText(body);
+    copied = true;
+  } catch {}
+  try {
+    const a = document.createElement('a');
+    a.href = 'mailto:' + FEEDBACK_TO +
+      '?subject=' + encodeURIComponent('feedback') +
+      '&body=' + encodeURIComponent(body);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return 'mail';
   } catch {
-    return false;
+    return copied ? 'copied' : false;
   }
 }
 $('fb-send').addEventListener('click', async () => {
   const text = $('fb-text').value.trim();
   if (!text) { $('fb-note').textContent = STR.fbEmpty; return; }
-  if (await submitFeedback(text)) {
-    $('fb-note').textContent = STR.fbThanks;
-    $('fb-text').value = '';
-  } else {
-    $('fb-note').textContent = 'Copy failed: select the text and copy it yourself.';
-  }
+  const how = await submitFeedback(text);
+  $('fb-note').textContent = how === 'mail' ? STR.fbThanks
+    : how === 'copied' ? STR.fbCopied : STR.fbManual;
+  if (how) $('fb-text').value = '';
 });
 $('settings-back').addEventListener('click', () => settingsView(false));
 $('menu-quit').addEventListener('click', () => {
