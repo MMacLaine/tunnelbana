@@ -329,7 +329,9 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   sim.buy(d, 'drivers');
   for (let i = 0; i < 7; i++) sim.buy(d, 'train');
   // A genuinely losing operation: a shrunken market under a bloated fleet.
-  d.srcW = d.srcW.map((w) => w * 0.2);
+  // (x0.2 until the 2026-08-04 fare rescale made that market solvent; the
+  // shrink deepens with the fare so the premise stays a loss-maker.)
+  d.srcW = d.srcW.map((w) => w * 0.08);
   sim.computeDemand(d);
   d.money = 0;
   const upkeepBefore = sim.upkeepRate(d);

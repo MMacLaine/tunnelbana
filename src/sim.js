@@ -7,7 +7,14 @@ import { ANCHORS, DISTRICTS, START_BUILT, WEST_FIRST, WATER, kmBetween, crossesW
 
 export const BAL = {
   startMoney: 300,
-  farePerKm: 2.4,          // kr per passenger-kilometre, paid as passengers board
+  farePerKm: 6,            // kr per passenger-kilometre, paid as passengers board.
+                           // Scaled with the 2026-08-04 slowdown (2.4 at the old
+                           // speeds): slower trains earn per visit, so fares must
+                           // carry part of the speed change. x5 (full cycle
+                           // compensation) made the early spawn-bound arc 2.5x
+                           // too rich (measured); x2.5 reproduces the old arc's
+                           // money curve, and late-game train margins stay far
+                           // above upkeep either way
   gravityExp: 1.4,         // distance decay for destination choice (2 makes every trip a one-stop hop)
   gravityFloorKm: 0.4,     // distances below this stop mattering to destination choice
   spawnPerSec: 1.6,        // base passengers per station per second at authored population
@@ -38,16 +45,19 @@ export const BAL = {
   // platform while passengers board at the gate rate. Game-scale units: km and
   // seconds. Short segments never reach cruise speed, so infill makes a line
   // slow as a physical consequence, not a balance constant.
-  maxSpeedKmS: 0.7,        // cruise speed; stock upgrades raise it (and accel).
-                           // Was 1.35: owner playtest 2026-08-04 read it as far
-                           // too fast; the base is deliberately sedate so the
-                           // four stock upgrades are FELT speed, not decoration.
-  accelKmS2: 1.4,          // acceleration = braking. Report 643 corrected the
+  maxSpeedKmS: 0.12,       // cruise speed; stock upgrades raise it (and accel).
+                           // Was 1.35, then 0.7: both read as far too fast in
+                           // owner playtests. A ~0.9 km hop now takes ~10 s
+                           // (real metros take minutes; the game compresses,
+                           // but watching the trains RUN is the simulation's
+                           // joy, owner ruling 2026-08-04), and the stock
+                           // upgrades are felt speed on a move-dominated trip.
+  accelKmS2: 0.04,         // acceleration = braking. Report 643 corrected the
                            // old story here: at these values a 0.36 km infill
-                           // segment DOES cruise (v^2/a = 0.35 km); the real
+                           // segment just cruises (v^2/a = 0.36 km); the real
                            // cost of an added stop is the extra accel/brake
-                           // cycle (~+0.5 s) plus the fixed dwell, so accel is
-                           // the lever if infill ever needs to hurt more
+                           // cycle (~+3 s now) plus the fixed dwell, so accel
+                           // is the lever if infill ever needs to hurt more
   minDwell: 0.2,           // fixed dwell never goes below this
   baseDwell: [0, 0.45, 0.35, 0.3],   // fixed doors/departure cost by tier (1-indexed)
   // A separate 'platforms' dwell axis was measured redundant with gates (two
@@ -93,13 +103,16 @@ export const BAL = {
 // Thresholds derived post-638 against measured greedy pacing (~2,900
 // delivered/min single-line late; multi-line projected 2-3x): gates land at
 // roughly 1h / 4h / 9h / 15h of active play on the way to the 20 h arc.
-// Coarse by design; the owner's playtests refine them.
+// Coarse by design; the owner's playtests refine them. Rescaled x0.35 with
+// the 2026-08-04 slowdown (were 120k/700k/2M/3.8M): the smoke arc measured
+// delivered-per-second at 0.35x the old rate, so the counts move with it or
+// every era silently triples in hours.
 export const ERAS = [
   { year: 1950 },
-  { year: 1952, pk: 5,  delivered: 120000 },
-  { year: 1957, pk: 12, delivered: 700000 },
-  { year: 1965, pk: 25, delivered: 2000000 },
-  { year: 1975, pk: 50, delivered: 3800000 },
+  { year: 1952, pk: 5,  delivered: 40000 },
+  { year: 1957, pk: 12, delivered: 250000 },
+  { year: 1965, pk: 25, delivered: 700000 },
+  { year: 1975, pk: 50, delivered: 1300000 },
 ];
 
 // The upgrade CATALOG (plan §6, Cookie Clicker direction): upgrades are DATA, and

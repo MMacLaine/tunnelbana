@@ -7,8 +7,11 @@
 import * as sim from '../src/sim.js';
 import { ANCHORS, WEST_FIRST } from '../src/data.js';
 
-const WARMUP = 120;
-const MEASURE = 240;
+// A trunk round trip is ~270 s at 2026-08-04 speeds; warmup must cover at
+// least one full cycle and the measurement window more than one, or the gate
+// grades transient ramp-up instead of steady state.
+const WARMUP = 360;
+const MEASURE = 360;
 const MIN_GAIN = 0.05; // kr/s a purchase must add in its scenario
 
 // The expected-fail ledger. A ledger entry must record the MEASUREMENT that
@@ -137,7 +140,10 @@ for (const c of CASES) {
 const STATION_CASES = [
   // Gates pay only when arriving trains have ROOM (640: coupled to capacity).
   { id: 'st gates',  demand: 'high', base: { drivers: 1, capacity: 2 }, kind: 'gates' },
-  { id: 'st ent',    demand: 'mid',  base: { drivers: 1, train: 4, timetable: 1 }, kind: 'ent' },
+  // Demand-side upgrades need SERVICE HEADROOM: in 'mid' at 2026-08-04 train
+  // speeds the platform caps bind between visits and extra catchment just
+  // abandons (measured +0.02). 'low' with a real fleet is where ent converts.
+  { id: 'st ent',    demand: 'low',  base: { drivers: 1, train: 4, timetable: 1 }, kind: 'ent' },
 ];
 
 function netRateStation(owned, demand, upgrade, surgeAt) {
