@@ -21,9 +21,31 @@ export const BAL = {
   upkeepPerTrainPerSec: 1.2,
   mothballShare: 0.2,      // a mothballed train costs this share of upkeep
   deficitMothballAfter: 20,// seconds broke and losing before a train auto-mothballs
-  secondsPerKm: 1.05,      // ride time from geo distance
-  dwell: 0.32,             // per-stop time added to each segment
+  // Motion model (report 634 §2a): accelerate, cruise, brake, then DWELL at the
+  // platform while passengers board at the gate rate. Game-scale units: km and
+  // seconds. Short segments never reach cruise speed, so infill makes a line
+  // slow as a physical consequence, not a balance constant.
+  maxSpeedKmS: 1.35,       // cruise speed; stock upgrades raise it (and accel)
+  accelKmS2: 5.2,          // acceleration = braking; v^2/a ≈ 0.35 km, so normal
+                           // spacing cruises while 350 m infill never does
+  minDwell: 0.2,           // fixed dwell never goes below this
+  baseDwell: [0, 0.45, 0.35, 0.3],   // fixed doors/departure cost by tier (1-indexed)
+  // A separate 'platforms' dwell axis was measured redundant with gates (two
+  // knobs on one job, one of them dead). Platforms return in M4 slice 3 as
+  // LENGTH: capping how much of a long train can load at an under-built stop.
+  gateRateBase: 60,        // passengers boarded per second of dwell
+  gateRatePerLevel: 30,    // per gates upgrade level
   headwayBase: 8,          // per-line minimum seconds between departures (signalling floor)
+  // Stations cost money to run (report 634 risk 2): tier upkeep + per upgrade level.
+  stationUpkeep: [0, 0.12, 0.35, 0.9],
+  upgradeUpkeep: 0.05,
+  tier2Cost: 1500,
+  tier3CostKr: 6000,
+  tier3CostPk: 8,
+  tier3Era: 1957,          // Knutpunkt unlocks here; T-Centralen is born one
+  upgCostBase: { ent: 500, gates: 400 },
+  upgCostGrowth: 2,
+  upgMax: 3,
   offlineDiscount: 0.7,    // offline income earns this share of the measured online rate
   seedWaiting: 8,          // passengers on a platform when it opens
   stationBase: 150,        // flat station cost, grows with network size
@@ -57,7 +79,10 @@ export const ERAS = [
 export const CATALOG = [
   { id: 'train',      base: 600,  growth: 1.6, max: 8, era: 1950, kind: 'fleet' },
   { id: 'drivers',    base: 900,  growth: 1,   max: 1, era: 1950 },
-  { id: 'timetable',  base: 1400, growth: 1.8, max: 6, era: 1950, needs: 'drivers',
+  // timetable max is 3, not 6: the value gate measured levels beyond 3 dead at
+  // any realistic fleet (the spawn ceiling drains first). Deeper signalling
+  // returns with M4's holding control and demand growth.
+  { id: 'timetable',  base: 1400, growth: 1.8, max: 3, era: 1950, needs: 'drivers',
     mult: { dispatchInterval: 0.82 } },
   { id: 'capacity',   base: 800,  growth: 1.7, max: 6, era: 1950,
     add: { trainCap: 60 } },
@@ -115,9 +140,21 @@ export const REGION_POP =
   ANCHORS.reduce((a, x) => a + (x.hub ? HUB_MULT : 1), 0) +
   DISTRICTS.reduce((a, d) => a + d.w, 0);
 
+// Station entity v2 (plan §6a slice 1): tiers Hållplats(1) / Station(2) /
+// Knutpunkt(3), three upgrade axes, demand mult COMPUTED from district budgets.
+function makeStation(name, geo, anchor, tier) {
+  return {
+    name, geo, anchor,
+    tier,
+    ent: 0, gates: 0,
+    mult: 0.15,          // placeholder until computeDemand runs
+    hub: tier >= 3,
+  };
+}
+
 function anchorStation(i) {
   const a = ANCHORS[i];
-  return { name: a.name, geo: a.geo, anchor: i, mult: a.hub ? HUB_MULT : 1, hub: !!a.hub };
+  return makeStation(a.name, a.geo, i, a.hub ? 3 : 1);
 }
 
 function newLine(stations) {
@@ -133,7 +170,7 @@ function newLine(stations) {
 export function newGame() {
   const owned = {};
   for (const u of CATALOG) owned[u.id] = 0;
-  return {
+  const g = {
     clock: 0,
     money: BAL.startMoney,
     pk: 0,
@@ -153,6 +190,11 @@ export function newGame() {
     endingSeen: false,
     events: [],
   };
+  computeDemand(g);
+  // Platforms open with a seed crowd scaled by their computed demand.
+  g.lines[0].waitingF = g.lines[0].stations.map((s) => BAL.seedWaiting * s.mult / 2);
+  g.lines[0].waitingB = g.lines[0].stations.map((s) => BAL.seedWaiting * s.mult / 2);
+  return g;
 }
 
 const GROSS_TAU = 8; // seconds; smoothing for the fares-per-second readout
@@ -185,6 +227,17 @@ export function minHeadway(g) {
 export function upkeepRate(g) {
   let r = 0;
   for (const t of g.trains) r += BAL.upkeepPerTrainPerSec * (t.mothballed ? BAL.mothballShare : 1);
+  // Stations cost money to run: tier upkeep plus per upgrade level, counted
+  // once per physical station (interchanges are one station on the ground).
+  const seen = new Set();
+  for (const L of g.lines) {
+    for (const st of L.stations) {
+      const key = st.anchor !== null ? 'a' + st.anchor : st.geo[0].toFixed(4) + ',' + st.geo[1].toFixed(4);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      r += BAL.stationUpkeep[st.tier] + BAL.upgradeUpkeep * (st.ent + st.gates);
+    }
+  }
   return r;
 }
 
@@ -223,6 +276,92 @@ export function linesAtAnchor(g, anchor) {
   return n;
 }
 
+// --- Demand: districts are population BUDGETS their stations share, not a
+// field each station samples (report 634 risk 2: field-sampling let four
+// stations extract 2.9x a district's population). Sources: every anchor is an
+// implicit small district, plus the authored blobs. Stations claim shares by
+// catchment and distance; shares per source sum to at most its budget. ---
+
+function demandSources() {
+  const src = [];
+  ANCHORS.forEach((a) => src.push({ geo: a.geo, w: a.hub ? HUB_MULT : 1, reach: 0.6 }));
+  DISTRICTS.forEach((d) => src.push({ geo: d.geo, w: d.w, reach: d.rKm }));
+  return src;
+}
+const SOURCES = demandSources();
+const DEMAND_FLOOR = 0.15;
+// The unclaimed remainder: people who walk or drive. Stations never split a
+// full budget among themselves; better catchment (entrances, tier) converts
+// more of the remainder. This is what makes 'ent' a real purchase even for a
+// station alone in its district.
+const CLAIM_SOFTNESS = 0.6;
+
+export function catchmentOf(st) {
+  return (1 + 0.35 * (st.tier - 1)) * (1 + 0.25 * st.ent);
+}
+
+// Physical stations: line entries sharing an anchor (or the same free spot)
+// are one station on the ground. Returns Map key -> { geo, catch, entries }.
+function physicalStations(g) {
+  const phys = new Map();
+  for (let li = 0; li < g.lines.length; li++) {
+    g.lines[li].stations.forEach((st, i) => {
+      const key = st.anchor !== null ? 'a' + st.anchor : st.geo[0].toFixed(4) + ',' + st.geo[1].toFixed(4);
+      if (!phys.has(key)) phys.set(key, { geo: st.geo, catch: 0, entries: [] });
+      const p = phys.get(key);
+      p.catch = Math.max(p.catch, catchmentOf(st));
+      p.entries.push([li, i]);
+    });
+  }
+  return phys;
+}
+
+export function computeDemand(g) {
+  const phys = physicalStations(g);
+  const claims = new Map(); // physKey -> total claimed
+  for (const key of phys.keys()) claims.set(key, DEMAND_FLOOR);
+  for (const s of SOURCES) {
+    let total = 0;
+    const local = [];
+    for (const [key, p] of phys) {
+      const d = kmBetween(p.geo, s.geo);
+      if (d > s.reach) continue;
+      const c = p.catch * Math.max(0, 1 - (d / s.reach) ** 2);
+      if (c > 0) { local.push([key, c]); total += c; }
+    }
+    for (const [key, c] of local) {
+      claims.set(key, claims.get(key) + s.w * (c / (total + CLAIM_SOFTNESS)));
+    }
+  }
+  for (const [key, p] of phys) {
+    const m = Math.round(claims.get(key) * 100) / 100;
+    for (const [li, i] of p.entries) g.lines[li].stations[i].mult = m;
+  }
+  // Demand weights feed the OD gravity model: invalidate every line's cache.
+  for (const L of g.lines) L.rev += 1;
+}
+
+// What a NEW station at geo would earn, given who already drinks from each
+// source (a phantom claim; used by the drag label).
+export function freeSpotValue(g, geo) {
+  const phys = physicalStations(g);
+  let m = DEMAND_FLOOR;
+  for (const s of SOURCES) {
+    const dNew = kmBetween(geo, s.geo);
+    if (dNew > s.reach) continue;
+    const cNew = Math.max(0, 1 - (dNew / s.reach) ** 2);
+    if (cNew <= 0) continue;
+    let total = cNew + CLAIM_SOFTNESS;
+    for (const p of phys.values()) {
+      const d = kmBetween(p.geo, s.geo);
+      if (d > s.reach) continue;
+      total += p.catch * Math.max(0, 1 - (d / s.reach) ** 2);
+    }
+    m += s.w * (cNew / total);
+  }
+  return Math.round(m * 100) / 100;
+}
+
 // --- Gravity origin-destination model (aggregate flows, cached per line rev) ---
 
 function od(g, li) {
@@ -249,8 +388,23 @@ function od(g, li) {
   return L._od;
 }
 
-function segTimeBetween(g, a, b) {
-  return kmBetween(a.geo, b.geo) * BAL.secondsPerKm * effectMult(g, 'speed') + BAL.dwell;
+// Accel / cruise / brake time for a segment of d km (report 634 §2a). Short
+// segments never reach cruise speed: infill physically slows the line.
+export function moveTime(g, d) {
+  const m = effectMult(g, 'speed'); // < 1 = faster stock
+  const v = BAL.maxSpeedKmS / m;
+  const a = BAL.accelKmS2 / m; // better stock also pulls away harder
+  const dCrit = (v * v) / a;   // accel + brake distance
+  return d >= dCrit ? (2 * v) / a + (d - dCrit) / v : 2 * Math.sqrt(d / a);
+}
+
+// Dwell = a fixed doors-and-departure cost (by tier) PLUS boarding time
+// through the gates. Gates shorten the crowded stops; higher tiers run a
+// tighter fixed process.
+export function dwellFor(g, st, boarded) {
+  const fixed = Math.max(BAL.minDwell, BAL.baseDwell[st.tier]);
+  const gateRate = BAL.gateRateBase + BAL.gateRatePerLevel * st.gates;
+  return fixed + boarded / gateRate;
 }
 
 function surgedAt(g, li, i) {
@@ -265,11 +419,11 @@ function board(g, train, i) {
   const run = train.run;
   const dirs = od(g, li);
   const side = run.dir === 1 ? dirs.fwd[i] : dirs.bwd[i];
-  if (!side.sum) return;
+  if (!side.sum) return 0;
   const queue = run.dir === 1 ? L.waitingF : L.waitingB;
   const room = trainCap(g) - run.onboard;
   const take = Math.min(queue[i], room);
-  if (take <= 0) return;
+  if (take <= 0) return 0;
   queue[i] -= take;
   run.onboard += take;
   let paxKm = 0;
@@ -284,6 +438,7 @@ function board(g, train, i) {
   g.grossEma += amt / GROSS_TAU;
   g.gross60 += amt / 60;
   if (amt >= 0.5) g.events.push({ type: 'payout', geo: L.stations[i].geo, amt: Math.round(amt) });
+  return take;
 }
 
 export function idleTrains(g) {
@@ -301,7 +456,8 @@ function lineWaitingTotal(g, li) {
   return s;
 }
 
-// Dispatch the next idle train on a SPECIFIC line.
+// Dispatch the next idle train on a SPECIFIC line. The run opens in a DWELL
+// phase at the origin: doors open, passengers board at the gate rate.
 export function dispatchLine(g, li) {
   const train = g.trains.find((t) => t.line === li && !t.run && !t.mothballed);
   if (!train) return false;
@@ -310,12 +466,13 @@ export function dispatchLine(g, li) {
   const next = L.stations[train.at + dir];
   if (!next) return false;
   train.run = {
-    dir, from: train.at, t: 0, onboard: 0,
+    phase: 'dwell', dir, from: train.at, t: 0, onboard: 0,
     dest: new Array(L.stations.length).fill(0),
-    dur: segTimeBetween(g, L.stations[train.at], next),
+    dur: 0,
   };
+  const took = board(g, train, train.at);
+  train.run.dur = dwellFor(g, L.stations[train.at], took);
   L.lastDispatchAt = g.clock;
-  board(g, train, train.at);
   return true;
 }
 
@@ -331,11 +488,19 @@ export function dispatch(g) {
   return bestLi >= 0 ? dispatchLine(g, bestLi) : false;
 }
 
-function arrive(g, train) {
+// Phase transitions: a dwell ends by pulling away (move), a move ends by
+// arriving (alight, then dwell or idle at a terminus).
+function advancePhase(g, train) {
   const L = g.lines[train.line];
   const run = train.run;
-  run.from += run.dir;
   run.t = 0;
+  if (run.phase === 'dwell') {
+    run.phase = 'move';
+    run.dur = moveTime(g, kmBetween(L.stations[run.from].geo, L.stations[run.from + run.dir].geo));
+    return;
+  }
+  // Arriving.
+  run.from += run.dir;
   const k = run.from;
   const off = run.dest[k] || 0;
   if (off > 0) {
@@ -352,9 +517,40 @@ function arrive(g, train) {
     train.at = k;
     train.run = null;
   } else {
-    board(g, train, k);
-    run.dur = segTimeBetween(g, L.stations[k], L.stations[k + run.dir]);
+    const took = board(g, train, k);
+    run.phase = 'dwell';
+    run.dur = dwellFor(g, L.stations[k], took);
   }
+}
+
+// Where is a train, for the renderer: {from, to, f} with f the DISTANCE
+// fraction along the segment (0 during a dwell: the dot is held at the
+// platform). Uses the accel profile, so dots visibly brake into stations.
+export function trainPos(g, train) {
+  const run = train.run;
+  if (!run) return { from: train.at, to: train.at, f: 0 };
+  if (run.phase === 'dwell') return { from: run.from, to: run.from, f: 0 };
+  const L = g.lines[train.line];
+  const d = kmBetween(L.stations[run.from].geo, L.stations[run.from + run.dir].geo);
+  const m = effectMult(g, 'speed');
+  const v = BAL.maxSpeedKmS / m;
+  const a = BAL.accelKmS2 / m;
+  const dCrit = (v * v) / a;
+  const t = Math.min(run.t, run.dur);
+  let x;
+  if (d >= dCrit) {
+    const ta = v / a;
+    if (t <= ta) x = 0.5 * a * t * t;
+    else if (t <= run.dur - ta) x = dCrit / 2 + v * (t - ta);
+    else { const tr = run.dur - t; x = d - 0.5 * a * tr * tr; }
+  } else {
+    const half = run.dur / 2;
+    const vPeak = a * half;
+    if (t <= half) x = 0.5 * a * t * t;
+    else { const tr = run.dur - t; x = d - 0.5 * a * tr * tr; }
+    void vPeak;
+  }
+  return { from: run.from, to: run.from + run.dir, f: Math.max(0, Math.min(1, x / d)) };
 }
 
 // Share of the authored regional population with quality rail access. Stations
@@ -437,7 +633,7 @@ export function tick(g, dt) {
     train.run.t += dt;
     while (train.run && train.run.t >= train.run.dur) {
       train.run.t -= train.run.dur;
-      arrive(g, train);
+      advancePhase(g, train);
     }
   }
 
@@ -535,8 +731,59 @@ export function placementProblem(g, li, end, geo) {
   return null;
 }
 
-export function freeSpotValue(geo) {
-  return densityAt(geo).mult;
+// --- Per-station upgrades (slice 1 sim; the panel UI is slice 2) ---
+// Upgrading any entry of a physical station applies to all its line entries.
+
+function entriesOfSame(g, li, i) {
+  const st = g.lines[li].stations[i];
+  const key = st.anchor !== null ? 'a' + st.anchor : st.geo[0].toFixed(4) + ',' + st.geo[1].toFixed(4);
+  const out = [];
+  for (let l2 = 0; l2 < g.lines.length; l2++) {
+    g.lines[l2].stations.forEach((s2, i2) => {
+      const k2 = s2.anchor !== null ? 'a' + s2.anchor : s2.geo[0].toFixed(4) + ',' + s2.geo[1].toFixed(4);
+      if (k2 === key) out.push([l2, i2]);
+    });
+  }
+  return out;
+}
+
+export function upgradeCost(g, li, i, kind) {
+  const st = g.lines[li].stations[i];
+  if (kind === 'tier') {
+    return st.tier === 1 ? { kr: BAL.tier2Cost } : { kr: BAL.tier3CostKr, pk: BAL.tier3CostPk };
+  }
+  return { kr: Math.round(BAL.upgCostBase[kind] * Math.pow(BAL.upgCostGrowth, st[kind])) };
+}
+
+export function canUpgradeStation(g, li, i, kind) {
+  const st = g.lines[li].stations[i];
+  const cost = upgradeCost(g, li, i, kind);
+  if (kind === 'tier') {
+    if (st.tier >= 3) return false;
+    if (st.tier === 2 && eraYear(g) < BAL.tier3Era) return false;
+  } else if (st[kind] >= BAL.upgMax) {
+    return false;
+  }
+  return g.money >= (cost.kr || 0) && g.pk >= (cost.pk || 0);
+}
+
+export function upgradeStation(g, li, i, kind) {
+  if (!canUpgradeStation(g, li, i, kind)) return false;
+  const cost = upgradeCost(g, li, i, kind);
+  g.money -= cost.kr || 0;
+  g.pk -= cost.pk || 0;
+  for (const [l2, i2] of entriesOfSame(g, li, i)) {
+    const st = g.lines[l2].stations[i2];
+    if (kind === 'tier') {
+      st.tier += 1;
+      st.hub = st.tier >= 3;
+    } else {
+      st[kind] += 1;
+    }
+  }
+  computeDemand(g);
+  g.events.push({ type: 'upgrade', geo: g.lines[li].stations[i].geo, kind });
+  return true;
 }
 
 const NUMERALS = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX', ' X'];
@@ -562,7 +809,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     station = anchorStation(anchorIdx);
   } else {
     g.freeSpots += 1;
-    station = { name: freeSpotName(g, geo), geo, anchor: null, mult: densityAt(geo).mult, hub: false };
+    station = makeStation(freeSpotName(g, geo), geo, null, 1);
   }
   const L = g.lines[li];
   if (end === 'head') {
@@ -584,6 +831,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     for (const t of g.trains) if (t.line === li && t.run) t.run.dest.push(0);
   }
   L.rev += 1;
+  computeDemand(g);
   g.events.push({ type: 'extend', geo: station.geo, name: station.name });
   return true;
 }
@@ -630,6 +878,7 @@ export function demolish(g, li, end) {
     }
   }
   L.rev += 1;
+  computeDemand(g);
   g.events.push({ type: 'demolish', geo: st.geo, name: st.name });
   return true;
 }
@@ -679,6 +928,7 @@ export function buy(g, id) {
     // gift train. T-Centralen becomes the network's first interchange.
     g.lines.push(newLine([anchorStation(0), anchorStation(WEST_FIRST)]));
     g.trains.push({ line: g.lines.length - 1, at: 0, run: null, mothballed: false });
+    computeDemand(g);
     g.events.push({ type: 'newline', geo: ANCHORS[WEST_FIRST].geo, name: ANCHORS[WEST_FIRST].name });
   }
   return true;
@@ -707,13 +957,16 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 export function serialize(g) {
   return JSON.stringify({
-    saveVersion: 6,
+    saveVersion: 7,
     savedAt: Date.now(),
     money: Math.round(g.money),
     pk: Math.round(g.pk * 100) / 100,
     era: g.era,
     lines: g.lines.map((L) => ({
-      stations: L.stations,
+      stations: L.stations.map((st) => ({
+        name: st.name, geo: st.geo, anchor: st.anchor,
+        tier: st.tier, ent: st.ent, gates: st.gates,
+      })),
       waitingF: L.waitingF.map((w) => Math.round(w)),
       waitingB: L.waitingB.map((w) => Math.round(w)),
     })),
@@ -732,19 +985,21 @@ function validStation(st) {
     Array.isArray(st.geo) && st.geo.length === 2 &&
     Number.isFinite(st.geo[0]) && Number.isFinite(st.geo[1]) &&
     st.geo[0] > 59.0 && st.geo[0] < 59.6 && st.geo[1] > 17.5 && st.geo[1] < 18.6 &&
-    (st.anchor === null || (Number.isInteger(st.anchor) && st.anchor >= 0 && st.anchor < ANCHORS.length)) &&
-    typeof st.mult === 'number' && st.mult >= 0.2 && st.mult <= HUB_MULT;
+    (st.anchor === null || (Number.isInteger(st.anchor) && st.anchor >= 0 && st.anchor < ANCHORS.length));
 }
 
 const posInt = (v, max) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));
 
-function sanitizeLine(stations, anchorShift) {
+// v7 stations carry tier + upgrade levels (v6's carried mult, now computed).
+function sanitizeLine(stations) {
   return stations.map((st) => {
-    const anchor = st.anchor === null ? null : Math.min(ANCHORS.length - 1, st.anchor + anchorShift);
-    return {
-      name: st.name, geo: [st.geo[0], st.geo[1]], anchor,
-      mult: st.mult, hub: anchor !== null && !!ANCHORS[anchor].hub,
-    };
+    const anchor = st.anchor === null ? null : Math.min(ANCHORS.length - 1, st.anchor);
+    const born3 = anchor !== null && !!ANCHORS[anchor].hub;
+    const tier = Math.max(born3 ? 3 : 1, Math.min(3, posInt(st.tier, 3) || 1));
+    const s2 = makeStation(st.name, [st.geo[0], st.geo[1]], anchor, tier);
+    s2.ent = posInt(st.ent, BAL.upgMax);
+    s2.gates = posInt(st.gates, BAL.upgMax);
+    return s2;
   });
 }
 
@@ -774,15 +1029,19 @@ export function hydrate(raw) {
   if (s.saveVersion >= 6 && Array.isArray(s.lines) && s.lines.length >= 1 &&
       s.lines.every((L) => L && okLine(L.stations)) &&
       s.lines.reduce((a, L) => a + L.stations.length, 0) <= BAL.maxStations + 16) {
-    g.lines = s.lines.map((L) => {
-      const stations = sanitizeLine(L.stations, 0);
-      return {
-        stations,
-        waitingF: stations.map((st, i) => readQueue(L.waitingF, i, st, 0.5)),
-        waitingB: stations.map((st, i) => readQueue(L.waitingB, i, st, 0.5)),
-        rev: 0,
-      };
-    });
+    g.lines = s.lines.map((L) => ({
+      stations: sanitizeLine(L.stations),
+      waitingF: [],
+      waitingB: [],
+      lastDispatchAt: -Infinity,
+      rev: 0,
+    }));
+    computeDemand(g); // multipliers derive from the network, never the save
+    for (const L of g.lines) {
+      const src = s.lines[g.lines.indexOf(L)];
+      L.waitingF = L.stations.map((st, i) => readQueue(src.waitingF, i, st, 0.5));
+      L.waitingB = L.stations.map((st, i) => readQueue(src.waitingB, i, st, 0.5));
+    }
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
     g.trains = [];
     const tr = Array.isArray(s.trains) ? s.trains.slice(0, 32) : [];

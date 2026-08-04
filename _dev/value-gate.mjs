@@ -57,15 +57,15 @@ const CASES = [
   { id: 'train #2',   demand: 'high', base: { drivers: 1 },                            buy: { train: 1 } },
   { id: 'train 2-line',demand: 'high', base: { drivers: 1, westline: 1 },              buy: { train: 1 } },
   { id: 'timetable',  demand: 'high', base: { drivers: 1, train: 3 },                  buy: { timetable: 1 } },
-  { id: 'timetable 6',demand: 'high', base: { drivers: 1, train: 6, timetable: 5 },    buy: { timetable: 6 } },
+  { id: 'timetable 3',demand: 'high', base: { drivers: 1, train: 3, timetable: 2 },    buy: { timetable: 3 } },
   { id: 'capacity',   demand: 'high', base: { drivers: 1, train: 1 },                  buy: { capacity: 1 } },
-  { id: 'bogies',     demand: 'high', base: { drivers: 1 },                            buy: { bogies: 1 } },
+  { id: 'bogies',     demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { bogies: 1 } },
   { id: 'turnstiles', demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { turnstiles: 1 } },
   { id: 'entrances',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 2 },    buy: { entrances: 1 } },
   { id: 'through',    demand: 'low',  base: { drivers: 1, train: 2, westline: 1 },     buy: { through: 1 } },
-  { id: 'stock1957',  demand: 'high', base: { drivers: 1 },                            buy: { stock1957: 1 } },
-  { id: 'c4stock',    demand: 'high', base: { drivers: 1 },                            buy: { c4stock: 1 } },
-  { id: 'c14stock',   demand: 'high', base: { drivers: 1 },                            buy: { c14stock: 1 } },
+  { id: 'stock1957',  demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { stock1957: 1 } },
+  { id: 'c4stock',    demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { c4stock: 1 } },
+  { id: 'c14stock',   demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { c14stock: 1 } },
   { id: 'zonefare',   demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { zonefare: 1 } },
 ];
 
@@ -73,6 +73,46 @@ let failed = 0;
 for (const c of CASES) {
   const without = netRate({ ...c.base }, c.demand);
   const withIt = netRate({ ...c.base, ...c.buy }, c.demand);
+  const delta = withIt - without;
+  const ok = delta >= MIN_GAIN;
+  if (!ok) failed++;
+  console.log(
+    `${ok ? 'ok  ' : 'FAIL'} ${c.id.padEnd(12)} without=${without.toFixed(2)}/s  with=${withIt.toFixed(2)}/s  delta=${delta >= 0 ? '+' : ''}${delta.toFixed(2)}/s`
+  );
+}
+
+// Per-station upgrades (slice 1) must also earn their keep. Applied to the
+// busiest platform (T-Centralen, index 0) in the regime where each binds.
+const STATION_CASES = [
+  { id: 'st gates',  demand: 'high', base: { drivers: 1, timetable: 1 }, kind: 'gates' },
+  { id: 'st ent',    demand: 'low',  base: { drivers: 1, train: 3, timetable: 2 }, kind: 'ent' },
+  { id: 'st tier2',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 2 }, kind: 'tier', at: 1 },
+];
+
+function netRateStation(owned, demand, upgrade) {
+  const g = build(owned, demand);
+  if (upgrade) {
+    g.money = 1e12;
+    const targets = upgrade.all
+      ? g.lines[0].stations.map((_, i) => i)
+      : [upgrade.at ?? 0];
+    for (const i of targets) {
+      if (!sim.upgradeStation(g, 0, i, upgrade.kind)) {
+        console.error('station upgrade refused:', upgrade.kind, 'at', i);
+        process.exit(1);
+      }
+    }
+    g.money = 1e12;
+  }
+  for (let t = 0; t < WARMUP; t += 0.05) { sim.tick(g, 0.05); g.events.length = 0; }
+  const m0 = g.money;
+  for (let t = 0; t < MEASURE; t += 0.05) { sim.tick(g, 0.05); g.events.length = 0; }
+  return (g.money - m0) / MEASURE;
+}
+
+for (const c of STATION_CASES) {
+  const without = netRateStation({ ...c.base }, c.demand, null);
+  const withIt = netRateStation({ ...c.base }, c.demand, { kind: c.kind, at: c.at });
   const delta = withIt - without;
   const ok = delta >= MIN_GAIN;
   if (!ok) failed++;

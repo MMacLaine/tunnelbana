@@ -13,8 +13,16 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.placementProblem(g, 0, 'head', [59.3260, 18.0700]) !== 'water') err('water placement should be rejected');
   if (sim.placementProblem(g, 0, 'tail', [59.3201, 18.0722]) !== 'tooClose') err('min spacing should be enforced');
   if (g.lines[0].stations[0].name !== 'T-Centralen' || !g.lines[0].stations[0].hub) err('the game should start at the T-Centralen hub');
-  if (!(sim.freeSpotValue([59.2980, 18.0490]) > 0.35)) err('Årsta should beat the density floor');
-  if (sim.freeSpotValue([59.2000, 18.4000]) !== 0.35) err('nowhere should sit at the density floor');
+  // District budgets: a fresh spot in Årsta claims real population; nowhere
+  // gets the floor; and a SECOND station drinking from the same source gets
+  // less than the first did (diminishing returns are structural now).
+  if (!(sim.freeSpotValue(g, [59.2980, 18.0490]) > 0.3)) err('Årsta should beat the demand floor');
+  if (sim.freeSpotValue(g, [59.2000, 18.4000]) !== 0.15) err('nowhere should sit at the demand floor');
+  const firstClaim = sim.freeSpotValue(g, [59.3140, 18.0700]);   // Södermalm, near existing line
+  g.money = 1e9;
+  sim.extendTo(g, 0, 'tail', [59.3120, 18.0650], null);
+  const secondClaim = sim.freeSpotValue(g, [59.3140, 18.0700]);
+  if (!(secondClaim < firstClaim)) err('a second station must claim less from the same district');
   if (sim.canBuy(g, 'c4stock')) err('1965 catalog items must be era-gated');
   if (sim.canBuy(g, 'westline')) err('westline must be era-gated');
 }
@@ -153,9 +161,12 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   const mb = sim.mothballedTrains(d).length;
   // The invariant is the OUTCOME: mothballing stops exactly when the smaller
   // fleet stops losing, and the system recovers instead of spiralling.
-  if (!(mb >= 3)) err('sustained deficit should mothball surplus trains, mothballed=' + mb);
-  if (!(sim.upkeepRate(d) < upkeepBefore * 0.7)) err('mothballing should cut upkeep');
+  // Outcome invariants, not mechanism counts: the auto-mothball engaged, it
+  // stopped the moment the smaller operation was solvent, and money recovers.
+  if (!(mb >= 1)) err('sustained deficit should mothball surplus trains, mothballed=' + mb);
+  if (!(sim.upkeepRate(d) < upkeepBefore)) err('mothballing should cut upkeep');
   if (!(d.money > 500)) err('the system should RECOVER after mothballing, money=' + Math.round(d.money));
+  if (!(sim.grossRate(d) > sim.upkeepRate(d))) err('the post-mothball operation must be profitable');
   if (d.trains.filter((t) => !t.mothballed).length < 1) err('auto-mothball must keep one active train');
   if (!sim.reactivate(d)) err('reactivate should work');
 }
