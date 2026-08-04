@@ -309,6 +309,18 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!done || g.lines[0].stations.length !== before - 1) err('demolish head failed');
 }
 
+// A parked idle train must not block demolition (owner hit it 2026-08-04):
+// trains rest at exactly the ends a player may demolish; they relocate.
+{
+  const p = sim.newGame();
+  p.money = 1e6;
+  sim.extendTo(p, 0, 'tail', ANCHORS[3].geo, 3);
+  const last = p.lines[0].stations.length - 1;
+  p.trains[0].at = last; // parked at the doomed tail, idle
+  if (!sim.demolish(p, 0, 'tail')) err('idle train at the end must not block demolition');
+  if (p.trains[0].at !== p.lines[0].stations.length - 1) err('the parked train should relocate to the surviving end');
+}
+
 // Save round-trip preserves the network, era, catalog levels, and pk.
 {
   const back = sim.hydrate(sim.serialize(g));
