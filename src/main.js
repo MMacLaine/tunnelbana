@@ -16,6 +16,18 @@ const STR = {
     'real stations with full demand, anywhere else earns what the label says. Right-click a line end ' +
     'to demolish it (' + B.demolishCost + ' kr). Political capital (pk) grows with how much of the ' +
     'region you serve. Esc for the menu.',
+  tiers: ['', 'Hållplats', 'Station', 'Knutpunkt'],
+  tierUp: ['', 'Upgrade to Station', 'Upgrade to Knutpunkt', ''],
+  tierMax: 'Knutpunkt, fully built',
+  tierEraGate: 'Knutpunkt unlocks in 1957',
+  entRow: 'Entrances',
+  gatesRow: 'Gates',
+  panelDemand: 'Demand',
+  panelWaiting: 'Waiting',
+  panelCrowd: 'Crowding',
+  panelUpkeep: 'Upkeep',
+  panelTop: 'Passengers head for',
+  lvl: 'lvl',
   mothballBtn: 'Mothball idle train',
   reactivateBtn: 'Reactivate train',
   mothballedFloat: 'mothballed',
@@ -373,9 +385,12 @@ function dragState(p) {
   return { x: p.x, y: p.y, li: dragRef.li, end: dragRef.end, snap, geo, cost, problem, label };
 }
 
+let downAt = null; // for click-vs-drag discrimination
+
 wrap.addEventListener('pointerdown', (e) => {
   if (paused || e.button === 2) return;
   const p = canvasPos(e);
+  downAt = p;
   const ref = render.nearEnd(g, p);
   if (ref) {
     dragRef = ref;
@@ -385,6 +400,15 @@ wrap.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     return;
   }
+  // A built station (not a grabbable end): select it for the panel.
+  const st = render.nearStation(g, p);
+  if (st) {
+    selectStation(st);
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
+  selectStation(null); // clicking empty map clears the panel (pan still works)
   // Click on a dashed anchor ring: extend from the nearest legal line end.
   const a = render.nearAnchor(g, p, null);
   if (a !== null) {
@@ -417,8 +441,15 @@ wrap.addEventListener('pointermove', (e) => {
 
 function endDrag(e) {
   if (!dragRef) return;
-  const d = dragState(canvasPos(e));
-  tryExtend(d);
+  const p = canvasPos(e);
+  // A click on a line end (no real drag) selects the station instead of
+  // attempting a zero-length extension.
+  if (downAt && Math.hypot(p.x - downAt.x, p.y - downAt.y) < 6) {
+    const L = g.lines[dragRef.li];
+    selectStation({ li: dragRef.li, i: dragRef.end === 'head' ? 0 : L.stations.length - 1 });
+  } else {
+    tryExtend(dragState(p));
+  }
   dragRef = null;
   render.setDrag(null);
   if (map) map.dragPan.enable();
@@ -452,6 +483,70 @@ wrap.addEventListener('contextmenu', (e) => {
     render.addFloatGeo(sim.endStation(g, ref.li, ref.end).geo, STR.cantDemolish);
   }
 });
+
+// --- Station panel: the diagnostic plus shop for the selected station ---
+let selected = null; // {li, i} | null
+
+function selectStation(sel) {
+  selected = sel;
+  render.setSelected(sel);
+  $('station-panel').hidden = !sel;
+  if (sel) updateStationPanel();
+}
+
+function stationUpgRow(kind) {
+  const st = g.lines[selected.li].stations[selected.i];
+  const btn = $('sp-' + kind);
+  const cost = sim.upgradeCost(g, selected.li, selected.i, kind);
+  const lvl = st[kind];
+  btn.textContent = (kind === 'ent' ? STR.entRow : STR.gatesRow) +
+    ' ' + STR.lvl + ' ' + lvl + '/' + B.upgMax +
+    (lvl >= B.upgMax ? '' : ' · ' + fmt(cost.kr) + ' kr');
+  btn.disabled = !sim.canUpgradeStation(g, selected.li, selected.i, kind);
+}
+
+function updateStationPanel() {
+  if (!selected) return;
+  const L = g.lines[selected.li];
+  const st = L.stations[selected.i];
+  if (!st) { selectStation(null); return; }
+  $('sp-name').textContent = st.name;
+  $('sp-tier').textContent = STR.tiers[st.tier];
+  const waiting = Math.floor(sim.waitingAt(g, selected.li, selected.i));
+  const crowd = Math.round(100 * waiting / (sim.stationCap(g) * st.mult));
+  const upk = (B.stationUpkeep[st.tier] + B.upgradeUpkeep * (st.ent + st.gates)).toFixed(2);
+  $('sp-stats').textContent =
+    STR.panelDemand + ' ' + st.mult.toFixed(2) + 'x · ' +
+    STR.panelWaiting + ' ' + waiting + ' · ' +
+    STR.panelCrowd + ' ' + crowd + '% · ' +
+    STR.panelUpkeep + ' ' + upk + ' kr/s';
+  // Where this platform's crowd wants to go (read from the OD weights).
+  const dirs = sim.odWeights(g, selected.li, selected.i);
+  $('sp-dest').textContent = dirs.length
+    ? STR.panelTop + ': ' + dirs.map((d) => d.name + ' ' + Math.round(d.share * 100) + '%').join(' · ')
+    : '';
+  const tierBtn = $('sp-tier-btn');
+  if (st.tier >= 3) {
+    tierBtn.textContent = STR.tierMax;
+    tierBtn.disabled = true;
+  } else {
+    const cost = sim.upgradeCost(g, selected.li, selected.i, 'tier');
+    const gated = st.tier === 2 && sim.eraYear(g) < B.tier3Era;
+    tierBtn.textContent = gated
+      ? STR.tierEraGate
+      : STR.tierUp[st.tier] + ' · ' + fmt(cost.kr) + ' kr' + (cost.pk ? ' + ' + cost.pk + ' pk' : '');
+    tierBtn.disabled = !sim.canUpgradeStation(g, selected.li, selected.i, 'tier');
+  }
+  stationUpgRow('ent');
+  stationUpgRow('gates');
+}
+
+for (const kind of ['tier', 'ent', 'gates']) {
+  $('sp-' + (kind === 'tier' ? 'tier-btn' : kind)).addEventListener('click', () => {
+    if (selected && sim.upgradeStation(g, selected.li, selected.i, kind)) updateUI();
+  });
+}
+$('sp-close').addEventListener('click', () => selectStation(null));
 
 // --- Shop ---
 const shopEl = $('shop');
@@ -529,6 +624,7 @@ function updateUI() {
   $('btn-reactivate').disabled = mb === 0;
   bell.querySelector('.bell-sub').textContent =
     sim.idleTrains(g).length ? STR.dispatchSub : STR.noIdle;
+  if (selected) updateStationPanel();
   updateShop();
 }
 
