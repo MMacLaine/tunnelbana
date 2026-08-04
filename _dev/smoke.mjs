@@ -163,9 +163,11 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   const m = sim.newGame();
   m.money = 1e6;
   m.pk = 50;
-  const runningBefore = sim.runningLinesAtAnchor(m, 0);
-  sim.foundLine(m, 0, 0); // empty one-station line, no train assigned there yet? it has none
-  if (sim.runningLinesAtAnchor(m, 0) !== runningBefore) err('an empty chartered line must not count as running');
+  sim.foundLine(m, 0, 0); // an empty one-station line
+  // Network M5: a one-station line has no ride edges, so it attracts NO queue
+  // (the old transfer-spawn farm is structurally impossible).
+  for (let t = 0; t < 20; t += 0.05) { sim.tick(m, 0.05); m.events.length = 0; }
+  if (sim.waitingAt(m, 1, 0) !== 0) err('an empty chartered line must attract no passengers');
   const fee = sim.BAL.moveTrainKr;
   m.money = fee - 1;
   if (sim.moveTrain(m, 1) !== false) err('moveTrain must respect the fee');
@@ -177,6 +179,20 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!sim.downgradeTier(d2, 0, 1)) err('downgrade should work');
   if (d2.lines[0].stations[1].tier !== 1) err('downgrade should shed the tier');
   if (sim.canDowngradeTier(d2, 0, 0)) err('a born Knutpunkt must keep its rank');
+}
+
+// M5: journeys CROSS LINES. With two running lines sharing T-Centralen,
+// transfer events must occur (passengers alighting to continue on the other
+// line), which is the thing transferSpawn only pretended to be.
+{
+  let transfers = 0;
+  for (let t = 0; t < 90; t += 0.05) {
+    sim.tick(g, 0.05);
+    if (Math.floor(t * 20) % 10 === 0) sim.dispatch(g);
+    for (const e of g.events) if (e.type === 'transfer') transfers += e.n;
+    g.events.length = 0;
+  }
+  if (!(transfers > 0)) err('cross-line journeys should produce transfers at the hub');
 }
 
 // Demolition still works, per line.
