@@ -370,6 +370,57 @@ function linePoints(L) {
   return L.stations.map((s) => project(s.geo));
 }
 
+// Trunk segments served by several lines draw side by side (a small
+// perpendicular offset per service), the Mini Metro read for a branch. Train
+// dots keep the true geometry and run between the strokes; acceptable.
+function stKey(s) {
+  return s.anchor !== null ? 'a' + s.anchor : s.geo[0].toFixed(4) + ',' + s.geo[1].toFixed(4);
+}
+
+function segKey(a, b) {
+  const ka = stKey(a), kb = stKey(b);
+  return ka < kb ? ka + '|' + kb : kb + '|' + ka;
+}
+
+function drawAllLines(g) {
+  const owners = new Map(); // segKey -> [line indices, ascending]
+  g.lines.forEach((L, li) => {
+    for (let i = 0; i + 1 < L.stations.length; i++) {
+      const k = segKey(L.stations[i], L.stations[i + 1]);
+      if (!owners.has(k)) owners.set(k, []);
+      owners.get(k).push(li);
+    }
+  });
+  g.lines.forEach((L, li) => {
+    if (L.stations.length < 2) return;
+    const P = linePoints(L);
+    let shared = false;
+    for (let i = 0; i + 1 < L.stations.length; i++) {
+      if (owners.get(segKey(L.stations[i], L.stations[i + 1])).length > 1) { shared = true; break; }
+    }
+    if (!shared) { drawLinePath(P, L.color); return; }
+    // Per-segment strokes so shared stretches can shift sideways; the smooth
+    // arcTo corners only exist on unshared lines, a fair trade for legibility.
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = L.color;
+    for (let i = 0; i + 1 < L.stations.length; i++) {
+      const list = owners.get(segKey(L.stations[i], L.stations[i + 1]));
+      const off = list.length > 1 ? (list.indexOf(li) - (list.length - 1) / 2) * 7 : 0;
+      let ax = P[i].x, ay = P[i].y, bx = P[i + 1].x, by = P[i + 1].y;
+      if (off) {
+        const len = Math.hypot(bx - ax, by - ay) || 1;
+        const nx = (-(by - ay) / len) * off, ny = ((bx - ax) / len) * off;
+        ax += nx; ay += ny; bx += nx; by += ny;
+      }
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+    }
+  });
+}
+
 function drawLinePath(P, color) {
   ctx.beginPath();
   ctx.moveTo(P[0].x, P[0].y);
@@ -609,7 +660,7 @@ export function draw(g) {
   drawGlow(g);
   drawTease(g);
   drawAnchors(g);
-  for (const L of g.lines) { if (L.stations.length >= 2) drawLinePath(linePoints(L), L.color); }
+  drawAllLines(g);
   drawEndHandles(g);
   drawDragPreview(g);
   drawStations(g);

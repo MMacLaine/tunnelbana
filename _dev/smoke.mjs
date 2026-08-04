@@ -195,6 +195,64 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!(transfers > 0)) err('cross-line journeys should produce transfers at the hub');
 }
 
+// M5 slice 3: BRANCHING as overlapping services on a shared trunk (report 634
+// idea 7). Sharing another line's station requires tier 2 (the junction gate),
+// bills track only, adds no station on the ground, and the new entry copies
+// the twin's built state so per-entry tier/gates never desync.
+{
+  const b = sim.newGame();
+  b.money = 1e9;
+  b.pk = 1e6;
+  b.era = sim.ERAS.length - 1;
+  // Trunk: T-Centralen south to Skärmarbrink (anchors 0..6).
+  while (b.lines[0].stations.length < 7) {
+    sim.extendTo(b, 0, 'tail', ANCHORS[b.lines[0].stations.length].geo, b.lines[0].stations.length);
+  }
+  // Charter the branch service at the hub.
+  if (!sim.foundLine(b, 0, 0)) err('branch charter at the hub failed');
+  // Junction gate: Gamla stan is tier 1, sharing must refuse with the reason.
+  if (sim.placementProblem(b, 1, 'tail', ANCHORS[1].geo) !== 'needsTier2') err('sharing a tier-1 station must report needsTier2');
+  if (sim.extendTo(b, 1, 'tail', ANCHORS[1].geo, 1)) err('extendTo must respect the junction gate');
+  // Build the junctions: tier 2 on the trunk stations the branch will share,
+  // gates on one to prove built state copies over.
+  sim.upgradeStation(b, 0, 1, 'tier');
+  sim.upgradeStation(b, 0, 2, 'tier');
+  sim.upgradeStation(b, 0, 1, 'gates');
+  if (sim.junctionPreview(b, 1, ANCHORS[1].geo)?.name !== 'Gamla stan') err('junctionPreview should name the share target');
+  const physBefore = sim.stationCount(b);
+  const cost = sim.extensionCost(b, 1, 'tail', ANCHORS[1].geo);
+  // Track only (the T-C to Gamla stan hop crosses water, so 2x per km), no
+  // station part: the station-part floor alone is stationBase * growth^4 here.
+  const stationPart = sim.BAL.stationBase * Math.pow(sim.BAL.stationGrowth, physBefore - 3);
+  if (!(cost < stationPart)) err('sharing must bill track only, got ' + cost);
+  const moneyBefore = b.money;
+  if (!sim.extendTo(b, 1, 'tail', ANCHORS[1].geo, 1)) err('sharing a tier-2 station should work');
+  if (Math.round(moneyBefore - b.money) !== cost) err('share cost mismatch');
+  if (sim.stationCount(b) !== physBefore) err('a junction must not add a station on the ground');
+  const shared = b.lines[1].stations[1];
+  if (shared.tier !== 2 || shared.gates !== 1) err('shared entry must copy the twin built state');
+  // Share one more trunk stop, then diverge to fresh ground: a real branch.
+  if (!sim.extendTo(b, 1, 'tail', ANCHORS[2].geo, 2)) err('second trunk share failed');
+  if (!sim.extendTo(b, 1, 'tail', ANCHORS[7].geo, 7)) err('branch divergence failed');
+  // Both services run; the shared trunk splits riders between them.
+  b.owned.drivers = 1;
+  b.trains.push({ line: 0, at: 0, run: null, mothballed: false, readyAt: 0 });
+  b.trains.push({ line: 1, at: 0, run: null, mothballed: false, readyAt: 0 });
+  const d0 = b.totalDelivered;
+  let branchBoarded = false;
+  for (let t = 0; t < 90; t += 0.05) {
+    sim.tick(b, 0.05);
+    b.events.length = 0;
+    if (sim.waitingAt(b, 1, 1) > 0) branchBoarded = true;
+  }
+  if (!(b.totalDelivered > d0)) err('the branched network should deliver');
+  if (!branchBoarded) err('the branch service should attract riders on the shared trunk');
+  // Save round-trip keeps the junctions shared.
+  const back = sim.hydrate(sim.serialize(b));
+  if (sim.stationCount(back) !== sim.stationCount(b)) err('save round-trip must keep junctions shared');
+  if (back.lines[1].stations[1].tier !== 2) err('save round-trip lost the shared entry tier');
+}
+
 // Demolition still works, per line.
 {
   const before = g.lines[0].stations.length;
