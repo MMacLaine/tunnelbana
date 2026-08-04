@@ -61,6 +61,18 @@ export const WATER = [
     label: 'Söderström',
     ring: [[59.3226, 18.0400], [59.3226, 18.1500], [59.3210, 18.1500], [59.3210, 18.0400]],
   },
+  { // Strömmen / Saltsjön, the open bay east of Gamla stan and Slussen (owner
+    // built a floating station here 2026-08-04; the bands above never covered
+    // it). Crude like its siblings: it also blankets western Djurgården,
+    // which has no tube station in reality either.
+    label: 'Strömmen',
+    ring: [[59.3310, 18.0790], [59.3310, 18.1500], [59.3200, 18.1500], [59.3200, 18.0790]],
+  },
+  { // Riddarfjärden proper, the open water west of Gamla stan (the band above
+    // only covers the Norrström strip; the fjärd itself was buildable).
+    label: 'Riddarfjärden väst',
+    ring: [[59.3285, 18.0300], [59.3285, 18.0660], [59.3220, 18.0660], [59.3220, 18.0300]],
+  },
   { // Hammarby sjö / kanal, between Skanstull and Gullmarsplan
     label: 'Hammarby sjö',
     ring: [[59.3046, 18.0400], [59.3046, 18.1500], [59.3008, 18.1500], [59.3008, 18.0400]],
