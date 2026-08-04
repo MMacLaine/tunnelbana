@@ -233,15 +233,21 @@
   }
   .stats span { color: var(--ink); }
 
-  #hud-br {
-    bottom: 0.4rem;
-    right: 0.6rem;
+  #hud-br { bottom: 0.5rem; right: 0.6rem; }
+  #about-mark {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--panel-t);
+    border: 1px solid var(--line);
     color: var(--muted);
-    font-size: 0.6rem;
-    text-align: right;
-    opacity: 0.85;
+    cursor: pointer;
+    border-radius: 50%;
   }
-  #hud-br a { color: inherit; }
+  #about-mark:hover { color: var(--ink); border-color: var(--green); }
+  #about-view a { color: inherit; }
+  #about-view .setting-row span:last-child { color: var(--ink); }
 
   /* Menu */
   #menu {
@@ -383,8 +389,7 @@
   </div>
 
   <div class="hud" id="hud-br">
-    Unofficial fan work · not affiliated with any transit operator or Region Stockholm<br>
-    Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · tiles by <a href="https://openfreemap.org">OpenFreeMap</a>
+    <button id="about-mark" aria-label="About and credits">&copy;</button>
   </div>
 
   <div id="moment" hidden>
@@ -403,12 +408,30 @@
         <p class="menu-note" id="offline-note" hidden style="color: var(--amber); margin-top: 0;"></p>
         <button class="menu-btn primary" id="menu-resume">Start</button>
         <button class="menu-btn" id="menu-settings">Settings</button>
+        <button class="menu-btn" id="menu-about">About</button>
         <button class="menu-btn" id="menu-quit" hidden>Quit to menu</button>
         <p class="menu-note">
           An incremental game about building Stockholm's rail transit, starting from the
           1950 tunnelbana. Unofficial fan work, not affiliated with any transit operator
           or Region Stockholm. Everything you see is subject to change.
         </p>
+      </div>
+      <div id="about-view" hidden>
+        <h1>OM SPELET</h1>
+        <p class="sub">Tunnelbana · Build Stockholm</p>
+        <p class="menu-note" style="margin-top:0">
+          An incremental game about building Stockholm's rail transit, from the first
+          tunnel of 1950 outward. Unofficial fan work: not affiliated with any transit
+          operator or Region Stockholm. Station names and geography are facts of the
+          city; everything else is a game.
+        </p>
+        <div class="setting-row"><span>Map data</span><span>&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</span></div>
+        <div class="setting-row"><span>Map tiles</span><span><a href="https://openfreemap.org">OpenFreeMap</a></span></div>
+        <div class="setting-row"><span>Map engine</span><span><a href="https://maplibre.org">MapLibre GL JS</a> (BSD-3)</span></div>
+        <div class="setting-row"><span>Typeface</span><span>IBM Plex Mono (SIL OFL)</span></div>
+        <div class="setting-row"><span>Visual system</span><span>Tunnelbana pass 01</span></div>
+        <div class="setting-row"><span>A game by</span><span>Matthew MacLaine</span></div>
+        <button class="menu-btn" id="about-back" style="margin-top:1rem">Back</button>
       </div>
       <div id="settings-view" hidden>
         <h1>SETTINGS</h1>

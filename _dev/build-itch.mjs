@@ -19,7 +19,7 @@ for (const item of INCLUDE) {
 // Guard: the shipped page may reference exactly one external host (the tiles).
 const html = readFileSync(join(STAGE, 'index.html'), 'utf8');
 const externals = [...html.matchAll(/https?:\/\/([^/"'\s]+)/g)].map((m) => m[1]);
-const allowed = new Set(['openfreemap.org', 'www.openstreetmap.org']);
+const allowed = new Set(['openfreemap.org', 'www.openstreetmap.org', 'maplibre.org']); // credit links, not runtime deps
 const bad = externals.filter((h) => !allowed.has(h));
 if (bad.length) {
   console.error('UNEXPECTED EXTERNAL HOSTS in index.html:', bad.join(', '));
