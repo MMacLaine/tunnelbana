@@ -22,7 +22,8 @@ export const BAL = {
   eveningMult: 1.3,        // spawn in the evening peak (outbound-biased)
   nightMult: 0.35,         // spawn at night
   peakBias: 0.5,           // how hard peaks bend the direction split toward/away the hub
-  holdGap: 0.9,            // ATC holding: minimum spacing (stations) between trains
+  holdShare: 0.75,         // ATC holds a departure until this share of the headway
+                           // floor has passed since the last same-direction departure
   holdDwell: 0.4,          // seconds a held train waits before re-checking
   trainCapBase: 120,
   upkeepPerTrainPerSec: 1.2,
@@ -42,7 +43,8 @@ export const BAL = {
   // LENGTH: capping how much of a long train can load at an under-built stop.
   gateRateBase: 110,       // passengers boarded per second of dwell
   gateRatePerLevel: 45,    // per gates upgrade level
-  headwayBase: 8,          // per-line minimum seconds between departures (signalling floor)
+  headwayBase: 8,          // minimum seconds between departures FROM A TERMINUS (signalling floor)
+  turnaroundS: 2.5,        // a train needs this long to turn at a terminus
   // Stations cost money to run (report 634 risk 2): tier upkeep + per upgrade level.
   stationUpkeep: [0, 0.12, 0.35, 0.9],
   upgradeUpkeep: 0.05,
@@ -195,7 +197,9 @@ function newLine(stations, colorIdx) {
     waitingB: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     left60: stations.map(() => 0),
     leaveAcc: stations.map(() => 0),
-    lastDispatchAt: -Infinity,
+    lastDepart: [-Infinity, -Infinity], // per end: [head, tail]
+    lastPassF: stations.map(() => -Infinity), // last forward departure per station
+    lastPassB: stations.map(() => -Infinity),
     rev: 0,
   };
 }
@@ -209,7 +213,7 @@ export function newGame() {
     pk: 0,
     era: 0,
     lines: [newLine(Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)), 0)],
-    trains: [{ line: 0, at: 0, run: null, mothballed: false }],
+    trains: [{ line: 0, at: 0, run: null, mothballed: false, readyAt: 0 }],
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -589,24 +593,38 @@ function lineWaitingTotal(g, li) {
   return s;
 }
 
-// Dispatch the next idle train on a SPECIFIC line. The run opens in a DWELL
+// Dispatch a specific idle train from a specific END. The run opens in a DWELL
 // phase at the origin: doors open, passengers board at the gate rate.
-export function dispatchLine(g, li) {
-  const train = g.trains.find((t) => t.line === li && !t.run && !t.mothballed);
-  if (!train) return false;
+export function dispatchFrom(g, li, end, ignoreReady) {
   const L = g.lines[li];
-  const dir = train.at === 0 ? 1 : -1;
-  const next = L.stations[train.at + dir];
+  const idx = end === 'head' ? 0 : L.stations.length - 1;
+  const train = g.trains.find((t) =>
+    t.line === li && !t.run && !t.mothballed && t.at === idx &&
+    (ignoreReady || g.clock >= t.readyAt));
+  if (!train) return false;
+  const dir = idx === 0 ? 1 : -1;
+  const next = L.stations[idx + dir];
   if (!next) return false;
   train.run = {
-    phase: 'dwell', dir, from: train.at, t: 0, onboard: 0,
+    phase: 'dwell', dir, from: idx, t: 0, onboard: 0,
     dest: new Array(L.stations.length).fill(0),
     dur: 0,
   };
-  const took = board(g, train, train.at);
-  train.run.dur = dwellFor(g, L.stations[train.at], took);
-  L.lastDispatchAt = g.clock;
+  const took = board(g, train, idx);
+  train.run.dur = dwellFor(g, L.stations[idx], took);
+  L.lastDepart[end === 'head' ? 0 : 1] = g.clock;
   return true;
+}
+
+// The bell (and probes): pick the hungrier end; the bell may override the
+// turnaround wait (you are literally pushing the service out).
+export function dispatchLine(g, li) {
+  const L = g.lines[li];
+  const headQ = L.waitingF[0] || 0;
+  const tailQ = L.waitingB[L.stations.length - 1] || 0;
+  const first = headQ >= tailQ ? 'head' : 'tail';
+  const second = first === 'head' ? 'tail' : 'head';
+  return dispatchFrom(g, li, first, true) || dispatchFrom(g, li, second, true);
 }
 
 // The bell: dispatch on the line with the most waiting PER STATION (absolute
@@ -628,22 +646,16 @@ function advancePhase(g, train) {
   const run = train.run;
   run.t = 0;
   if (run.phase === 'dwell') {
-    // ATC holding (report 634 §3 risk 1): do not pull away onto the tail of
-    // the train ahead; wait and re-check. Without ATC, trains bunch.
-    if (g.owned.atc) {
-      for (const other of g.trains) {
-        if (other === train || other.line !== train.line || !other.run) continue;
-        const o = other.run;
-        if (o.dir !== run.dir) continue;
-        const myPos = run.from;
-        const oPos = o.from + (o.phase === 'move' ? o.dir * Math.min(1, o.t / o.dur) : 0);
-        const gap = (oPos - myPos) * run.dir;
-        if (gap > 0 && gap < BAL.holdGap) {
-          run.dur = BAL.holdDwell; // hold at the platform, doors open
-          return;
-        }
-      }
+    // ATC holding is HEADWAY-based (report 640 follow-through): a train may not
+    // depart a platform sooner than holdShare of the signalling floor after the
+    // previous same-direction departure from it. Irregular service smooths out;
+    // without ATC, gaps swing freely and platforms feel it.
+    const lastPass = run.dir === 1 ? L.lastPassF : L.lastPassB;
+    if (g.owned.atc && g.clock - lastPass[run.from] < minHeadway(g) * BAL.holdShare) {
+      run.dur = BAL.holdDwell; // hold at the platform, doors open
+      return;
     }
+    lastPass[run.from] = g.clock;
     run.phase = 'move';
     run.dur = moveTime(g, kmBetween(L.stations[run.from].geo, L.stations[run.from + run.dir].geo));
     return;
@@ -665,6 +677,7 @@ function advancePhase(g, train) {
     g.deliv60 += Math.max(0, run.onboard) / 60;
     train.at = k;
     train.run = null;
+    train.readyAt = g.clock + BAL.turnaroundS;
   } else {
     const took = board(g, train, k);
     run.phase = 'dwell';
@@ -814,13 +827,16 @@ export function tick(g, dt) {
     }
   }
 
-  // Drivers run each line's service independently: a departure whenever the
-  // signalling floor allows and an idle train is home. Fleet size and headway
-  // upgrades both become real, per line (report 634 §1b/§1d).
+  // Drivers: EVENT-DRIVEN turnaround (638 §2, 640 ordering). A train departs
+  // when it has arrived, turned around, and its terminus has had the headway
+  // floor since the LAST departure from that end. Departure timing is now
+  // emergent, so delays can compound: bunching exists, and holding matters.
   if (g.owned.drivers) {
     const floor = minHeadway(g);
     for (let li = 0; li < g.lines.length; li++) {
-      if (g.clock - g.lines[li].lastDispatchAt >= floor) dispatchLine(g, li);
+      const L = g.lines[li];
+      if (g.clock - L.lastDepart[0] >= floor) dispatchFrom(g, li, 'head', false);
+      if (g.clock - L.lastDepart[1] >= floor) dispatchFrom(g, li, 'tail', false);
     }
   }
 
@@ -999,6 +1015,8 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.waitingB.unshift(BAL.seedWaiting * station.mult / 2);
     L.left60.unshift(0);
     L.leaveAcc.unshift(0);
+    L.lastPassF.unshift(-Infinity);
+    L.lastPassB.unshift(-Infinity);
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at += 1;
@@ -1013,6 +1031,8 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.waitingB.push(BAL.seedWaiting * station.mult / 2);
     L.left60.push(0);
     L.leaveAcc.push(0);
+    L.lastPassF.push(-Infinity);
+    L.lastPassB.push(-Infinity);
     for (const t of g.trains) if (t.line === li && t.run) t.run.dest.push(0);
   }
   L.rev += 1;
@@ -1046,6 +1066,8 @@ export function demolish(g, li, end) {
     L.waitingB.shift();
     L.left60.shift();
     L.leaveAcc.shift();
+    L.lastPassF.shift();
+    L.lastPassB.shift();
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at = Math.max(0, t.at - 1);
@@ -1060,6 +1082,8 @@ export function demolish(g, li, end) {
     L.waitingB.pop();
     L.left60.pop();
     L.leaveAcc.pop();
+    L.lastPassF.pop();
+    L.lastPassB.pop();
     for (const t of g.trains) {
       if (t.line !== li) continue;
       if (t.at >= L.stations.length) t.at = L.stations.length - 1;
@@ -1110,13 +1134,13 @@ export function buy(g, id) {
       const n = g.trains.filter((t) => t.line === k).length;
       if (n < best) { best = n; li = k; }
     }
-    g.trains.push({ line: li, at: 0, run: null, mothballed: false });
+    g.trains.push({ line: li, at: 0, run: null, mothballed: false, readyAt: 0 });
   }
   if (id === 'westline') {
     // The 1952 megaproject: a new line seeded T-Centralen to Hötorget, with a
     // gift train. T-Centralen becomes the network's first interchange.
     g.lines.push(newLine([anchorStation(0), anchorStation(WEST_FIRST)], g.lines.length));
-    g.trains.push({ line: g.lines.length - 1, at: 0, run: null, mothballed: false });
+    g.trains.push({ line: g.lines.length - 1, at: 0, run: null, mothballed: false, readyAt: 0 });
     computeDemand(g);
     g.events.push({ type: 'newline', geo: ANCHORS[WEST_FIRST].geo, name: ANCHORS[WEST_FIRST].name });
   }
@@ -1186,6 +1210,7 @@ export function moveTrain(g, toLi) {
   g.money -= BAL.moveTrainKr;
   t.line = toLi;
   t.at = 0;
+  t.readyAt = g.clock + BAL.turnaroundS;
   return true;
 }
 
@@ -1299,7 +1324,7 @@ export function hydrate(raw) {
       waitingB: [],
       left60: [],
       leaveAcc: [],
-      lastDispatchAt: -Infinity,
+      lastDepart: [-Infinity, -Infinity],
       rev: 0,
     }));
     computeDemand(g); // multipliers derive from the network, never the save
@@ -1309,15 +1334,17 @@ export function hydrate(raw) {
       L.waitingB = L.stations.map((st, i) => readQueue(src.waitingB, i, st, 0.5));
       L.left60 = L.stations.map(() => 0);
       L.leaveAcc = L.stations.map(() => 0);
+      L.lastPassF = L.stations.map(() => -Infinity);
+      L.lastPassB = L.stations.map(() => -Infinity);
     }
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
     g.trains = [];
     const tr = Array.isArray(s.trains) ? s.trains.slice(0, 32) : [];
     for (const t of tr) {
       const li = posInt(t?.line, g.lines.length - 1);
-      g.trains.push({ line: li, at: 0, run: null, mothballed: !!t?.mothballed });
+      g.trains.push({ line: li, at: 0, run: null, mothballed: !!t?.mothballed, readyAt: 0 });
     }
-    if (!g.trains.length) g.trains.push({ line: 0, at: 0, run: null, mothballed: false });
+    if (!g.trains.length) g.trains.push({ line: 0, at: 0, run: null, mothballed: false, readyAt: 0 });
     if (!g.trains.some((t) => !t.mothballed)) g.trains[0].mothballed = false;
     return g;
   }
