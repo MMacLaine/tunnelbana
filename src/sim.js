@@ -10,13 +10,19 @@ export const BAL = {
   farePerKm: 2.4,          // kr per passenger-kilometre, paid as passengers board
   gravityExp: 1.4,         // distance decay for destination choice (2 makes every trip a one-stop hop)
   gravityFloorKm: 0.4,     // distances below this stop mattering to destination choice
-  spawnPerSec: 0.5,        // base passengers per station per second (full demand)
+  spawnPerSec: 0.8,        // base passengers per station per second at authored population
   transferSpawn: 0.25,     // extra spawn per second per OTHER line at an interchange
   demolishCost: 150,       // flat cost to remove a line end; provisional
   stationCapBase: 80,      // base waiting cap per station
-  cityMultMax: 10,         // demand growth SATURATES here (report 634 §1a: a number
-                           // that multiplies itself is not a curve you can balance)
-  cityGrowthD: 15000,      // e-folding scale of the demand curve, in delivered pax
+  growthCap: 2.5,          // a district can grow to this multiple of its authored pop
+  growthTau: 240,          // seconds to close ~63% of the gap under perfect service
+  dayLen: 240,             // seconds per in-game day
+  morningMult: 1.4,        // spawn in the morning peak (inbound-biased)
+  eveningMult: 1.3,        // spawn in the evening peak (outbound-biased)
+  nightMult: 0.35,         // spawn at night
+  peakBias: 0.5,           // how hard peaks bend the direction split toward/away the hub
+  holdGap: 0.9,            // ATC holding: minimum spacing (stations) between trains
+  holdDwell: 0.4,          // seconds a held train waits before re-checking
   trainCapBase: 120,
   upkeepPerTrainPerSec: 1.2,
   mothballShare: 0.2,      // a mothballed train costs this share of upkeep
@@ -33,8 +39,8 @@ export const BAL = {
   // A separate 'platforms' dwell axis was measured redundant with gates (two
   // knobs on one job, one of them dead). Platforms return in M4 slice 3 as
   // LENGTH: capping how much of a long train can load at an under-built stop.
-  gateRateBase: 60,        // passengers boarded per second of dwell
-  gateRatePerLevel: 30,    // per gates upgrade level
+  gateRateBase: 110,       // passengers boarded per second of dwell
+  gateRatePerLevel: 45,    // per gates upgrade level
   headwayBase: 8,          // per-line minimum seconds between departures (signalling floor)
   // Stations cost money to run (report 634 risk 2): tier upkeep + per upgrade level.
   stationUpkeep: [0, 0.12, 0.35, 0.9],
@@ -101,11 +107,10 @@ export const CATALOG = [
     mult: { transfer: 1.5 } },
   { id: 'stock1957',  base: 3000, growth: 1,   max: 1, era: 1957,
     mult: { speed: 0.92 } },
-  // 'atc' removed pending M4: as a dispatch multiplier it has zero marginal
-  // value at today's spawn ceiling (value-gate measurement: two trains plus a
-  // timetable level already drain full demand via mid-line turnover). It
-  // returns in M4 as HOLDING control, the visible cure for bunching
-  // (report 634 §3 risk 1), which is ATC's actual job.
+  // atc is HOLDING control (report 634 §3 risk 1): a train that has closed up
+  // on the one ahead waits at the platform, which re-spreads the service. Its
+  // effect lives in the movement code, not in a multiplier.
+  { id: 'atc',        base: 6,    growth: 1,   max: 1, era: 1965, currency: 'pk', kind: 'holding' },
   { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1965,
     mult: { speed: 0.9 } },
   // 'depot' removed pending M4: the fleet knee sits near 3 trains per line at
@@ -195,6 +200,7 @@ export function newGame() {
     grossEma: 0,
     gross60: 0,   // 60 s income rate, the basis of the closed-form offline estimate
     deliv60: 0,
+    srcW: SOURCES.map((s) => s.w),   // living population per source; grows when served
     surge: null,          // { line, idx, until, name }
     nextSurgeAt: 90,
     surgeCounter: 0,
@@ -214,14 +220,14 @@ export function eraYear(g) {
   return ERAS[g.era].year;
 }
 
-// Demand grows toward a ceiling instead of compounding forever (report 634 §1a):
-// snowball, not explosion. The ceiling is the curve the 20 h target is tuned on.
+// City growth indicator: living population over the authored one. Display and
+// coverage read it; SPAWN never does (demand lives in the district budgets).
 export function cityMult(g) {
-  return 1 + (BAL.cityMultMax - 1) * (1 - Math.exp(-g.totalDelivered / BAL.cityGrowthD));
+  return g.srcW.reduce((a, b) => a + b, 0) / REGION_POP_BASE;
 }
 
 export function stationCap(g) {
-  return Math.round(BAL.stationCapBase * cityMult(g));
+  return BAL.stationCapBase; // per-station caps scale via each station's mult
 }
 
 export function trainCap(g) {
@@ -300,6 +306,7 @@ function demandSources() {
   return src;
 }
 const SOURCES = demandSources();
+export const REGION_POP_BASE = SOURCES.reduce((a, s) => a + s.w, 0);
 const DEMAND_FLOOR = 0.15;
 // The unclaimed remainder: people who walk or drive. Stations never split a
 // full budget among themselves; better catchment (entrances, tier) converts
@@ -327,11 +334,13 @@ function physicalStations(g) {
   return phys;
 }
 
-export function computeDemand(g) {
+// Geometry pass: which stations claim what FRACTION of each source. Fractions
+// depend only on catchment and geometry, so they cache per network revision;
+// multipliers then derive cheaply from the living srcW every time it moves.
+function demandFractions(g) {
+  if (g._fracRev === netRev(g) && g._frac) return g._frac;
   const phys = physicalStations(g);
-  const claims = new Map(); // physKey -> total claimed
-  for (const key of phys.keys()) claims.set(key, DEMAND_FLOOR);
-  for (const s of SOURCES) {
+  const perSource = SOURCES.map((s) => {
     let total = 0;
     const local = [];
     for (const [key, p] of phys) {
@@ -340,16 +349,62 @@ export function computeDemand(g) {
       const c = p.catch * Math.max(0, 1 - (d / s.reach) ** 2);
       if (c > 0) { local.push([key, c]); total += c; }
     }
-    for (const [key, c] of local) {
-      claims.set(key, claims.get(key) + s.w * (c / (total + CLAIM_SOFTNESS)));
+    return local.map(([key, c]) => [key, c / (total + CLAIM_SOFTNESS)]);
+  });
+  g._frac = { phys, perSource };
+  g._fracRev = netRev(g);
+  return g._frac;
+}
+
+function netRev(g) {
+  let r = 0;
+  for (const L of g.lines) r += L.rev + 1;
+  return r * 1000 + g.lines.length;
+}
+
+export function computeDemand(g) {
+  const { phys, perSource } = demandFractions(g);
+  const claims = new Map();
+  for (const key of phys.keys()) claims.set(key, DEMAND_FLOOR);
+  perSource.forEach((local, j) => {
+    for (const [key, frac] of local) {
+      claims.set(key, claims.get(key) + g.srcW[j] * frac);
     }
-  }
+  });
   for (const [key, p] of phys) {
     const m = Math.round(claims.get(key) * 100) / 100;
     for (const [li, i] of p.entries) g.lines[li].stations[i].mult = m;
   }
-  // Demand weights feed the OD gravity model: invalidate every line's cache.
   for (const L of g.lines) L.rev += 1;
+  g._fracRev = netRev(g); // mult write bumped revs; fractions are still valid
+}
+
+// The ABC-stad loop at source granularity (plan §6a slice 4): a served,
+// uncrowded source grows toward growthCap x its authored population, with a
+// time constant, so early investment compounds and the circle visibly swells.
+function growCity(g, dt) {
+  const { phys, perSource } = demandFractions(g);
+  const crowdOf = new Map();
+  const cap = stationCap(g);
+  for (const [key, p] of phys) {
+    let worst = 0;
+    for (const [li, i] of p.entries) {
+      const st = g.lines[li].stations[i];
+      worst = Math.max(worst, Math.min(1, waitingAt(g, li, i) / (cap * st.mult)));
+    }
+    crowdOf.set(key, worst);
+  }
+  let moved = false;
+  perSource.forEach((local, j) => {
+    if (!local.length) return;
+    let q = 0;
+    for (const [key, frac] of local) q += frac * (1 - crowdOf.get(key));
+    const wMax = SOURCES[j].w * BAL.growthCap;
+    const before = g.srcW[j];
+    g.srcW[j] = Math.min(wMax, g.srcW[j] + (wMax - g.srcW[j]) * (dt / BAL.growthTau) * q);
+    if (g.srcW[j] - before > 1e-6) moved = true;
+  });
+  if (moved) computeDemand(g);
 }
 
 // What a NEW station at geo would earn, given who already drinks from each
@@ -440,6 +495,20 @@ export function dwellFor(g, st, boarded) {
   return fixed + boarded / gateRate;
 }
 
+// Day phase: 0 morning peak, 1 midday, 2 evening peak, 3 night.
+export function dayPhase(g) {
+  const f = (g.clock % BAL.dayLen) / BAL.dayLen;
+  if (f < 0.25) return 0;
+  if (f < 0.5) return 1;
+  if (f < 0.75) return 2;
+  return 3;
+}
+
+function dayMult(g) {
+  const ph = dayPhase(g);
+  return ph === 0 ? BAL.morningMult : ph === 2 ? BAL.eveningMult : ph === 3 ? BAL.nightMult : 1;
+}
+
 function surgedAt(g, li, i) {
   return g.surge && g.surge.line === li && g.surge.idx === i && g.clock < g.surge.until;
 }
@@ -528,6 +597,22 @@ function advancePhase(g, train) {
   const run = train.run;
   run.t = 0;
   if (run.phase === 'dwell') {
+    // ATC holding (report 634 §3 risk 1): do not pull away onto the tail of
+    // the train ahead; wait and re-check. Without ATC, trains bunch.
+    if (g.owned.atc) {
+      for (const other of g.trains) {
+        if (other === train || other.line !== train.line || !other.run) continue;
+        const o = other.run;
+        if (o.dir !== run.dir) continue;
+        const myPos = run.from;
+        const oPos = o.from + (o.phase === 'move' ? o.dir * Math.min(1, o.t / o.dur) : 0);
+        const gap = (oPos - myPos) * run.dir;
+        if (gap > 0 && gap < BAL.holdGap) {
+          run.dur = BAL.holdDwell; // hold at the platform, doors open
+          return;
+        }
+      }
+    }
     run.phase = 'move';
     run.dur = moveTime(g, kmBetween(L.stations[run.from].geo, L.stations[run.from + run.dir].geo));
     return;
@@ -603,7 +688,7 @@ export function coverage(g) {
   }
   let cov = 0;
   for (const v of seen.values()) cov += v;
-  return Math.min(1, cov / REGION_POP);
+  return Math.min(1, cov / g.srcW.reduce((a, b) => a + b, 0));
 }
 
 export function tick(g, dt) {
@@ -623,24 +708,36 @@ export function tick(g, dt) {
     g.events.push({ type: 'surge', geo: g.lines[li].stations[i].geo, name: g.surge.name });
   }
 
-  // Passengers gather, split by direction from the gravity weights; demand
-  // grows with everyone you have moved. Interchanges add transfer flow.
+  // Passengers gather, split by direction from the gravity weights. Demand
+  // lives in the district budgets (which grow when served); the day cycle
+  // breathes on top, biasing peaks toward and away from the busiest station.
   const cap = stationCap(g);
   const demandMult = 1 + effectAdd(g, 'demand');
+  const dMult = dayMult(g);
+  const ph = dayPhase(g);
   for (let li = 0; li < g.lines.length; li++) {
     const L = g.lines[li];
     const dirs = od(g, li);
+    let hubIdx = 0;
+    for (let k = 1; k < L.stations.length; k++) {
+      if (L.stations[k].mult > L.stations[hubIdx].mult) hubIdx = k;
+    }
     for (let i = 0; i < L.stations.length; i++) {
       const s = L.stations[i];
-      let rate = BAL.spawnPerSec * cityMult(g) * s.mult * demandMult;
+      let rate = BAL.spawnPerSec * s.mult * demandMult * dMult;
       if (s.anchor !== null) {
         const others = linesAtAnchor(g, s.anchor) - 1;
-        if (others > 0) rate += BAL.transferSpawn * cityMult(g) * others * effectMult(g, 'transfer');
+        if (others > 0) rate += BAL.transferSpawn * others * effectMult(g, 'transfer') * dMult;
       }
       if (surgedAt(g, li, i)) rate *= BAL.surgeSpawnMult;
       const room = cap * s.mult - waitingAt(g, li, i);
       const add = Math.min(Math.max(0, room), rate * dt);
-      const f = dirs.splitF[i];
+      let f = dirs.splitF[i];
+      if (ph === 0 || ph === 2) {
+        const hubward = i < hubIdx ? 1 : i > hubIdx ? 0 : f; // F points to higher indices
+        const target = ph === 0 ? hubward : 1 - hubward;
+        f = f * (1 - BAL.peakBias) + target * BAL.peakBias;
+      }
       L.waitingF[i] += add * f;
       L.waitingB[i] += add * (1 - f);
       // Abandonment (report 634 risk 1): the missing cost of overcrowding.
@@ -695,6 +792,9 @@ export function tick(g, dt) {
       if (g.clock - g.lines[li].lastDispatchAt >= floor) dispatchLine(g, li);
     }
   }
+
+  // The city grows where it is served well.
+  growCity(g, dt);
 
   // Political capital accrues from coverage.
   g.pk += BAL.pkFullRatePerSec * coverage(g) * dt;
@@ -1073,6 +1173,7 @@ export function serialize(g) {
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
+    srcW: g.srcW.map((w) => Math.round(w * 1000) / 1000),
     gross60: Math.round(g.gross60 * 100) / 100,
     deliv60: Math.round(g.deliv60 * 100) / 100,
     totalDelivered: Math.round(g.totalDelivered),
@@ -1114,6 +1215,13 @@ export function hydrate(raw) {
   g.endingSeen = !!s.endingSeen;
   g.gross60 = Math.max(0, Number(s.gross60) || 0);
   g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
+  if (Array.isArray(s.srcW) && s.srcW.length === g.srcW.length) {
+    g.srcW = s.srcW.map((w, j) => {
+      const v = Number(w);
+      const base = g.srcW[j];
+      return Number.isFinite(v) ? Math.min(base * BAL.growthCap, Math.max(base, v)) : base;
+    });
+  }
   for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max + 8);
   g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   const capMax = stationCap(g);
