@@ -12,7 +12,7 @@ is dispatch-and-earn fun on its own?
 Any static file server from the repo root, then open the page:
 
 ```
-python3 -m http.server 8123
+node _dev/serve.mjs
 # http://localhost:8123/
 ```
 
