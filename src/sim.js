@@ -14,14 +14,17 @@ export const BAL = {
   transferSpawn: 0.25,     // extra spawn per second per OTHER line at an interchange
   demolishCost: 150,       // flat cost to remove a line end; provisional
   stationCapBase: 80,      // base waiting cap per station
-  cityGrowthDiv: 900,      // demand multiplier = 1 + delivered / this
+  cityMultMax: 10,         // demand growth SATURATES here (report 634 §1a: a number
+                           // that multiplies itself is not a curve you can balance)
+  cityGrowthD: 15000,      // e-folding scale of the demand curve, in delivered pax
   trainCapBase: 120,
   upkeepPerTrainPerSec: 1.2,
   mothballShare: 0.2,      // a mothballed train costs this share of upkeep
   deficitMothballAfter: 20,// seconds broke and losing before a train auto-mothballs
   secondsPerKm: 1.05,      // ride time from geo distance
   dwell: 0.32,             // per-stop time added to each segment
-  dispatchBase: 8,         // drivers auto-dispatch interval, seconds
+  headwayBase: 8,          // per-line minimum seconds between departures (signalling floor)
+  offlineDiscount: 0.7,    // offline income earns this share of the measured online rate
   seedWaiting: 8,          // passengers on a platform when it opens
   stationBase: 150,        // flat station cost, grows with network size
   stationGrowth: 1.25,
@@ -69,12 +72,17 @@ export const CATALOG = [
     mult: { transfer: 1.5 } },
   { id: 'stock1957',  base: 3000, growth: 1,   max: 1, era: 1957,
     mult: { speed: 0.92 } },
-  { id: 'atc',        base: 6,    growth: 1,   max: 1, era: 1965, currency: 'pk',
-    mult: { dispatchInterval: 0.85 } },
+  // 'atc' removed pending M4: as a dispatch multiplier it has zero marginal
+  // value at today's spawn ceiling (value-gate measurement: two trains plus a
+  // timetable level already drain full demand via mid-line turnover). It
+  // returns in M4 as HOLDING control, the visible cure for bunching
+  // (report 634 §3 risk 1), which is ATC's actual job.
   { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1965,
     mult: { speed: 0.9 } },
-  { id: 'depot',      base: 4000, growth: 1.8, max: 2, era: 1965,
-    add: { fleetMax: 4 } },
+  // 'depot' removed pending M4: the fleet knee sits near 3 trains per line at
+  // current demand ceilings (value-gate measurement), so raising fleetMax is
+  // dead content until per-station demand growth exists. Depots return in M4
+  // as PLACES (report 634 idea 8), not as a number.
   { id: 'c14stock',   base: 15000, growth: 1,  max: 1, era: 1975,
     mult: { speed: 0.9 } },
   { id: 'zonefare',   base: 20000, growth: 1,  max: 1, era: 1975,
@@ -117,6 +125,7 @@ function newLine(stations) {
     stations,
     waitingF: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     waitingB: stations.map((s) => BAL.seedWaiting * s.mult / 2),
+    lastDispatchAt: -Infinity,
     rev: 0,
   };
 }
@@ -133,10 +142,11 @@ export function newGame() {
     trains: [{ line: 0, at: 0, run: null, mothballed: false }],
     owned,
     freeSpots: 0,
-    autoTimer: 0,
     deficitT: 0,
     totalDelivered: 0,
     grossEma: 0,
+    gross60: 0,   // 60 s income rate, the basis of the closed-form offline estimate
+    deliv60: 0,
     surge: null,          // { line, idx, until, name }
     nextSurgeAt: 90,
     surgeCounter: 0,
@@ -151,8 +161,10 @@ export function eraYear(g) {
   return ERAS[g.era].year;
 }
 
+// Demand grows toward a ceiling instead of compounding forever (report 634 §1a):
+// snowball, not explosion. The ceiling is the curve the 20 h target is tuned on.
 export function cityMult(g) {
-  return 1 + g.totalDelivered / BAL.cityGrowthDiv;
+  return 1 + (BAL.cityMultMax - 1) * (1 - Math.exp(-g.totalDelivered / BAL.cityGrowthD));
 }
 
 export function stationCap(g) {
@@ -163,8 +175,11 @@ export function trainCap(g) {
   return BAL.trainCapBase + effectAdd(g, 'trainCap');
 }
 
-export function autoInterval(g) {
-  return BAL.dispatchBase * effectMult(g, 'dispatchInterval');
+// Per-line minimum headway: the signalling floor. More trains tighten a line's
+// service until this floor binds; timetable/ATC upgrades lower the floor
+// (report 634 §1d: every line runs its own service, no global dispatch queue).
+export function minHeadway(g) {
+  return BAL.headwayBase * effectMult(g, 'dispatchInterval');
 }
 
 export function upkeepRate(g) {
@@ -267,6 +282,7 @@ function board(g, train, i) {
   if (surgedAt(g, li, i)) amt *= BAL.surgeFareMult;
   g.money += amt;
   g.grossEma += amt / GROSS_TAU;
+  g.gross60 += amt / 60;
   if (amt >= 0.5) g.events.push({ type: 'payout', geo: L.stations[i].geo, amt: Math.round(amt) });
 }
 
@@ -285,16 +301,11 @@ function lineWaitingTotal(g, li) {
   return s;
 }
 
-export function dispatch(g) {
-  // The idle train on the hungriest line goes first.
-  const idle = idleTrains(g);
-  if (!idle.length) return false;
-  let train = idle[0], best = -1;
-  for (const t of idle) {
-    const w = lineWaitingTotal(g, t.line);
-    if (w > best) { best = w; train = t; }
-  }
-  const L = g.lines[train.line];
+// Dispatch the next idle train on a SPECIFIC line.
+export function dispatchLine(g, li) {
+  const train = g.trains.find((t) => t.line === li && !t.run && !t.mothballed);
+  if (!train) return false;
+  const L = g.lines[li];
   const dir = train.at === 0 ? 1 : -1;
   const next = L.stations[train.at + dir];
   if (!next) return false;
@@ -303,8 +314,21 @@ export function dispatch(g) {
     dest: new Array(L.stations.length).fill(0),
     dur: segTimeBetween(g, L.stations[train.at], next),
   };
+  L.lastDispatchAt = g.clock;
   board(g, train, train.at);
   return true;
+}
+
+// The bell: dispatch on the line with the most waiting PER STATION (absolute
+// totals starve short lines, report 634 §1d).
+export function dispatch(g) {
+  let best = -1, bestLi = -1;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (!g.trains.some((t) => t.line === li && !t.run && !t.mothballed)) continue;
+    const w = lineWaitingTotal(g, li) / g.lines[li].stations.length;
+    if (w > best) { best = w; bestLi = li; }
+  }
+  return bestLi >= 0 ? dispatchLine(g, bestLi) : false;
 }
 
 function arrive(g, train) {
@@ -318,11 +342,13 @@ function arrive(g, train) {
     run.dest[k] = 0;
     run.onboard = Math.max(0, run.onboard - off);
     g.totalDelivered += off;
+    g.deliv60 += off / 60;
     if (off >= 1) g.events.push({ type: 'alight', geo: L.stations[k].geo, n: Math.round(off) });
   }
   const atTerminus = k === 0 || k === L.stations.length - 1;
   if (atTerminus) {
     g.totalDelivered += Math.max(0, run.onboard);
+    g.deliv60 += Math.max(0, run.onboard) / 60;
     train.at = k;
     train.run = null;
   } else {
@@ -415,16 +441,22 @@ export function tick(g, dt) {
     }
   }
 
-  // Drivers dispatch on their own once hired.
+  // Drivers run each line's service independently: a departure whenever the
+  // signalling floor allows and an idle train is home. Fleet size and headway
+  // upgrades both become real, per line (report 634 §1b/§1d).
   if (g.owned.drivers) {
-    g.autoTimer -= dt;
-    if (g.autoTimer <= 0) {
-      g.autoTimer = dispatch(g) ? autoInterval(g) : 0.25;
+    const floor = minHeadway(g);
+    for (let li = 0; li < g.lines.length; li++) {
+      if (g.clock - g.lines[li].lastDispatchAt >= floor) dispatchLine(g, li);
     }
   }
 
   // Political capital accrues from coverage.
   g.pk += BAL.pkFullRatePerSec * coverage(g) * dt;
+
+  // Decay the 60 s rate windows (the offline estimate reads these).
+  g.gross60 = Math.max(0, g.gross60 - g.gross60 * dt / 60);
+  g.deliv60 = Math.max(0, g.deliv60 - g.deliv60 * dt / 60);
 
   // The ending: final era reached and every authored anchor connected. The
   // screen is not a wall; the save keeps running (plan §1).
@@ -642,7 +674,6 @@ export function buy(g, id) {
     }
     g.trains.push({ line: li, at: 0, run: null, mothballed: false });
   }
-  if (id === 'drivers') g.autoTimer = 0;
   if (id === 'westline') {
     // The 1952 megaproject: a new line seeded T-Centralen to Hötorget, with a
     // gift train. T-Centralen becomes the network's first interchange.
@@ -653,19 +684,21 @@ export function buy(g, id) {
   return true;
 }
 
-// --- Offline progress: coarse 1-second integration, capped ---
+// --- Offline progress: closed-form, not re-simulated (report 634 risk 4) ---
+// Ticking a different resolution offline than online is a second simulation
+// that drifts from the first. Instead: the measured 60 s online rates times
+// elapsed time times a stated discount. Predictable, exploit-immune, and idle
+// generosity is one tunable number. Drivers required: automation IS the idle income.
 
 export function simulateOffline(g, seconds) {
   const s = Math.floor(Math.min(Math.max(0, seconds), BAL.offlineCapS));
-  if (s < 60) return null;
-  const m0 = g.money;
-  const d0 = g.totalDelivered;
-  for (let i = 0; i < s; i++) {
-    tick(g, 1);
-    if (i % 120 === 0) g.events.length = 0;
-  }
-  g.events.length = 0;
-  return { seconds: s, earned: g.money - m0, delivered: g.totalDelivered - d0 };
+  if (s < 60 || !g.owned.drivers) return null;
+  const net = Math.max(0, g.gross60 * BAL.offlineDiscount - upkeepRate(g));
+  const earned = net * s;
+  const delivered = g.deliv60 * BAL.offlineDiscount * s;
+  g.money += earned;
+  g.totalDelivered += delivered;
+  return { seconds: s, earned, delivered };
 }
 
 // --- Save / load (saveVersion is monotonic; forward-only migrations) ---
@@ -688,6 +721,8 @@ export function serialize(g) {
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
+    gross60: Math.round(g.gross60 * 100) / 100,
+    deliv60: Math.round(g.deliv60 * 100) / 100,
     totalDelivered: Math.round(g.totalDelivered),
   });
 }
@@ -723,6 +758,8 @@ export function hydrate(raw) {
   g.pk = Math.max(0, Number(s.pk) || 0);
   g.era = posInt(s.era, ERAS.length - 1);
   g.endingSeen = !!s.endingSeen;
+  g.gross60 = Math.max(0, Number(s.gross60) || 0);
+  g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
   for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max + 8);
   g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   const capMax = stationCap(g);
