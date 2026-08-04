@@ -679,11 +679,14 @@ for (const item of sim.CATALOG) {
 function updateShop() {
   for (const item of sim.CATALOG) {
     const card = cards[item.id];
-    const visible = sim.eraVisible(g, item);
-    card.style.display = visible ? '' : 'none';
-    if (!visible) continue;
     const owned = g.owned[item.id];
     const maxed = owned >= sim.maxFor(g, item);
+    // A maxed upgrade leaves the shop entirely (owner ask, 2026-08-04): the
+    // space belongs to what can still be bought. Exception: 'train' reads
+    // maxed only while the fleet cap binds, so it stays as the cap readout.
+    const visible = sim.eraVisible(g, item) && (!maxed || item.id === 'train');
+    card.style.display = visible ? '' : 'none';
+    if (!visible) continue;
     const gated = item.needs && !g.owned[item.needs];
     card.disabled = maxed || gated || !sim.canBuy(g, item.id);
     const unit = item.currency === 'pk' ? ' pk' : ' kr';
