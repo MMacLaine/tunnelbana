@@ -56,6 +56,12 @@ const STR = {
   junction: 'Bytespunkt',
   openingDay: 'ÖPPNINGSDAG',
   ribbonCut: 'INVIGNING · the line is open',
+  fbOpen: 'Feedback',
+  fbTitle: 'What broke, or what would you love?',
+  fbSend: 'Submit',
+  fbPlaceholder: 'Write anything: bugs, ideas, confusion...',
+  fbThanks: 'Copied! Paste it in the itch comments.',
+  fbEmpty: 'Write something first.',
   mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
     train:      { name: 'New train',         desc: 'One more train, on the emptiest line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
@@ -307,6 +313,42 @@ $('about-mark').addEventListener('click', () => {
   if (menu.hidden) showMenu('pause');
   menuView('about');
 });
+
+// --- Feedback (owner ask, 2026-08-04). Collection is undecided; v1 copies a
+// structured note (with game context) to the clipboard for the itch comments.
+// submitFeedback() is the swap point: route it at a form or endpoint later
+// without touching the UI.
+$('fb-open').textContent = STR.fbOpen;
+$('fb-title').textContent = STR.fbTitle;
+$('fb-send').textContent = STR.fbSend;
+$('fb-text').placeholder = STR.fbPlaceholder;
+$('fb-open').addEventListener('click', () => {
+  const p = $('fb-panel');
+  p.hidden = !p.hidden;
+  $('fb-note').textContent = '';
+  if (!p.hidden) $('fb-text').focus();
+});
+$('fb-close').addEventListener('click', () => { $('fb-panel').hidden = true; });
+async function submitFeedback(text) {
+  const ctx = 'Tunnelbana · era ' + sim.eraYear(g) + ' · ' + sim.stationCount(g) +
+    ' stations · ' + new Date().toISOString().slice(0, 10);
+  try {
+    await navigator.clipboard.writeText(text + '\n\n[' + ctx + ']');
+    return true;
+  } catch {
+    return false;
+  }
+}
+$('fb-send').addEventListener('click', async () => {
+  const text = $('fb-text').value.trim();
+  if (!text) { $('fb-note').textContent = STR.fbEmpty; return; }
+  if (await submitFeedback(text)) {
+    $('fb-note').textContent = STR.fbThanks;
+    $('fb-text').value = '';
+  } else {
+    $('fb-note').textContent = 'Copy failed: select the text and copy it yourself.';
+  }
+});
 $('settings-back').addEventListener('click', () => settingsView(false));
 $('menu-quit').addEventListener('click', () => {
   save();
@@ -420,6 +462,10 @@ function ringBell() {
 }
 bell.addEventListener('click', ringBell);
 window.addEventListener('keydown', (e) => {
+  // Typing space in a text field must never ring the bell (feedback box,
+  // save import).
+  const tag = e.target && e.target.tagName;
+  if (tag === 'TEXTAREA' || tag === 'INPUT') return;
   if (e.code === 'Space' && !e.repeat) {
     e.preventDefault();
     ringBell();
