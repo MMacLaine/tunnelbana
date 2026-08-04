@@ -262,6 +262,22 @@ export function lineColor(idx) {
   return '#' + f(0) + f(8) + f(4);
 }
 
+// The ONE way a train comes into existence (report 648). Every hand-built
+// train literal is a silent fork of this constructor: when event-driven
+// turnaround added readyAt, forks kept passing their tests while their trains
+// could never dispatch (`clock >= undefined` is false), and a review's
+// headline finding turned out to be one working train measured against zero.
+// Probes import addTrain; nothing outside this file writes the shape.
+export function newTrain(line) {
+  return { line, at: 0, run: null, mothballed: false, readyAt: 0 };
+}
+
+export function addTrain(g, line) {
+  const t = newTrain(line);
+  g.trains.push(t);
+  return t;
+}
+
 function newLine(stations, colorIdx) {
   return {
     stations,
@@ -286,7 +302,7 @@ export function newGame() {
     pk: 0,
     era: 0,
     lines: [newLine(Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)), 0)],
-    trains: [{ line: 0, at: 0, run: null, mothballed: false, readyAt: 0 }],
+    trains: [newTrain(0)],
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -1534,7 +1550,7 @@ export function buy(g, id) {
       const n = g.trains.filter((t) => t.line === k).length;
       if (n < best) { best = n; li = k; }
     }
-    g.trains.push({ line: li, at: 0, run: null, mothballed: false, readyAt: 0 });
+    addTrain(g, li);
   }
   if (PROJECT_SEEDS[id]) {
     // A charter megaproject: a new line with a gift train. westline and
@@ -1546,7 +1562,7 @@ export function buy(g, id) {
     // stubs is itself historical).
     const [a, b] = PROJECT_SEEDS[id]();
     g.lines.push(newLine([anchorStation(a), anchorStation(b)], g.lines.length));
-    g.trains.push({ line: g.lines.length - 1, at: 0, run: null, mothballed: false, readyAt: 0 });
+    addTrain(g, g.lines.length - 1);
     computeDemand(g);
     g.events.push({ type: 'newline', geo: ANCHORS[b].geo, name: ANCHORS[b].name });
   }
@@ -1767,9 +1783,9 @@ export function hydrate(raw) {
     const tr = Array.isArray(s.trains) ? s.trains.slice(0, 32) : [];
     for (const t of tr) {
       const li = posInt(t?.line, g.lines.length - 1);
-      g.trains.push({ line: li, at: 0, run: null, mothballed: !!t?.mothballed, readyAt: 0 });
+      addTrain(g, li).mothballed = !!t?.mothballed;
     }
-    if (!g.trains.length) g.trains.push({ line: 0, at: 0, run: null, mothballed: false, readyAt: 0 });
+    if (!g.trains.length) addTrain(g, 0);
     if (!g.trains.some((t) => !t.mothballed)) g.trains[0].mothballed = false;
     return g;
   }
