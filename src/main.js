@@ -28,6 +28,9 @@ const STR = {
   panelUpkeep: 'Upkeep',
   panelTop: 'Passengers head for',
   lvl: 'lvl',
+  foundBtn: 'Found a new line',
+  linesHdr: 'Trains per line',
+  addTrain: '+',
   mothballBtn: 'Mothball idle train',
   reactivateBtn: 'Reactivate train',
   mothballedFloat: 'mothballed',
@@ -539,6 +542,18 @@ function updateStationPanel() {
   }
   stationUpgRow('ent');
   stationUpgRow('gates');
+  const fb = $('sp-found');
+  const showFound = st.tier >= 3;
+  fb.hidden = !showFound;
+  if (showFound) {
+    fb.textContent = STR.foundBtn + ' · ' + fmt(B.foundLineKr) + ' kr + ' + B.foundLinePk + ' pk';
+    fb.disabled = !sim.canFoundLine(g, selected.li, selected.i);
+  }
+  // Left behind per minute: the headline diagnostic (abandonment).
+  const left = Math.round(L.left60[selected.i] * 60);
+  const lb = $('sp-left');
+  lb.textContent = left > 0 ? 'Left behind: ' + fmt(left) + '/min' : '';
+  lb.hidden = left <= 0;
 }
 
 for (const kind of ['tier', 'ent', 'gates']) {
@@ -547,6 +562,32 @@ for (const kind of ['tier', 'ent', 'gates']) {
   });
 }
 $('sp-close').addEventListener('click', () => selectStation(null));
+$('sp-found').addEventListener('click', () => {
+  if (selected && sim.foundLine(g, selected.li, selected.i)) {
+    selectStation(null);
+    updateUI();
+  }
+});
+
+// Per-line train allocation rows (player-controlled, report 634 risk 3).
+$('line-rows').addEventListener('click', (e) => {
+  const li = e.target?.dataset?.li;
+  if (li !== undefined && sim.moveTrain(g, Number(li))) updateUI();
+});
+
+function updateLineRows() {
+  const rows = [];
+  for (let li = 0; li < g.lines.length; li++) {
+    const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
+    rows.push(
+      '<div class="line-row"><span class="chip" style="background:' + g.lines[li].color + '"></span>' +
+      'Linje ' + (li + 1) + ' · ' + g.lines[li].stations.length + ' st · ' + active + ' 🚆 ' +
+      (g.lines.length > 1 ? '<button class="mini-btn" data-li="' + li + '">' + STR.addTrain + '</button>' : '') +
+      '</div>'
+    );
+  }
+  $('line-rows').innerHTML = rows.join('');
+}
 
 // --- Shop ---
 const shopEl = $('shop');
@@ -625,6 +666,7 @@ function updateUI() {
   bell.querySelector('.bell-sub').textContent =
     sim.idleTrains(g).length ? STR.dispatchSub : STR.noIdle;
   if (selected) updateStationPanel();
+  updateLineRows();
   updateShop();
 }
 
@@ -652,6 +694,7 @@ function frame(now) {
     if (e.type === 'alight') render.addFloatGeo(e.geo, '↓' + fmt(e.n), 'muted');
     if (e.type === 'mothball') render.addFloatGeo(e.geo, STR.mothballedFloat, 'muted');
     if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSNING · ' + e.name);
+    if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'era') showMoment(e.year);
     if (e.type === 'ending') showEnding();

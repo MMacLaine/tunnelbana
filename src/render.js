@@ -291,14 +291,14 @@ function drawAnchors(g) {
 
 function drawEndHandles(g) {
   for (let li = 0; li < g.lines.length; li++) {
-    if (g.lines[li].stations.length < 2) continue;
+    if (g.lines[li].stations.length < 1) continue;
     for (const end of ['head', 'tail']) {
       const p = project(endStation(g, li, end).geo);
       const r = 10.5 + Math.sin(clockT * 2.2) * 1.4;
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = LINE.color;
+      ctx.strokeStyle = g.lines[li].color;
       ctx.globalAlpha = 0.9;
       ctx.stroke();
       ctx.globalAlpha = 1;
@@ -310,7 +310,7 @@ function linePoints(L) {
   return L.stations.map((s) => project(s.geo));
 }
 
-function drawLinePath(P) {
+function drawLinePath(P, color) {
   ctx.beginPath();
   ctx.moveTo(P[0].x, P[0].y);
   for (let i = 1; i < P.length - 1; i++) {
@@ -320,7 +320,7 @@ function drawLinePath(P) {
   ctx.lineWidth = 6;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  ctx.strokeStyle = LINE.color;
+  ctx.strokeStyle = color;
   ctx.stroke();
 }
 
@@ -335,7 +335,7 @@ function drawDragPreview(g) {
   ctx.setLineDash(drag.snap !== null ? [] : [5, 5]);
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';
-  ctx.strokeStyle = ok ? LINE.color : COL.red;
+  ctx.strokeStyle = ok ? (g.lines[drag.li].color || LINE.color) : COL.red;
   ctx.globalAlpha = 0.85;
   ctx.stroke();
   ctx.globalAlpha = 1;
@@ -500,8 +500,7 @@ function drawTrains(g) {
     ctx.textBaseline = 'middle';
     ctx.fillText(String(Math.round(run.onboard)), x, y + 2.5);
   }
-  // Idle trains wait as pips beside their station.
-  ctx.fillStyle = LINE.color;
+  // Idle trains wait as pips beside their station, in their line's colour.
   const idleAt = new Map();
   for (const t of g.trains) {
     if (t.run || t.mothballed) continue;
@@ -512,6 +511,7 @@ function drawTrains(g) {
     const [li, idx] = key.split(':').map(Number);
     const s = g.lines[li]?.stations[idx];
     if (!s) continue;
+    ctx.fillStyle = g.lines[li].color;
     const p = project(s.geo);
     for (let k = 0; k < n; k++) {
       ctx.beginPath();
@@ -530,7 +530,7 @@ function drawFloats(dt) {
     f.age += dt;
     const p = project(f.geo);
     ctx.globalAlpha = Math.max(0, 1 - f.age / 1.2);
-    ctx.fillStyle = f.colour === 'muted' ? COL.muted : COL.amber;
+    ctx.fillStyle = f.colour === 'muted' ? COL.muted : f.colour === 'red' ? COL.red : COL.amber;
     ctx.fillText(f.text, p.x + 22, p.y - 12 - f.age * 22);
   }
   ctx.globalAlpha = 1;
@@ -548,7 +548,7 @@ export function draw(g) {
   if (basemap === 'on') drawVeil(g);
   drawTease(g);
   drawAnchors(g);
-  for (const L of g.lines) drawLinePath(linePoints(L));
+  for (const L of g.lines) { if (L.stations.length >= 2) drawLinePath(linePoints(L), L.color); }
   drawEndHandles(g);
   drawDragPreview(g);
   drawStations(g);

@@ -59,6 +59,10 @@ export const BAL = {
   surgeDur: 25,            // seconds a rush lasts
   surgeSpawnMult: 3,       // spawn multiplier at the rushed station
   surgeFareMult: 1.5,      // fare multiplier for boardings at the rushed station
+  abandonPerSec: 0.06,     // share of a FULL platform that gives up per second
+                           // (scaled by crowding squared: light queues barely leak)
+  foundLineKr: 2500,       // charter a new line from a Knutpunkt
+  foundLinePk: 3,
   offlineCapS: 8 * 3600,   // offline progress simulates at most this long
 };
 
@@ -157,11 +161,18 @@ function anchorStation(i) {
   return makeStation(a.name, a.geo, i, a.hub ? 3 : 1);
 }
 
-function newLine(stations) {
+// Founding-order palette; the real green stays line 1's (report 634 risk 3).
+export const LINE_COLORS = ['#35a86b', '#4f8fd4', '#c8544a', '#b06fa8', '#8fae4a', '#6fd6b0'];
+export const MAX_LINES = LINE_COLORS.length;
+
+function newLine(stations, colorIdx) {
   return {
     stations,
+    color: LINE_COLORS[colorIdx % LINE_COLORS.length],
     waitingF: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     waitingB: stations.map((s) => BAL.seedWaiting * s.mult / 2),
+    left60: stations.map(() => 0),
+    leaveAcc: stations.map(() => 0),
     lastDispatchAt: -Infinity,
     rev: 0,
   };
@@ -175,7 +186,7 @@ export function newGame() {
     money: BAL.startMoney,
     pk: 0,
     era: 0,
-    lines: [newLine(Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)))],
+    lines: [newLine(Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)), 0)],
     trains: [{ line: 0, at: 0, run: null, mothballed: false }],
     owned,
     freeSpots: 0,
@@ -632,6 +643,22 @@ export function tick(g, dt) {
       const f = dirs.splitF[i];
       L.waitingF[i] += add * f;
       L.waitingB[i] += add * (1 - f);
+      // Abandonment (report 634 risk 1): the missing cost of overcrowding.
+      // Crowded platforms leak passengers, quadratically with crowding.
+      const crowd = waitingAt(g, li, i) / (cap * s.mult);
+      if (crowd > 0.25) {
+        const leaveK = BAL.abandonPerSec * crowd * crowd * dt;
+        const lost = (L.waitingF[i] + L.waitingB[i]) * leaveK;
+        L.waitingF[i] -= L.waitingF[i] * leaveK;
+        L.waitingB[i] -= L.waitingB[i] * leaveK;
+        L.left60[i] += lost / 60;
+        L.leaveAcc[i] += lost;
+        if (L.leaveAcc[i] >= 5) {
+          g.events.push({ type: 'abandon', geo: s.geo, n: Math.round(L.leaveAcc[i]) });
+          L.leaveAcc[i] = 0;
+        }
+      }
+      L.left60[i] = Math.max(0, L.left60[i] - L.left60[i] * dt / 60);
     }
   }
 
@@ -838,6 +865,8 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.stations.unshift(station);
     L.waitingF.unshift(BAL.seedWaiting * station.mult / 2);
     L.waitingB.unshift(BAL.seedWaiting * station.mult / 2);
+    L.left60.unshift(0);
+    L.leaveAcc.unshift(0);
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at += 1;
@@ -850,6 +879,8 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.stations.push(station);
     L.waitingF.push(BAL.seedWaiting * station.mult / 2);
     L.waitingB.push(BAL.seedWaiting * station.mult / 2);
+    L.left60.push(0);
+    L.leaveAcc.push(0);
     for (const t of g.trains) if (t.line === li && t.run) t.run.dest.push(0);
   }
   L.rev += 1;
@@ -881,6 +912,8 @@ export function demolish(g, li, end) {
     L.stations.shift();
     L.waitingF.shift();
     L.waitingB.shift();
+    L.left60.shift();
+    L.leaveAcc.shift();
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at = Math.max(0, t.at - 1);
@@ -893,6 +926,8 @@ export function demolish(g, li, end) {
     L.stations.pop();
     L.waitingF.pop();
     L.waitingB.pop();
+    L.left60.pop();
+    L.leaveAcc.pop();
     for (const t of g.trains) {
       if (t.line !== li) continue;
       if (t.at >= L.stations.length) t.at = L.stations.length - 1;
@@ -948,11 +983,53 @@ export function buy(g, id) {
   if (id === 'westline') {
     // The 1952 megaproject: a new line seeded T-Centralen to Hötorget, with a
     // gift train. T-Centralen becomes the network's first interchange.
-    g.lines.push(newLine([anchorStation(0), anchorStation(WEST_FIRST)]));
+    g.lines.push(newLine([anchorStation(0), anchorStation(WEST_FIRST)], g.lines.length));
     g.trains.push({ line: g.lines.length - 1, at: 0, run: null, mothballed: false });
     computeDemand(g);
     g.events.push({ type: 'newline', geo: ANCHORS[WEST_FIRST].geo, name: ANCHORS[WEST_FIRST].name });
   }
+  return true;
+}
+
+// --- Found-a-line: a Knutpunkt's power (plan §6a) ---
+
+export function canFoundLine(g, li, i) {
+  const st = g.lines[li].stations[i];
+  return st.tier >= 3 && g.lines.length < MAX_LINES &&
+    g.money >= BAL.foundLineKr && g.pk >= BAL.foundLinePk;
+}
+
+// Creates a one-station line at the hub; the player then drags its end out.
+export function foundLine(g, li, i) {
+  if (!canFoundLine(g, li, i)) return false;
+  const st = g.lines[li].stations[i];
+  g.money -= BAL.foundLineKr;
+  g.pk -= BAL.foundLinePk;
+  const clone = makeStation(st.name, st.geo, st.anchor, st.tier);
+  clone.ent = st.ent;
+  clone.gates = st.gates;
+  const L = newLine([clone], g.lines.length);
+  L.waitingF = [0];
+  L.waitingB = [0];
+  g.lines.push(L);
+  computeDemand(g);
+  g.events.push({ type: 'newline', geo: st.geo, name: st.name });
+  return true;
+}
+
+// Player-controlled train allocation (report 634 risk 3): pull an idle train
+// from the most-staffed other line onto this one. Free, reversible.
+export function moveTrain(g, toLi) {
+  let from = -1, most = 0;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (li === toLi) continue;
+    const idle = g.trains.filter((t) => t.line === li && !t.run && !t.mothballed).length;
+    if (idle > most) { most = idle; from = li; }
+  }
+  if (from < 0) return false;
+  const t = g.trains.find((x) => x.line === from && !x.run && !x.mothballed);
+  t.line = toLi;
+  t.at = 0;
   return true;
 }
 
@@ -1051,10 +1128,13 @@ export function hydrate(raw) {
   if (s.saveVersion >= 6 && Array.isArray(s.lines) && s.lines.length >= 1 &&
       s.lines.every((L) => L && okLine(L.stations)) &&
       s.lines.reduce((a, L) => a + L.stations.length, 0) <= BAL.maxStations + 16) {
-    g.lines = s.lines.map((L) => ({
+    g.lines = s.lines.map((L, idx) => ({
       stations: sanitizeLine(L.stations),
+      color: LINE_COLORS[idx % LINE_COLORS.length],
       waitingF: [],
       waitingB: [],
+      left60: [],
+      leaveAcc: [],
       lastDispatchAt: -Infinity,
       rev: 0,
     }));
@@ -1063,6 +1143,8 @@ export function hydrate(raw) {
       const src = s.lines[g.lines.indexOf(L)];
       L.waitingF = L.stations.map((st, i) => readQueue(src.waitingF, i, st, 0.5));
       L.waitingB = L.stations.map((st, i) => readQueue(src.waitingB, i, st, 0.5));
+      L.left60 = L.stations.map(() => 0);
+      L.leaveAcc = L.stations.map(() => 0);
     }
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
     g.trains = [];

@@ -110,6 +110,10 @@
   }
   #sp-close:hover { color: var(--ink); }
   .sp-line { font-size: 0.64rem; color: var(--muted); line-height: 1.5; }
+  .sp-left { color: var(--red); font-weight: 600; }
+  .line-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.66rem; color: var(--muted); padding: 0.15rem 0; }
+  .chip { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
+  .line-row .mini-btn { margin-left: auto; padding: 0.1rem 0.45rem; }
   .era-panel { padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
   #era-now { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; }
   .era-needs { font-size: 0.62rem; color: var(--muted); line-height: 1.5; }
@@ -320,11 +324,13 @@
       </div>
       <div class="sp-line" id="sp-stats"></div>
       <div class="sp-line" id="sp-dest"></div>
+      <div class="sp-line sp-left" id="sp-left" hidden></div>
       <button class="mini-btn" id="sp-tier-btn"></button>
       <div class="train-btns">
         <button class="mini-btn" id="sp-ent"></button>
         <button class="mini-btn" id="sp-gates"></button>
       </div>
+      <button class="mini-btn" id="sp-found" hidden></button>
     </div>
     <button id="bell">
       <span class="disc">
@@ -352,6 +358,7 @@
       <div>Passengers delivered: <span id="stat-delivered">0</span></div>
       <div>City demand: <span id="stat-demand">×1.00</span></div>
       <div>Trains idle / active: <span id="stat-trains">1 / 1</span></div>
+      <div id="line-rows"></div>
       <div class="train-btns">
         <button class="mini-btn" id="btn-mothball"></button>
         <button class="mini-btn" id="btn-reactivate"></button>
