@@ -111,8 +111,8 @@ if (window.maplibregl) {
     map = new maplibregl.Map({
       container: 'basemap',
       style: 'basemap/tunnelbana-night.json',
-      center: [18.082, 59.291],
-      zoom: 11.8,
+      center: [18.0640, 59.3230], // the hub and its first reach, not the empty south
+      zoom: 12.0,
       minZoom: 10.3,
       maxZoom: 14.5,
       attributionControl: false,
@@ -195,6 +195,11 @@ function gameLayer() {
   };
 }
 
+// Bring the camera home to the hub (new game, reset, import).
+function homeCamera() {
+  if (map) map.flyTo({ center: [18.0640, 59.3230], zoom: 12.0, duration: 900 });
+}
+
 function geoAt(p) {
   if (map) {
     const ll = map.unproject([p.x, p.y]);
@@ -275,6 +280,7 @@ $('settings-import').addEventListener('click', () => {
   g = sim.hydrate(ta.value);
   save();
   updateUI();
+  homeCamera();
   ta.hidden = true;
   $('settings-import').textContent = STR.importBtn;
   settingsView(false);
@@ -289,6 +295,7 @@ $('settings-reset').addEventListener('click', () => {
   localStorage.removeItem(sim.SAVE_KEY);
   g = sim.hydrate(null);
   updateUI();
+  homeCamera();
   settingsView(false);
   showMenu('start');
 });
