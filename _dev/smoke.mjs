@@ -174,6 +174,36 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (capped.seconds !== sim.BAL.offlineCapS) err('offline must cap');
 }
 
+// --- The ending fires once when the final era has every anchor connected ---
+{
+  const e = sim.newGame();
+  e.money = 1e9;
+  e.era = 4; // 1975
+  // Line 0 takes the southern anchors, line 1 the west; both from the hub.
+  for (let k = sim.newGame().lines[0].stations.length; k < WEST_FIRST; k++) {
+    sim.extendTo(e, 0, 'tail', ANCHORS[k].geo, k);
+  }
+  e.lines.push({
+    stations: [e.lines[0].stations[0]],
+    waitingF: [0], waitingB: [0], rev: 0,
+  });
+  e.lines[1].stations = [e.lines[0].stations[0]];
+  for (let k = WEST_FIRST; k < ANCHORS.length; k++) {
+    e.lines[1].stations.push({ name: ANCHORS[k].name, geo: ANCHORS[k].geo, anchor: k, mult: 1, hub: false });
+    e.lines[1].waitingF.push(0);
+    e.lines[1].waitingB.push(0);
+  }
+  e.lines[1].rev++;
+  sim.tick(e, 0.05);
+  if (!e.endingSeen) err('the ending should fire when the arc completes');
+  if (!e.events.some((x) => x.type === 'ending')) err('ending event missing');
+  e.events.length = 0;
+  sim.tick(e, 0.05);
+  if (e.events.some((x) => x.type === 'ending')) err('the ending must fire only once');
+  const back = sim.hydrate(sim.serialize(e));
+  if (!back.endingSeen) err('endingSeen must persist');
+}
+
 const ok = sim.stationCount(g) >= 14 && g.totalDelivered > 5000 && g.money >= 0 && up >= 5 && freeSpotPlaced;
 console.log(ok ? 'SMOKE OK' : `SMOKE FAILED stations=${sim.stationCount(g)} delivered=${Math.round(g.totalDelivered)} upgrades=${up} freeSpot=${freeSpotPlaced}`);
 process.exit(ok ? 0 : 1);

@@ -140,6 +140,7 @@ export function newGame() {
     surge: null,          // { line, idx, until, name }
     nextSurgeAt: 90,
     surgeCounter: 0,
+    endingSeen: false,
     events: [],
   };
 }
@@ -425,6 +426,14 @@ export function tick(g, dt) {
   // Political capital accrues from coverage.
   g.pk += BAL.pkFullRatePerSec * coverage(g) * dt;
 
+  // The ending: final era reached and every authored anchor connected. The
+  // screen is not a wall; the save keeps running (plan §1).
+  if (!g.endingSeen && g.era === ERAS.length - 1 &&
+      usedAnchorsAll(g).size === ANCHORS.length) {
+    g.endingSeen = true;
+    g.events.push({ type: 'ending' });
+  }
+
   g.grossEma = Math.max(0, g.grossEma - g.grossEma * dt / GROSS_TAU);
 }
 
@@ -678,6 +687,7 @@ export function serialize(g) {
     trains: g.trains.map((t) => ({ line: t.line, mothballed: t.mothballed })),
     freeSpots: g.freeSpots,
     owned: g.owned,
+    endingSeen: g.endingSeen,
     totalDelivered: Math.round(g.totalDelivered),
   });
 }
@@ -712,6 +722,7 @@ export function hydrate(raw) {
   g.money = Math.max(0, Number(s.money) || 0);
   g.pk = Math.max(0, Number(s.pk) || 0);
   g.era = posInt(s.era, ERAS.length - 1);
+  g.endingSeen = !!s.endingSeen;
   for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max + 8);
   g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   const capMax = stationCap(g);

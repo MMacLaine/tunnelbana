@@ -64,6 +64,16 @@ const STR = {
   eraNow: 'Era',
   arcDone: 'The arc is complete, for now.',
   linesStat: 'Lines',
+  ending: {
+    title: 'SLUTSTATION',
+    blurb: 'Every station on the map has a line. The arc from 1950 is complete. ' +
+      'This is the end of the story, and the trains keep running: your city does not stop because the chapter does.',
+  },
+  exportBtn: 'Export save',
+  exportDone: 'Copied to clipboard',
+  importBtn: 'Import save',
+  importApply: 'Apply',
+  importBad: 'Not a valid save',
   owned: 'Owned',
   level: 'Level',
   max: 'Max',
@@ -204,6 +214,9 @@ function settingsView(on) {
   $('settings-view').hidden = !on;
   $('main-view').hidden = on;
   $('settings-reset').textContent = STR.reset;
+  $('settings-export').textContent = STR.exportBtn;
+  $('settings-import').textContent = STR.importBtn;
+  $('import-text').hidden = true;
 }
 function showMenu(mode) {
   paused = true;
@@ -222,6 +235,49 @@ $('menu-settings').addEventListener('click', () => settingsView(true));
 $('settings-back').addEventListener('click', () => settingsView(false));
 $('menu-quit').addEventListener('click', () => {
   save();
+  showMenu('start');
+});
+$('settings-export').addEventListener('click', () => {
+  const btn = $('settings-export');
+  save();
+  const done = () => {
+    btn.textContent = STR.exportDone;
+    setTimeout(() => { btn.textContent = STR.exportBtn; }, 1500);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(sim.serialize(g)).then(done, () => {
+      $('import-text').hidden = false;
+      $('import-text').value = sim.serialize(g);
+    });
+  } else {
+    $('import-text').hidden = false;
+    $('import-text').value = sim.serialize(g);
+  }
+});
+$('settings-import').addEventListener('click', () => {
+  const ta = $('import-text');
+  if (ta.hidden) {
+    ta.hidden = false;
+    ta.value = '';
+    $('settings-import').textContent = STR.importApply;
+    return;
+  }
+  let ok = false;
+  try {
+    const s = JSON.parse(ta.value);
+    ok = s && typeof s.saveVersion === 'number';
+  } catch {}
+  if (!ok) {
+    $('settings-import').textContent = STR.importBad;
+    setTimeout(() => { $('settings-import').textContent = STR.importApply; }, 1500);
+    return;
+  }
+  g = sim.hydrate(ta.value);
+  save();
+  updateUI();
+  ta.hidden = true;
+  $('settings-import').textContent = STR.importBtn;
+  settingsView(false);
   showMenu('start');
 });
 $('settings-reset').addEventListener('click', () => {
@@ -252,6 +308,13 @@ function showMoment(year) {
   momentOpen = true;
   $('moment-title').textContent = m.title;
   $('moment-blurb').textContent = m.blurb;
+  $('moment').hidden = false;
+  save();
+}
+function showEnding() {
+  momentOpen = true;
+  $('moment-title').textContent = STR.ending.title;
+  $('moment-blurb').textContent = STR.ending.blurb;
   $('moment').hidden = false;
   save();
 }
@@ -490,6 +553,7 @@ function frame(now) {
     if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSNING · ' + e.name);
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'era') showMoment(e.year);
+    if (e.type === 'ending') showEnding();
   }
   g.events.length = 0;
   if (map && basemapUp) {

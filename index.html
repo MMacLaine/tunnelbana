@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tunnelbana · Build Stockholm</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="vendor/maplibre-gl.css" rel="stylesheet">
+<script src="vendor/maplibre-gl.js"></script>
 <link rel="stylesheet" href="tokens.css">
 <style>
   @font-face {
@@ -359,7 +359,10 @@
         <div class="setting-row"><span>Sound</span><span>coming later</span></div>
         <div class="setting-row"><span>Language</span><span>English</span></div>
         <div class="setting-row"><span>Save</span><span>automatic, local</span></div>
-        <button class="menu-btn danger" id="settings-reset" style="margin-top:1rem">Reset progress</button>
+        <button class="menu-btn" id="settings-export" style="margin-top:1rem">Export save</button>
+        <button class="menu-btn" id="settings-import">Import save</button>
+        <textarea id="import-text" hidden spellcheck="false" style="font-family:var(--mono);font-size:0.6rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);min-height:70px;padding:0.4rem"></textarea>
+        <button class="menu-btn danger" id="settings-reset">Reset progress</button>
         <button class="menu-btn" id="settings-back">Back</button>
       </div>
     </div>
