@@ -6,7 +6,7 @@
 import { ANCHORS, WEST_FIRST, LINE, WATER, TEASE } from './data.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
-  endStation, waitingAt,
+  endStation, waitingAt, trainPos,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs literals).
@@ -436,13 +436,15 @@ function drawTrains(g) {
     if (!train.run) continue;
     const L = g.lines[train.line];
     const run = train.run;
-    const a = project(L.stations[run.from].geo);
-    const bSt = L.stations[run.from + run.dir];
+    // Position from the sim's accel/dwell physics: dots brake into platforms
+    // and visibly sit while boarding (report 634 §2a).
+    const pos = trainPos(g, train);
+    const a = project(L.stations[pos.from].geo);
+    const bSt = L.stations[pos.to];
     if (!bSt) continue;
     const b = project(bSt.geo);
-    const f = Math.min(1, run.t / run.dur);
-    const x = a.x + (b.x - a.x) * f;
-    const y = a.y + (b.y - a.y) * f;
+    const x = a.x + (b.x - a.x) * pos.f;
+    const y = a.y + (b.y - a.y) * pos.f;
     ctx.beginPath();
     ctx.roundRect(x - 14, y - 8, 28, 16, 2.5);
     ctx.fillStyle = COL.train1950;
