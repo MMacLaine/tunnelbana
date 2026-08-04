@@ -186,6 +186,9 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   d.money = 1e6;
   sim.buy(d, 'drivers');
   for (let i = 0; i < 7; i++) sim.buy(d, 'train');
+  // A genuinely losing operation: a shrunken market under a bloated fleet.
+  d.srcW = d.srcW.map((w) => w * 0.2);
+  sim.computeDemand(d);
   d.money = 0;
   const upkeepBefore = sim.upkeepRate(d);
   for (let t = 0; t < 600; t += 0.05) { sim.tick(d, 0.05); d.events.length = 0; }
