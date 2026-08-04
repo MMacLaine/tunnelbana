@@ -20,6 +20,16 @@ export const BAL = {
   spawnPerSec: 1.6,        // base passengers per station per second at authored population
                            // (demand-per-headway is THE capacity knob, report 638 §2)
   transferPenalty: 6,      // seconds a transfer 'costs' in route choice; through-running divides it
+  accTimeS: 90,            // accessibility time budget (generalized seconds):
+                           // destinations within ~1.5 min of game travel count
+                           // nearly fully, twice that counts a fifth
+  accSoftMass: 6,          // softening mass in the accessibility factor
+  accRefMass: 10.2,        // reachable mass worth exactly 1.0x trip generation
+                           // (the measured full green-south median, so the
+                           // tuned early-mid game holds still and connectivity
+                           // beyond it is what pays)
+  accMin: 0.35,            // a 2-stop shuttle still lives
+  accMax: 2.0,             // and a perfect mesh cannot run away
   transferKmEq: 2.0,       // km-equivalent friction per line change in DESTINATION choice
                            // (route choice alone gave 'through' nothing to do: most
                            // origin-destination pairs have one sensible route, so a cheaper
@@ -228,7 +238,9 @@ function anchorStation(i) {
 // Founding-order palette; the real green stays line 1's (report 634 risk 3).
 export const LINE_COLORS = ['#35a86b', '#4f8fd4', '#c8544a', '#b06fa8', '#8fae4a', '#6fd6b0'];
 export const MAX_LINES = LINE_COLORS.length;
-export const SANDBOX_MAX_LINES = 16; // the final era lifts the cap (perf floor, not a rule)
+export const SANDBOX_MAX_LINES = 16; // the final era lifts the cap. A DESIGN choice,
+// not perf: report 646 measured 12 lines at 59 stations costing ~0.025 ms/frame
+// (cost tracks stations-per-line squared, not line count)
 
 // The sandbox era removes the line-count constraint (owner direction: "have
 // as many lines as they want"). Before it, the authored palette is the cap.
@@ -677,6 +689,7 @@ export function networkCache(g) {
       const legKm = Math.abs(prefix[a.li][b.i] - prefix[a.li][a.i]);
       destMap.set(dKey, {
         km: kmAt[best],
+        t: dist[best],
         nX,
         firstLeg: {
           li: a.li,
@@ -716,10 +729,33 @@ function buildVariants(g, net) {
   // Destination-choice friction per line change; through-running relieves it.
   const xferFrict = BAL.transferKmEq / effectMult(g, 'transfer');
 
+  // ACCESSIBILITY (report 646 §a): a station generates trips in proportion to
+  // where you can GET from it within a time budget. This is the plan §7
+  // promise (income superlinear in connectivity) actually implemented: a
+  // junction shortens journeys and adds reachable mass for BOTH lines, loop
+  // closure is a breakthrough, and the real network becomes the strong build
+  // for the reason it was actually built. Trip-choice gravity keeps its own
+  // sharper distance decay; accessibility decays on generalized TIME (rides +
+  // transfer penalties), so it grows as the network grows where raw gravity
+  // mass does not (measured: raw-W median FELL from 5.6 to 4.7 across the
+  // campaign build-out).
+  net.acc = new Map();
+  net.accF = new Map();
+  for (const oKey of keys) {
+    let A = 0;
+    for (const [dKey, r] of routes.get(oKey)) {
+      A += (multOf.get(dKey) || DEMAND_FLOOR) / (1 + (r.t / BAL.accTimeS) ** 2);
+    }
+    net.acc.set(oKey, A);
+    const f = (A + BAL.accSoftMass) / (BAL.accRefMass + BAL.accSoftMass);
+    net.accF.set(oKey, Math.min(BAL.accMax, Math.max(BAL.accMin, f)));
+  }
+
   net.variants = [0, 1, 2].map((v) => {
     const boardDist = new Map();
     const entryShares = new Map();
     const destTop = new Map();
+    const accW = new Map(); // origin -> total gravity mass of reachable dests
     for (const oKey of keys) {
       const destMap = routes.get(oKey);
       let W = 0;
@@ -732,6 +768,7 @@ function buildVariants(g, net) {
         W += w;
         rows.push([dKey, w, r.firstLeg]);
       }
+      accW.set(oKey, W);
       if (W <= 0) continue;
       destTop.set(oKey, rows.slice().sort((x, y) => y[1] - x[1]).slice(0, 3)
         .map(([dKey, w]) => ({ key: dKey, share: w / W })));
@@ -758,7 +795,7 @@ function buildVariants(g, net) {
     for (const bd of boardDist.values()) {
       bd.list = bd.list.map((x) => ({ ...x, share: x.w / bd.sum }));
     }
-    return { boardDist, entryShares, destTop };
+    return { boardDist, entryShares, destTop, accW };
   });
 }
 
@@ -1069,7 +1106,11 @@ export function tick(g, dt) {
     for (let i = 0; i < L.stations.length; i++) {
       const s = L.stations[i];
       const sh = variant.entryShares.get(li + ':' + i) || { f: 0, b: 0 };
-      let rate = BAL.spawnPerSec * s.mult * demandMult * dMult * (sh.f + sh.b);
+      // Accessibility scales trip GENERATION (646 §a): people ride from
+      // stations that can take them places. This is what makes a junction,
+      // a loop, or a second line raise income at stations it never touches.
+      const af = netC.accF.get(physKeyOf(s)) ?? 1;
+      let rate = BAL.spawnPerSec * s.mult * demandMult * dMult * (sh.f + sh.b) * af;
       if (surgedAt(g, li, i)) rate *= BAL.surgeSpawnMult;
       const room = cap * s.mult - waitingAt(g, li, i);
       const add = Math.min(Math.max(0, room), rate * dt);
@@ -1496,23 +1537,30 @@ export function buy(g, id) {
     g.trains.push({ line: li, at: 0, run: null, mothballed: false, readyAt: 0 });
   }
   if (PROJECT_SEEDS[id]) {
-    // A charter megaproject: a new line seeded T-Centralen to its corridor's
-    // first stop, with a gift train. T-Centralen grows as an interchange.
-    const first = PROJECT_SEEDS[id]();
-    g.lines.push(newLine([anchorStation(0), anchorStation(first)], g.lines.length));
+    // A charter megaproject: a new line with a gift train. westline and
+    // blueline seed from T-Centralen (their first corridor stops are adjacent
+    // to it in reality). redline seeds as an ORPHAN shuttle on its corridor's
+    // first two stops (report 646 §a: a T-C seed would skip Gamla stan and
+    // Slussen FOREVER, there being no mid-line insertion; the orphan keeps
+    // the historical threaded route open, and lines opening as disconnected
+    // stubs is itself historical).
+    const [a, b] = PROJECT_SEEDS[id]();
+    g.lines.push(newLine([anchorStation(a), anchorStation(b)], g.lines.length));
     g.trains.push({ line: g.lines.length - 1, at: 0, run: null, mothballed: false, readyAt: 0 });
     computeDemand(g);
-    g.events.push({ type: 'newline', geo: ANCHORS[first].geo, name: ANCHORS[first].name });
+    g.events.push({ type: 'newline', geo: ANCHORS[b].geo, name: ANCHORS[b].name });
   }
   return true;
 }
 
-// Which corridor each charter seeds toward; the corridor's first anchor is
-// the seeded second stop.
+// What each charter seeds: [from, to] anchor indices.
 const PROJECT_SEEDS = {
-  westline: () => CORRIDORS.find((c) => c.id === 'green-west').start,
-  redline:  () => CORRIDORS.find((c) => c.id === 'red-south').start,
-  blueline: () => CORRIDORS.find((c) => c.id === 'blue-main').start,
+  westline: () => [0, CORRIDORS.find((c) => c.id === 'green-west').start],
+  redline:  () => {
+    const c = CORRIDORS.find((x) => x.id === 'red-south');
+    return [c.start, c.start + 1];
+  },
+  blueline: () => [0, CORRIDORS.find((c) => c.id === 'blue-main').start],
 };
 
 // Tier downgrade (report 638 §4): agency over upkeep. No refund, the map stays
