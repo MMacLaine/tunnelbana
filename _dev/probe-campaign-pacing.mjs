@@ -34,7 +34,7 @@ function buildStage(stage) {
   g.owned.capacity = 2;
   const perLine = { 1: [3], 2: [3, 3], 3: [3, 3, 4], 4: [3, 3, 4, 4] }[stage];
   perLine.forEach((n, li) => {
-    for (let i = 0; i < n; i++) g.trains.push({ line: li, at: 0, run: null, mothballed: false, readyAt: 0 });
+    for (let i = 0; i < n; i++) sim.addTrain(g, li);
   });
   // A grown city (the mid-late game state these thresholds bind in).
   g.srcW = g.srcW.map((w) => w * 1.8);

@@ -59,7 +59,7 @@ function build(owned, demand) {
         // may instead stack the whole bought fleet on the branch
         // (trainSplit: 'west'), the moveTrain allocation play.
         const line = owned.trainSplit === 'west' ? 1 : owned.westline ? i % 2 : 0;
-        g.trains.push({ line, at: 0, run: null, mothballed: false, readyAt: 0 });
+        sim.addTrain(g, line);
       }
     }
   }

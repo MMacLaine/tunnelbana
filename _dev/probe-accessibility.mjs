@@ -45,7 +45,7 @@ wStats(buildLines([['green-south'], ['green-west'], ['red-south', 'red-orn', 're
 // --- Opus's scenario (646 §a): threaded vs chartered-direct, same fleet ---
 function income(g, seconds) {
   g.owned.drivers = 1;
-  for (let i = 0; i < 3; i++) g.trains.push({ line: 1, at: 0, run: null, mothballed: false, readyAt: 0 });
+  for (let i = 0; i < 3; i++) sim.addTrain(g, 1);
   for (let t = 0; t < 300; t += 0.05) { sim.tick(g, 0.05); g.events.length = 0; }
   const m0 = g.money;
   for (let t = 0; t < seconds; t += 0.05) { sim.tick(g, 0.05); g.events.length = 0; }
