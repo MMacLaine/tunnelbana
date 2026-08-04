@@ -90,6 +90,31 @@
   }
   .mini-btn:hover:not(:disabled) { border-color: var(--green); color: var(--ink); }
   .mini-btn:disabled { opacity: 0.4; cursor: default; }
+  .era-panel { padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
+  #era-now { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; }
+  .era-needs { font-size: 0.62rem; color: var(--muted); line-height: 1.5; }
+  #era-btn { border-color: var(--tb-politic); color: var(--ink); }
+  #era-btn:hover:not(:disabled) { border-color: var(--tb-politic); background: rgba(155, 140, 201, 0.12); }
+  #moment {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(5, 8, 12, 0.85);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  #moment[hidden] { display: none; }
+  .moment-panel {
+    margin-left: clamp(1.5rem, 10vw, 9rem);
+    border-left: 3px solid var(--green);
+    padding: 1.5rem 2rem;
+    max-width: 420px;
+  }
+  .moment-panel h2 { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.12em; }
+  .moment-panel p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin: 0.8rem 0 1.2rem; }
 
   #hud-bl { bottom: 1.4rem; left: 1rem; display: flex; flex-direction: column; gap: 0.5rem; max-width: 320px; }
   #bell {
@@ -282,6 +307,11 @@
   </div>
 
   <div class="hud" id="hud-r">
+    <div class="era-panel hud-panel">
+      <div id="era-now">Era 1950</div>
+      <button class="mini-btn" id="era-btn" hidden></button>
+      <div id="era-needs" class="era-needs"></div>
+    </div>
     <div id="shop" style="display:contents"></div>
     <div class="stats hud-panel">
       <div>Stations: <span id="stat-stations">3</span></div>
@@ -298,6 +328,14 @@
   <div class="hud" id="hud-br">
     Unofficial fan work · not affiliated with any transit operator or Region Stockholm<br>
     Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · tiles by <a href="https://openfreemap.org">OpenFreeMap</a>
+  </div>
+
+  <div id="moment" hidden>
+    <div class="moment-panel">
+      <h2 id="moment-title"></h2>
+      <p id="moment-blurb"></p>
+      <button class="menu-btn primary" id="moment-close">Continue</button>
+    </div>
   </div>
 
   <div id="menu">

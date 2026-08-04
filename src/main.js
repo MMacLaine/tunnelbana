@@ -37,13 +37,33 @@ const STR = {
   },
   mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
-    train:      { name: 'New train',         desc: 'One more train on the line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
+    train:      { name: 'New train',         desc: 'One more train, on the emptiest line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
     drivers:    { name: 'Hire drivers',      desc: 'Trains dispatch themselves. You can still ring the bell.' },
     timetable:  { name: 'Tighter timetable', desc: 'Drivers dispatch ' + pct(CAT.timetable.mult.dispatchInterval) + '% faster per level.' },
     capacity:   { name: 'Longer trains',     desc: '+' + CAT.capacity.add.trainCap + ' passengers per train.' },
     bogies:     { name: 'C1 bogie service',  desc: 'Trains run ' + pct(CAT.bogies.mult.speed) + '% faster.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
+    westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
+    entrances:  { name: 'Extra entrances',   desc: 'Wider catchment: +' + Math.round(CAT.entrances.add.demand * 100) + '% demand everywhere, per level.' },
+    through:    { name: 'Through-running',   desc: 'Megaproject: interchange transfer flow ×' + CAT.through.mult.transfer + '.' },
+    stock1957:  { name: '1957 stock',        desc: 'Trains run ' + pct(CAT.stock1957.mult.speed) + '% faster.' },
+    atc:        { name: 'ATC signalling',    desc: 'Megaproject: automatic train control, drivers dispatch ' + pct(CAT.atc.mult.dispatchInterval) + '% faster.' },
+    c4stock:    { name: 'C4 stock',          desc: 'Trains run ' + pct(CAT.c4stock.mult.speed) + '% faster.' },
+    depot:      { name: 'New depot',         desc: 'Room for ' + CAT.depot.add.fleetMax + ' more trains, per level.' },
+    c14stock:   { name: 'C14 stock',         desc: 'Trains run ' + pct(CAT.c14stock.mult.speed) + '% faster.' },
+    zonefare:   { name: 'Zone fares',        desc: 'Fares worth ' + pct(CAT.zonefare.mult.fare) + '% more.' },
   },
+  eras: {
+    1952: { title: '1952 · Västerort', blurb: 'The city looks west. Hötorget opens the door toward Vällingby, and Stockholm learns what a network is.' },
+    1957: { title: '1957 · Genom staden', blurb: 'Through-running arrives. The lines stop being lines and start being a system.' },
+    1965: { title: '1965 · Miljonprogrammet', blurb: 'The city grows faster than anyone planned for. New stock, new signals, new depots.' },
+    1975: { title: '1975 · Hela Stockholm', blurb: 'The map begins to look like the one on the platform walls.' },
+  },
+  advance: 'Advance to',
+  advanceNeeds: 'Needs',
+  eraNow: 'Era',
+  arcDone: 'The arc is complete, for now.',
+  linesStat: 'Lines',
   owned: 'Owned',
   level: 'Level',
   max: 'Max',
@@ -224,6 +244,25 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// --- Era moments ---
+let momentOpen = false;
+function showMoment(year) {
+  const m = STR.eras[year];
+  if (!m) return;
+  momentOpen = true;
+  $('moment-title').textContent = m.title;
+  $('moment-blurb').textContent = m.blurb;
+  $('moment').hidden = false;
+  save();
+}
+$('moment-close').addEventListener('click', () => {
+  momentOpen = false;
+  $('moment').hidden = true;
+});
+$('era-btn').addEventListener('click', () => {
+  if (sim.advanceEra(g)) updateUI();
+});
+
 // --- Bell ---
 const bell = $('bell');
 bell.querySelector('.bell-title').textContent = STR.dispatch;
@@ -243,8 +282,8 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Extending: drag either line end anywhere; anchors snap (Mini Metro verb) ---
-let dragEnd = null; // 'head' | 'tail' | null
+// --- Extending: drag any line end anywhere; anchors snap (Mini Metro verb) ---
+let dragRef = null; // { li, end } | null
 
 function canvasPos(e) {
   const r = wrap.getBoundingClientRect();
@@ -252,10 +291,10 @@ function canvasPos(e) {
 }
 
 function dragState(p) {
-  const snap = render.nearAnchor(g, p);
+  const snap = render.nearAnchor(g, p, dragRef.li);
   const geo = snap !== null ? ANCHORS[snap].geo : geoAt(p);
-  const cost = sim.extensionCost(g, dragEnd, geo);
-  const problem = sim.placementProblem(g, dragEnd, geo);
+  const cost = sim.extensionCost(g, dragRef.li, dragRef.end, geo);
+  const problem = sim.placementProblem(g, dragRef.li, dragRef.end, geo);
   let label = !problem || problem === 'money'
     ? (problem === 'money' ? STR.problems.money + ' ' : '') + fmt(cost) + ' kr'
     : STR.problems[problem];
@@ -263,35 +302,36 @@ function dragState(p) {
   if (snap === null && (!problem || problem === 'money')) {
     label += ' · ' + sim.freeSpotValue(geo) + 'x demand';
   }
-  return { x: p.x, y: p.y, end: dragEnd, snap, geo, cost, problem, label };
+  return { x: p.x, y: p.y, li: dragRef.li, end: dragRef.end, snap, geo, cost, problem, label };
 }
 
 wrap.addEventListener('pointerdown', (e) => {
   if (paused || e.button === 2) return;
   const p = canvasPos(e);
-  const end = render.nearEnd(g, p);
-  if (end) {
-    dragEnd = end;
+  const ref = render.nearEnd(g, p);
+  if (ref) {
+    dragRef = ref;
     render.setDrag(dragState(p));
     if (map) map.dragPan.disable();
     e.stopPropagation();
     e.preventDefault();
     return;
   }
-  // Click on a dashed anchor ring: extend from the nearest end, but fall back
-  // to the other end if only that one is a legal move.
-  const a = render.nearAnchor(g, p);
+  // Click on a dashed anchor ring: extend from the nearest legal line end.
+  const a = render.nearAnchor(g, p, null);
   if (a !== null) {
-    const headP = render.project(sim.endStation(g, 'head').geo);
-    const tailP = render.project(sim.endStation(g, 'tail').geo);
     const ap = render.project(ANCHORS[a].geo);
-    const nearest = Math.hypot(ap.x - headP.x, ap.y - headP.y) < Math.hypot(ap.x - tailP.x, ap.y - tailP.y)
-      ? 'head' : 'tail';
-    const other = nearest === 'head' ? 'tail' : 'head';
-    dragEnd = (sim.placementProblem(g, nearest, ANCHORS[a].geo) &&
-               !sim.placementProblem(g, other, ANCHORS[a].geo)) ? other : nearest;
+    const options = [];
+    for (let li = 0; li < g.lines.length; li++) {
+      for (const end of ['head', 'tail']) {
+        const ep = render.project(sim.endStation(g, li, end).geo);
+        options.push({ li, end, d: Math.hypot(ap.x - ep.x, ap.y - ep.y) });
+      }
+    }
+    options.sort((x, y) => x.d - y.d);
+    dragRef = options.find((o) => !sim.placementProblem(g, o.li, o.end, ANCHORS[a].geo)) || options[0];
     tryExtend(dragState(p));
-    dragEnd = null;
+    dragRef = null;
     e.stopPropagation();
     e.preventDefault();
   }
@@ -299,25 +339,25 @@ wrap.addEventListener('pointerdown', (e) => {
 
 wrap.addEventListener('pointermove', (e) => {
   const p = canvasPos(e);
-  if (dragEnd) {
+  if (dragRef) {
     render.setDrag(dragState(p));
   } else if (!paused) {
     wrap.style.cursor =
-      render.nearEnd(g, p) || render.nearAnchor(g, p) !== null ? 'pointer' : '';
+      render.nearEnd(g, p) || render.nearAnchor(g, p, null) !== null ? 'pointer' : '';
   }
 });
 
 function endDrag(e) {
-  if (!dragEnd) return;
+  if (!dragRef) return;
   const d = dragState(canvasPos(e));
   tryExtend(d);
-  dragEnd = null;
+  dragRef = null;
   render.setDrag(null);
   if (map) map.dragPan.enable();
 }
 
 function tryExtend(d) {
-  if (sim.extendTo(g, d.end, d.geo, d.snap)) {
+  if (sim.extendTo(g, d.li, d.end, d.geo, d.snap)) {
     updateUI();
   } else if (d.problem) {
     render.addFloatGeo(d.geo, d.label);
@@ -326,7 +366,7 @@ function tryExtend(d) {
 
 window.addEventListener('pointerup', endDrag);
 window.addEventListener('pointercancel', () => {
-  dragEnd = null;
+  dragRef = null;
   render.setDrag(null);
   if (map) map.dragPan.enable();
 });
@@ -335,13 +375,13 @@ window.addEventListener('pointercancel', () => {
 wrap.addEventListener('contextmenu', (e) => {
   if (paused) return;
   const p = canvasPos(e);
-  const end = render.nearEnd(g, p);
-  if (!end) return;
+  const ref = render.nearEnd(g, p);
+  if (!ref) return;
   e.preventDefault();
-  if (sim.demolish(g, end)) {
+  if (sim.demolish(g, ref.li, ref.end)) {
     updateUI();
   } else {
-    render.addFloatGeo(sim.endStation(g, end).geo, STR.cantDemolish);
+    render.addFloatGeo(sim.endStation(g, ref.li, ref.end).geo, STR.cantDemolish);
   }
 });
 
@@ -367,17 +407,33 @@ for (const item of sim.CATALOG) {
 function updateShop() {
   for (const item of sim.CATALOG) {
     const card = cards[item.id];
+    const visible = sim.eraVisible(g, item);
+    card.style.display = visible ? '' : 'none';
+    if (!visible) continue;
     const owned = g.owned[item.id];
-    const maxed = owned >= item.max;
+    const maxed = owned >= sim.maxFor(g, item);
     const gated = item.needs && !g.owned[item.needs];
     card.disabled = maxed || gated || !sim.canBuy(g, item.id);
+    const unit = item.currency === 'pk' ? ' pk' : ' kr';
     card.querySelector('.shop-cost').textContent =
-      maxed ? STR.max : fmt(sim.shopCost(g, item.id)) + ' kr';
+      maxed ? STR.max : fmt(sim.shopCost(g, item.id)) + unit;
     const ownedEl = card.querySelector('.shop-owned');
     if (gated) ownedEl.textContent = STR.needsDrivers;
     else if (item.max === 1) ownedEl.textContent = owned ? '✓' : '';
     else if (item.id === 'train') ownedEl.textContent = STR.owned + ': ' + (owned + 1);
     else ownedEl.textContent = owned ? STR.level + ' ' + owned : '';
+  }
+  // Era panel
+  const next = sim.nextEra(g);
+  $('era-now').textContent = STR.eraNow + ' ' + sim.eraYear(g);
+  if (next) {
+    $('era-btn').hidden = false;
+    $('era-btn').textContent = STR.advance + ' ' + next.year + ' (' + next.pk + ' pk)';
+    $('era-btn').disabled = !sim.canAdvanceEra(g);
+    $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' delivered · ' + next.pk + ' pk';
+  } else {
+    $('era-btn').hidden = true;
+    $('era-needs').textContent = STR.arcDone;
   }
 }
 
@@ -393,7 +449,7 @@ function updateUI() {
   netEl.textContent = (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(1) + ' kr/s';
   netEl.classList.toggle('neg', net < 0);
   $('stat-delivered').textContent = fmt(g.totalDelivered);
-  $('stat-stations').textContent = String(g.line.length);
+  $('stat-stations').textContent = sim.stationCount(g) + ' · ' + STR.linesStat + ': ' + g.lines.length;
   $('stat-demand').textContent = '×' + sim.cityMult(g).toFixed(2);
   const mb = sim.mothballedTrains(g).length;
   $('stat-trains').textContent =
@@ -414,7 +470,7 @@ let last = performance.now();
 let acc = 0;
 
 function frame(now) {
-  if (paused) {
+  if (paused || momentOpen) {
     last = now;
     acc = 0;
   } else {
@@ -431,6 +487,9 @@ function frame(now) {
     if (e.type === 'demolish') render.addFloatGeo(e.geo, e.name + ' ' + STR.demolished);
     if (e.type === 'alight') render.addFloatGeo(e.geo, '↓' + fmt(e.n), 'muted');
     if (e.type === 'mothball') render.addFloatGeo(e.geo, STR.mothballedFloat, 'muted');
+    if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSNING · ' + e.name);
+    if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
+    if (e.type === 'era') showMoment(e.year);
   }
   g.events.length = 0;
   if (map && basemapUp) {
