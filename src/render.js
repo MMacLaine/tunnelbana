@@ -3,10 +3,10 @@
 // layer), every number and panel lives in the DOM (plan §7). All positions are
 // projected per frame through the active projector.
 
-import { ANCHORS, WEST_FIRST, LINE, WATER, TEASE } from './data.js';
+import { ANCHORS, CORRIDORS, LINE, WATER } from './data.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
-  endStation, waitingAt, trainPos, anchorRevealed,
+  endStation, waitingAt, trainPos, anchorRevealed, corridorBegun,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -304,21 +304,25 @@ function drawGlow(g) {
   }
 }
 
+// Each corridor may carry a tease: the dashed promise of where history goes
+// next, drawn until the corridor's first anchor is built.
 function drawTease(g) {
-  if (usedAnchorsAll(g).has(WEST_FIRST)) return; // Hötorget reached: promise kept
-  const from = project(TEASE.from);
-  const to = project(TEASE.to);
-  ctx.beginPath();
-  ctx.moveTo(from.x, from.y);
-  ctx.lineTo(to.x, to.y);
-  ctx.setLineDash([3, 6]);
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = COL.ghost;
-  ctx.lineCap = 'round';
-  ctx.stroke();
-  ctx.setLineDash([]);
-  const lp = project(TEASE.labelAt);
-  label(TEASE.label, lp.x, lp.y, COL.ghost, 10);
+  for (const c of CORRIDORS) {
+    if (!c.tease || corridorBegun(g, c)) continue;
+    const from = project(c.tease.from);
+    const to = project(c.tease.to);
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.setLineDash([3, 6]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = COL.ghost;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const lp = project(c.tease.labelAt);
+    label(c.tease.label, lp.x, lp.y, COL.ghost, 10);
+  }
 }
 
 function drawAnchors(g) {

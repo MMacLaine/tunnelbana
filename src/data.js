@@ -49,6 +49,23 @@ export const ANCHORS = [
 // Index of the anchor where the Västerort megaproject seeds its line.
 export const WEST_FIRST = 13; // Hötorget
 
+// Corridors: the campaign's spine (owner direction, 2026-08-04). Each is a
+// contiguous ANCHORS range with the era that OPENS it (its first stake
+// appears on the map when the era arrives; after that, one-ahead reveal
+// walks it). A corridor may carry a tease: the dashed promise drawn until
+// its first anchor is built. Eras gate WHERE THE CITY GROWS NEXT, never what
+// the player may do.
+export const CORRIDORS = [
+  { id: 'green-south', name: 'Söderort',  opensIn: 1950, start: 0,  end: 13 },
+  { id: 'green-west',  name: 'Västerort', opensIn: 1952, start: 13, end: 27,
+    tease: {
+      from: [59.3312, 18.0619],
+      to: [59.3345, 18.0525],
+      label: 'mot Hötorget · 1952',
+      labelAt: [59.3352, 18.0540],
+    } },
+];
+
 // Water rings, hand-authored in geo space. COST LOGIC ONLY (a segment crossing
 // one pays the bridge/tunnel multiplier) plus the offline-fallback background;
 // the visible water comes from the basemap tiles. Approximate bands for M0.
@@ -83,13 +100,7 @@ export const WATER = [
   },
 ];
 
-// The pull outward from the hub: the 1952 line toward Vällingby is next.
-export const TEASE = {
-  from: [59.3312, 18.0619],
-  to: [59.3345, 18.0525],
-  label: 'mot Hötorget · 1952',
-  labelAt: [59.3352, 18.0540],
-};
+// (The old standalone TEASE moved into CORRIDORS: teases are per corridor now.)
 
 // Authored population-density blobs: the first cut of the density field. A free
 // spot's demand multiplier comes from the strongest blob at that point (anchors

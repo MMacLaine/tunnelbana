@@ -3,7 +3,7 @@
 // megaprojects, political capital, surges, and offline progress. Aggregate
 // flows, never agents (plan §4). DOM-free so it runs under node for smoke tests.
 
-import { ANCHORS, DISTRICTS, START_BUILT, WEST_FIRST, WATER, kmBetween, crossesWater, inRing, densityAt } from './data.js';
+import { ANCHORS, CORRIDORS, DISTRICTS, START_BUILT, WEST_FIRST, WATER, kmBetween, crossesWater, inRing, densityAt } from './data.js';
 
 export const BAL = {
   startMoney: 300,
@@ -371,17 +371,26 @@ export function usedAnchorsAll(g) {
 // proposal, not a leash. A corridor that has not begun shows only its FIRST
 // anchor, and only once its era has arrived (the era OPENS the corridor:
 // Hötorget appears in 1952, whether the player takes the megaproject or
-// builds there themselves). This is the seam the era-per-line direction
-// plugs into: a new era = a new corridor's first stake appearing on the map.
+// builds there themselves). This is the campaign's core mechanic: a new era
+// = a new corridor's first stake appearing on the map.
+export function corridorOf(i) {
+  return CORRIDORS.find((c) => i >= c.start && i < c.end);
+}
+
+export function corridorBegun(g, c) {
+  const used = usedAnchorsAll(g);
+  for (let k = c.start; k < c.end; k++) if (used.has(k)) return true;
+  return false;
+}
+
 export function anchorRevealed(g, i) {
   const used = usedAnchorsAll(g);
   if (used.has(i)) return true;
-  const start = i >= WEST_FIRST ? WEST_FIRST : 0;
-  const end = i >= WEST_FIRST ? ANCHORS.length : WEST_FIRST;
-  const opensIn = i >= WEST_FIRST ? 1952 : 1950;
-  let maxBuilt = start - 1;
-  for (let k = start; k < end; k++) if (used.has(k)) maxBuilt = k;
-  if (maxBuilt < start) return i === start && eraYear(g) >= opensIn;
+  const c = corridorOf(i);
+  if (!c) return false;
+  let maxBuilt = c.start - 1;
+  for (let k = c.start; k < c.end; k++) if (used.has(k)) maxBuilt = k;
+  if (maxBuilt < c.start) return i === c.start && eraYear(g) >= c.opensIn;
   return i === maxBuilt + 1;
 }
 
