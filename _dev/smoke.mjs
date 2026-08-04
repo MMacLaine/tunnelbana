@@ -71,7 +71,7 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
 // --- Eras and the Västerort megaproject ---
 {
   if (sim.canAdvanceEra(g) && g.pk >= 5) { /* possible if arc was generous */ }
-  g.totalDelivered = Math.max(g.totalDelivered, 5000);
+  g.totalDelivered = Math.max(g.totalDelivered, 130000);
   g.pk = 10;
   if (!sim.advanceEra(g)) err('era advance to 1952 should succeed with reqs met');
   if (sim.eraYear(g) !== 1952) err('era should be 1952');
@@ -135,6 +135,48 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   for (let t = 0; t < 120; t += 0.05) { sim.tick(a, 0.05); a.events.length = 0; }
   const leftTotal = a.lines[0].left60.reduce((x, y) => x + y, 0);
   if (!(leftTotal > 0)) err('crowded platforms should leak passengers (abandonment)');
+}
+
+// Report 638 follow-ups: the growth loop responds to investment (§1), the
+// underbuild farm is self-limiting (§3), empty lines earn no transfer flow
+// (§2), reassignment costs a fee, downgrade sheds tier.
+{
+  const grow = (invest) => {
+    const w = sim.newGame();
+    w.money = 1e9;
+    w.nextSurgeAt = Infinity;
+    if (invest) {
+      for (let i = 0; i < w.lines[0].stations.length; i++) {
+        sim.upgradeStation(w, 0, i, 'ent');
+        w.money = 1e9;
+      }
+    }
+    sim.buy(w, 'drivers');
+    sim.buy(w, 'train');
+    for (let t = 0; t < 300; t += 0.05) { sim.tick(w, 0.05); w.events.length = 0; }
+    return w.srcW.reduce((a, b) => a + b, 0);
+  };
+  const bare = grow(false);
+  const invested = grow(true);
+  if (!(invested > bare)) err('investment must accelerate city growth, bare=' + bare.toFixed(2) + ' invested=' + invested.toFixed(2));
+
+  const m = sim.newGame();
+  m.money = 1e6;
+  m.pk = 50;
+  const runningBefore = sim.runningLinesAtAnchor(m, 0);
+  sim.foundLine(m, 0, 0); // empty one-station line, no train assigned there yet? it has none
+  if (sim.runningLinesAtAnchor(m, 0) !== runningBefore) err('an empty chartered line must not count as running');
+  const fee = sim.BAL.moveTrainKr;
+  m.money = fee - 1;
+  if (sim.moveTrain(m, 1) !== false) err('moveTrain must respect the fee');
+
+  const d2 = sim.newGame();
+  d2.money = 1e6;
+  sim.upgradeStation(d2, 0, 1, 'tier'); // Gamla stan to tier 2
+  if (d2.lines[0].stations[1].tier !== 2) err('tier upgrade failed');
+  if (!sim.downgradeTier(d2, 0, 1)) err('downgrade should work');
+  if (d2.lines[0].stations[1].tier !== 1) err('downgrade should shed the tier');
+  if (sim.canDowngradeTier(d2, 0, 0)) err('a born Knutpunkt must keep its rank');
 }
 
 // Demolition still works, per line.

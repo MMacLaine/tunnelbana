@@ -19,6 +19,7 @@ const STR = {
   tiers: ['', 'Hållplats', 'Station', 'Knutpunkt'],
   tierUp: ['', 'Upgrade to Station', 'Upgrade to Knutpunkt', ''],
   tierMax: 'Knutpunkt, fully built',
+  tierDown: 'Downgrade tier (no refund)',
   tierEraGate: 'Knutpunkt unlocks in 1957',
   entRow: 'Entrances',
   gatesRow: 'Gates',
@@ -66,6 +67,10 @@ const STR = {
     c4stock:    { name: 'C4 stock',          desc: 'Trains run ' + pct(CAT.c4stock.mult.speed) + '% faster.' },
     c14stock:   { name: 'C14 stock',         desc: 'Trains run ' + pct(CAT.c14stock.mult.speed) + '% faster.' },
     zonefare:   { name: 'Zone fares',        desc: 'Fares worth ' + pct(CAT.zonefare.mult.fare) + '% more.' },
+    atc:        { name: 'ATC holding',       desc: 'Comfort: trains stop bunching onto each other. You can watch it work.' },
+    artstation: { name: 'Konst i tunnelbanan', desc: 'Art in the stations: +' + Math.round(CAT.artstation.add.demand * 100) + '% demand everywhere. The world\'s longest gallery.' },
+    cbtc:       { name: 'CBTC signalling',   desc: 'Moving-block signalling: dispatch ' + pct(CAT.cbtc.mult.dispatchInterval) + '% faster, trains ' + pct(CAT.cbtc.mult.speed) + '% quicker.' },
+    nightservice: { name: 'Nattrafik',       desc: 'The city never fully sleeps: night demand doubled.' },
   },
   eras: {
     1952: { title: '1952 · Västerort', blurb: 'The city looks west. Hötorget opens the door toward Vällingby, and Stockholm learns what a network is.' },
@@ -579,6 +584,9 @@ function updateStationPanel() {
   }
   stationUpgRow('ent');
   stationUpgRow('gates');
+  const db = $('sp-down');
+  db.hidden = !sim.canDowngradeTier(g, selected.li, selected.i);
+  db.textContent = STR.tierDown;
   const fb = $('sp-found');
   const showFound = st.tier >= 3;
   fb.hidden = !showFound;
@@ -599,6 +607,9 @@ for (const kind of ['tier', 'ent', 'gates']) {
   });
 }
 $('sp-close').addEventListener('click', () => selectStation(null));
+$('sp-down').addEventListener('click', () => {
+  if (selected && sim.downgradeTier(g, selected.li, selected.i)) updateUI();
+});
 $('sp-found').addEventListener('click', () => {
   if (selected && sim.foundLine(g, selected.li, selected.i)) {
     selectStation(null);

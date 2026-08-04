@@ -11,20 +11,18 @@ const WARMUP = 120;
 const MEASURE = 240;
 const MIN_GAIN = 0.05; // kr/s a purchase must add in its scenario
 
-// The balance-knot ledger (slice 4): after demand moved to growing district
-// budgets, these passenger-ADDING items measure ~0 in every reachable regime,
-// because queues clamp silently and trains rarely fill (takes are headway x
-// spawn, far below capacity). This is a coupled balance problem, not five
-// separate scenario bugs; it is the FIRST agenda item of the M4 Opus review.
-// Ledgered items WARN loudly instead of failing the build. Nothing may be
-// added to this list without a written reason.
-const LEDGER = {
-  capacity: 'trains rarely fill (take = headway x spawn << cap), so room is idle; couples to gates via boarding time',
-  through: 'transfer spawn feeds queues that are already clamped at busy interchanges',
-  atc: 'holding shows no measurable spread benefit at reachable fleets; bunching cost may need visible waits first',
-  'st ent': 'extra claim feeds a clamped queue; needs slack regimes that grown cities do not currently produce',
-  'st tier2': 'catchment component same as st ent; dwell component below noise',
-};
+// The expected-fail ledger. A ledger entry must record the MEASUREMENT that
+// justifies it, not just the mechanism that explains it (report 638 §7: a
+// plausible story covered a wiring bug for a full slice; a delta pinned to an
+// item's exact upkeep across a 16x demand sweep is wiring, not balance).
+// Emptied after 638: the five entries were one cache bug (fixed), one demand
+// scale (raised), one guarded buff (through), and two documented EXCLUSIONS:
+// - 'atc' is priced as COMFORT (holding rarely fires under terminus dispatch;
+//   event-driven turnaround is M5). A legibility purchase is not graded here.
+// - 'st tier2' is COMMITMENT infrastructure by design ruling (638 §2): gated
+//   slightly negative on income alone; entrances and gates are the payers,
+//   tier is the unlock (tier 3 founds lines).
+const LEDGER = {};
 
 function build(owned, demand) {
   const g = sim.newGame();
@@ -51,6 +49,10 @@ function build(owned, demand) {
       }
     }
   }
+  // Surges off: they are deterministic but PHASE-SENSITIVE, so any timing
+  // change re-rolls which surges land in the window, and that variance drowns
+  // small honest effects (measured: reproducible ±0.3/s on a zero-effect item).
+  g.nextSurgeAt = Infinity;
   // Demand regime: capacity items need demand beyond supply; demand items need
   // slack. 'high' = a grown city (the budgets at their growth cap).
   if (demand === 'high' || demand === 'mid') {
@@ -87,9 +89,10 @@ const CASES = [
   { id: 'c4stock',    demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { c4stock: 1 } },
   { id: 'c14stock',   demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { c14stock: 1 } },
   { id: 'zonefare',   demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { zonefare: 1 } },
-  // ATC is holding control: at a bunching-prone config (deep fleet, tight
-  // floor), spacing the service must beat letting trains chase each other.
-  { id: 'atc',        demand: 'high', base: { drivers: 1, train: 4, timetable: 3 },    buy: { atc: 1 } },
+  // Late sinks (638 §5): each must still earn its keep in its regime.
+  { id: 'artstation', demand: 'mid',  base: { drivers: 1, train: 4, timetable: 2 },   buy: { artstation: 1 } },
+  { id: 'cbtc',       demand: 'high', base: { drivers: 1, train: 1, timetable: 3, atc: 1 }, buy: { cbtc: 1 } },
+  { id: 'nightservice', demand: 'high', base: { drivers: 1, train: 3, timetable: 2 }, buy: { nightservice: 1 } },
 ];
 
 let failed = 0;
@@ -110,9 +113,8 @@ for (const c of CASES) {
 // Per-station upgrades (slice 1) must also earn their keep. Applied to the
 // busiest platform (T-Centralen, index 0) in the regime where each binds.
 const STATION_CASES = [
-  { id: 'st gates',  demand: 'high', base: { drivers: 1, timetable: 1 }, kind: 'gates' },
+  { id: 'st gates',  demand: 'high', base: { drivers: 1 }, kind: 'gates' },
   { id: 'st ent',    demand: 'mid',  base: { drivers: 1, train: 4, timetable: 2 }, kind: 'ent' },
-  { id: 'st tier2',  demand: 'mid',  base: { drivers: 1, train: 4, timetable: 2 }, kind: 'tier', at: 1 },
 ];
 
 function netRateStation(owned, demand, upgrade) {

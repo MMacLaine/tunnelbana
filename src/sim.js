@@ -10,8 +10,9 @@ export const BAL = {
   farePerKm: 2.4,          // kr per passenger-kilometre, paid as passengers board
   gravityExp: 1.4,         // distance decay for destination choice (2 makes every trip a one-stop hop)
   gravityFloorKm: 0.4,     // distances below this stop mattering to destination choice
-  spawnPerSec: 0.8,        // base passengers per station per second at authored population
-  transferSpawn: 0.25,     // extra spawn per second per OTHER line at an interchange
+  spawnPerSec: 1.6,        // base passengers per station per second at authored population
+                           // (demand-per-headway is THE capacity knob, report 638 §2)
+  transferSpawn: 0.6,      // extra spawn per second per OTHER *running* line at an interchange
   demolishCost: 150,       // flat cost to remove a line end; provisional
   stationCapBase: 80,      // base waiting cap per station
   growthCap: 2.5,          // a district can grow to this multiple of its authored pop
@@ -69,17 +70,22 @@ export const BAL = {
                            // (scaled by crowding squared: light queues barely leak)
   foundLineKr: 2500,       // charter a new line from a Knutpunkt
   foundLinePk: 3,
+  moveTrainKr: 100,        // depot transfer fee (reassignment must not beat a return trip)
   offlineCapS: 8 * 3600,   // offline progress simulates at most this long
 };
 
 // The era arc. Advancing costs political capital and requires ridership; each
 // era unlocks its slice of the catalog (and the Västerort megaproject in 1952).
+// Thresholds derived post-638 against measured greedy pacing (~2,900
+// delivered/min single-line late; multi-line projected 2-3x): gates land at
+// roughly 1h / 4h / 9h / 15h of active play on the way to the 20 h arc.
+// Coarse by design; the owner's playtests refine them.
 export const ERAS = [
   { year: 1950 },
-  { year: 1952, pk: 5,  delivered: 4000 },
-  { year: 1957, pk: 12, delivered: 15000 },
-  { year: 1965, pk: 25, delivered: 40000 },
-  { year: 1975, pk: 50, delivered: 100000 },
+  { year: 1952, pk: 5,  delivered: 120000 },
+  { year: 1957, pk: 12, delivered: 700000 },
+  { year: 1965, pk: 25, delivered: 2000000 },
+  { year: 1975, pk: 50, delivered: 3800000 },
 ];
 
 // The upgrade CATALOG (plan §6, Cookie Clicker direction): upgrades are DATA, and
@@ -107,10 +113,11 @@ export const CATALOG = [
     mult: { transfer: 1.5 } },
   { id: 'stock1957',  base: 3000, growth: 1,   max: 1, era: 1957,
     mult: { speed: 0.92 } },
-  // atc is HOLDING control (report 634 §3 risk 1): a train that has closed up
-  // on the one ahead waits at the platform, which re-spreads the service. Its
-  // effect lives in the movement code, not in a multiplier.
-  { id: 'atc',        base: 6,    growth: 1,   max: 1, era: 1965, currency: 'pk', kind: 'holding' },
+  // atc is HOLDING control priced as COMFORT, not throughput (report 638 §2:
+  // terminus dispatch already regularises the service, so holding rarely fires
+  // until event-driven turnaround lands in M5; a legibility purchase must not
+  // be graded by the kr/s gate). Cheap on purpose.
+  { id: 'atc',        base: 2,    growth: 1,   max: 1, era: 1965, currency: 'pk', kind: 'holding' },
   { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1965,
     mult: { speed: 0.9 } },
   // 'depot' removed pending M4: the fleet knee sits near 3 trains per line at
@@ -121,6 +128,16 @@ export const CATALOG = [
     mult: { speed: 0.9 } },
   { id: 'zonefare',   base: 20000, growth: 1,  max: 1, era: 1975,
     mult: { fare: 1.15 } },
+  // Late sinks (report 638 §5): thresholds without sinks just make the player
+  // wait with a full wallet.
+  { id: 'artstation', base: 45000, growth: 1,  max: 1, era: 1965,
+    add: { demand: 0.15 } },
+  // cbtc is frequency AND speed (moving-block signalling lets trains run
+  // closer and brake later); pure frequency saturates at reachable demand.
+  { id: 'cbtc',       base: 60000, growth: 1,  max: 1, era: 1975, needs: 'atc',
+    mult: { dispatchInterval: 0.8, speed: 0.93 } },
+  { id: 'nightservice', base: 80000, growth: 1, max: 1, era: 1975,
+    mult: { night: 2 } },
 ];
 
 export function effectMult(g, key) {
@@ -288,6 +305,19 @@ export function usedAnchorsAll(g) {
 export function linesAtAnchor(g, anchor) {
   let n = 0;
   for (let li = 0; li < g.lines.length; li++) {
+    if (g.lines[li].stations.some((s) => s.anchor === anchor)) n++;
+  }
+  return n;
+}
+
+// Transfer traffic only flows between lines that actually RUN: two or more
+// stations and at least one active train (report 638 §2: five empty chartered
+// lines must not farm transfer spawn).
+export function runningLinesAtAnchor(g, anchor) {
+  let n = 0;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (g.lines[li].stations.length < 2) continue;
+    if (!g.trains.some((t) => t.line === li && !t.mothballed)) continue;
     if (g.lines[li].stations.some((s) => s.anchor === anchor)) n++;
   }
   return n;
@@ -506,7 +536,8 @@ export function dayPhase(g) {
 
 function dayMult(g) {
   const ph = dayPhase(g);
-  return ph === 0 ? BAL.morningMult : ph === 2 ? BAL.eveningMult : ph === 3 ? BAL.nightMult : 1;
+  if (ph === 3) return Math.min(1, BAL.nightMult * effectMult(g, 'night'));
+  return ph === 0 ? BAL.morningMult : ph === 2 ? BAL.eveningMult : 1;
 }
 
 function surgedAt(g, li, i) {
@@ -726,7 +757,7 @@ export function tick(g, dt) {
       const s = L.stations[i];
       let rate = BAL.spawnPerSec * s.mult * demandMult * dMult;
       if (s.anchor !== null) {
-        const others = linesAtAnchor(g, s.anchor) - 1;
+        const others = runningLinesAtAnchor(g, s.anchor) - 1;
         if (others > 0) rate += BAL.transferSpawn * others * effectMult(g, 'transfer') * dMult;
       }
       if (surgedAt(g, li, i)) rate *= BAL.surgeSpawnMult;
@@ -930,6 +961,7 @@ export function upgradeStation(g, li, i, kind) {
       st[kind] += 1;
     }
   }
+  g._fracRev = -1; // catchment changed: the geometry cache MUST miss (report 638 §1)
   computeDemand(g);
   g.events.push({ type: 'upgrade', geo: g.lines[li].stations[i].geo, kind });
   return true;
@@ -1091,6 +1123,28 @@ export function buy(g, id) {
   return true;
 }
 
+// Tier downgrade (report 638 §4): agency over upkeep. No refund, the map stays
+// intact, and a born Knutpunkt (T-Centralen) never falls below its rank.
+export function canDowngradeTier(g, li, i) {
+  const st = g.lines[li].stations[i];
+  if (st.tier <= 1) return false;
+  if (st.anchor !== null && ANCHORS[st.anchor].hub && st.tier <= 3) return false;
+  return true;
+}
+
+export function downgradeTier(g, li, i) {
+  if (!canDowngradeTier(g, li, i)) return false;
+  for (const [l2, i2] of entriesOfSame(g, li, i)) {
+    const st = g.lines[l2].stations[i2];
+    st.tier -= 1;
+    st.hub = st.tier >= 3;
+  }
+  g._fracRev = -1;
+  computeDemand(g);
+  g.events.push({ type: 'downgrade', geo: g.lines[li].stations[i].geo });
+  return true;
+}
+
 // --- Found-a-line: a Knutpunkt's power (plan §6a) ---
 
 export function canFoundLine(g, li, i) {
@@ -1120,6 +1174,7 @@ export function foundLine(g, li, i) {
 // Player-controlled train allocation (report 634 risk 3): pull an idle train
 // from the most-staffed other line onto this one. Free, reversible.
 export function moveTrain(g, toLi) {
+  if (g.money < BAL.moveTrainKr) return false;
   let from = -1, most = 0;
   for (let li = 0; li < g.lines.length; li++) {
     if (li === toLi) continue;
@@ -1128,6 +1183,7 @@ export function moveTrain(g, toLi) {
   }
   if (from < 0) return false;
   const t = g.trains.find((x) => x.line === from && !x.run && !x.mothballed);
+  g.money -= BAL.moveTrainKr;
   t.line = toLi;
   t.at = 0;
   return true;
