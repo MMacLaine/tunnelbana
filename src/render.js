@@ -587,7 +587,7 @@ function drawSurge(g) {
   ctx.globalAlpha = 0.9;
   ctx.stroke();
   ctx.globalAlpha = 1;
-  label('RUSNING', p.x + 14, p.y + 14, COL.amber, 10, { weight: 600 });
+  label('RUSH HOUR', p.x + 14, p.y + 14, COL.amber, 10, { weight: 600 });
 }
 
 function drawTrains(g) {
