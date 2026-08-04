@@ -11,7 +11,8 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
 {
   const g = sim.newGame();
   if (sim.placementProblem(g, 'head', [59.3260, 18.0700]) !== 'water') err('water placement should be rejected');
-  if (sim.placementProblem(g, 'tail', [59.3079, 18.0764]) !== 'tooClose') err('min spacing should be enforced');
+  if (sim.placementProblem(g, 'tail', [59.3201, 18.0722]) !== 'tooClose') err('min spacing should be enforced');
+  if (g.line[0].name !== 'T-Centralen' || !g.line[0].hub) err('the game should start at the T-Centralen hub');
   if (!(sim.freeSpotValue([59.2980, 18.0490]) > 0.35)) err('Årsta should beat the density floor');
   if (sim.freeSpotValue([59.2000, 18.4000]) !== 0.35) err('nowhere should sit at the density floor');
 }
@@ -38,8 +39,8 @@ for (let t = 0; t < 600; t += 0.05) {
     const cost = sim.extensionCost(g, 'tail', ANCHORS[nextIdx].geo);
     sim.extendTo(g, 'tail', ANCHORS[nextIdx].geo, nextIdx);
     console.log(`t=${t.toFixed(0).padStart(3)}s  EXTEND ${ANCHORS[nextIdx].name.padEnd(16)} cost=${cost}  money=${Math.round(g.money)}  stations=${g.line.length}`);
-  } else if (t > 200 && !freeSpotPlaced && !sim.placementProblem(g, 'head', [59.3180, 18.0560])) {
-    sim.extendTo(g, 'head', [59.3180, 18.0560], null);
+  } else if (t > 200 && !freeSpotPlaced && !sim.placementProblem(g, 'head', [59.3315, 18.0380])) {
+    sim.extendTo(g, 'head', [59.3315, 18.0380], null);
     freeSpotPlaced = true;
     console.log(`t=${t.toFixed(0).padStart(3)}s  FREE SPOT (head)  stations=${g.line.length}`);
   } else if (up < UPGRADES.length && sim.canBuy(g, UPGRADES[up])) {
@@ -55,7 +56,25 @@ for (let t = 0; t < 600; t += 0.05) {
 
 if (!(g.pk > 0)) err('political capital should accrue');
 const free = g.line.find((s) => s.anchor === null);
-if (!free || free.name.indexOf('Södermalm') !== 0) err('free spot near Södermalm should take the district name, got ' + (free && free.name));
+if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholmen should take the district name, got ' + (free && free.name));
+
+// Pre-v5 saves used anchor indices without T-Centralen/Gamla stan: remap +2.
+{
+  const legacy = JSON.stringify({
+    saveVersion: 3, money: 500, freeSpots: 0,
+    owned: { train: 0, drivers: 0, timetable: 0, capacity: 0 },
+    totalDelivered: 100,
+    line: [
+      { name: 'Slussen', geo: [59.3200, 18.0720], anchor: 0, mult: 1 },
+      { name: 'Medborgarplatsen', geo: [59.3143, 18.0736], anchor: 1, mult: 1 },
+      { name: 'Skanstull', geo: [59.3078, 18.0763], anchor: 2, mult: 1 },
+    ],
+    waiting: [8, 8, 8],
+  });
+  const m = sim.hydrate(legacy);
+  if (m.line[0].anchor !== 2) err('v3 anchor remap failed, got ' + m.line[0].anchor);
+  if (m.line[0].name !== 'Slussen') err('v3 remap should keep names');
+}
 
 // Demolition: keep trying the head until no train blocks it.
 {

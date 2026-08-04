@@ -375,6 +375,18 @@ function drawStations(g, P) {
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = freeSpot && !terminus ? COL.muted : COL.ink;
     ctx.stroke();
+    if (g.line[i].hub) {
+      // Hub glyph (design doc §4): outer hairline ring plus a core.
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 9.5, 0, Math.PI * 2);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = COL.ink;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = COL.ink;
+      ctx.fill();
+    }
     if (freeSpot) {
       // Invented place, not a real one: a small core marks it (design doc §4).
       ctx.beginPath();
