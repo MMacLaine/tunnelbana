@@ -41,11 +41,15 @@ function build(owned, demand) {
   }
   for (const [id, n] of Object.entries(owned)) {
     if (id === 'westline') continue; // handled above, needs its side effect
+    if (id === 'trainSplit') continue; // fleet allocation directive, not a catalog item
     g.owned[id] = n;
     if (id === 'train') {
       for (let i = 0; i < n; i++) {
-        // With two lines, bought trains alternate so both are staffed.
-        g.trains.push({ line: owned.westline ? i % 2 : 0, at: 0, run: null, mothballed: false, readyAt: 0 });
+        // With two lines, bought trains alternate so both are staffed; a case
+        // may instead stack the whole bought fleet on the branch
+        // (trainSplit: 'west'), the moveTrain allocation play.
+        const line = owned.trainSplit === 'west' ? 1 : owned.westline ? i % 2 : 0;
+        g.trains.push({ line, at: 0, run: null, mothballed: false, readyAt: 0 });
       }
     }
   }
@@ -94,24 +98,25 @@ const CASES = [
   { id: 'drivers',    demand: 'low',  base: {},                                        buy: { drivers: 1 } },
   { id: 'train #2',   demand: 'high', base: { drivers: 1 },                            buy: { train: 1 } },
   { id: 'train 2-line',demand: 'high', base: { drivers: 1, westline: 1 },              buy: { train: 1 } },
-  // timetable 1 pays as REGULARITY (even-interval terminus dispatch: less
-  // bunching, less abandonment); deep levels pay on a DENSE line, where the
-  // signalling floor itself binds the even-headway target.
+  // timetable pays as REGULARITY (even-interval terminus dispatch: less
+  // bunching, less abandonment). Max is 1: at current speeds no reachable
+  // fleet gets terminus spacing under the signalling floor, so every
+  // floor-only level measured dead (incl. the whole fleet stacked on a short
+  // branch via trainSplit, +0.08/s phase-invariant, 2026-08-04).
   { id: 'timetable',  demand: 'high', base: { drivers: 1, train: 3 },                  buy: { timetable: 1 } },
-  { id: 'timetable 3',demand: 'high', base: { drivers: 1, train: 9, timetable: 2 },    buy: { timetable: 3 } },
   { id: 'capacity',   demand: 'high', base: { drivers: 1, train: 1 },                  buy: { capacity: 1 } },
-  { id: 'bogies',     demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { bogies: 1 } },
+  { id: 'bogies',     demand: 'high', base: { drivers: 1, train: 1, timetable: 1 },    buy: { bogies: 1 } },
   { id: 'turnstiles', demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { turnstiles: 1 } },
-  { id: 'entrances',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 2 },    buy: { entrances: 1 } },
+  { id: 'entrances',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 1 },    buy: { entrances: 1 } },
   { id: 'through',    demand: 'low',  base: { drivers: 1, train: 2, westline: 1 },     buy: { through: 1 } },
-  { id: 'stock1957',  demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { stock1957: 1 } },
-  { id: 'c4stock',    demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { c4stock: 1 } },
-  { id: 'c14stock',   demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { c14stock: 1 } },
+  { id: 'stock1957',  demand: 'high', base: { drivers: 1, train: 1, timetable: 1 },    buy: { stock1957: 1 } },
+  { id: 'c4stock',    demand: 'high', base: { drivers: 1, train: 1, timetable: 1 },    buy: { c4stock: 1 } },
+  { id: 'c14stock',   demand: 'high', base: { drivers: 1, train: 1, timetable: 1 },    buy: { c14stock: 1 } },
   { id: 'zonefare',   demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { zonefare: 1 } },
   // Late sinks (638 §5): each must still earn its keep in its regime.
-  { id: 'artstation', demand: 'mid',  base: { drivers: 1, train: 4, timetable: 2 },   buy: { artstation: 1 } },
-  { id: 'cbtc',       demand: 'high', base: { drivers: 1, train: 1, timetable: 3, atc: 1 }, buy: { cbtc: 1 } },
-  { id: 'nightservice', demand: 'high', base: { drivers: 1, train: 3, timetable: 2 }, buy: { nightservice: 1 } },
+  { id: 'artstation', demand: 'mid',  base: { drivers: 1, train: 4, timetable: 1 },   buy: { artstation: 1 } },
+  { id: 'cbtc',       demand: 'high', base: { drivers: 1, train: 1, timetable: 1, atc: 1 }, buy: { cbtc: 1 } },
+  { id: 'nightservice', demand: 'high', base: { drivers: 1, train: 3, timetable: 1 }, buy: { nightservice: 1 } },
 ];
 
 let failed = 0;
@@ -132,7 +137,7 @@ for (const c of CASES) {
 const STATION_CASES = [
   // Gates pay only when arriving trains have ROOM (640: coupled to capacity).
   { id: 'st gates',  demand: 'high', base: { drivers: 1, capacity: 2 }, kind: 'gates' },
-  { id: 'st ent',    demand: 'mid',  base: { drivers: 1, train: 4, timetable: 2 }, kind: 'ent' },
+  { id: 'st ent',    demand: 'mid',  base: { drivers: 1, train: 4, timetable: 1 }, kind: 'ent' },
 ];
 
 function netRateStation(owned, demand, upgrade, surgeAt) {

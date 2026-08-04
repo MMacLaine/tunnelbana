@@ -58,7 +58,7 @@ const STR = {
   shop: {
     train:      { name: 'New train',         desc: 'One more train, on the emptiest line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
     drivers:    { name: 'Hire drivers',      desc: 'Trains dispatch themselves. You can still ring the bell.' },
-    timetable:  { name: 'Tighter timetable', desc: 'Even departures on every line; the signalling floor drops ' + pct(CAT.timetable.mult.dispatchInterval) + '% per level.' },
+    timetable:  { name: 'Tighter timetable', desc: 'Departures run at even intervals on every line, and the signalling floor drops ' + pct(CAT.timetable.mult.dispatchInterval) + '%.' },
     capacity:   { name: 'Longer trains',     desc: '+' + CAT.capacity.add.trainCap + ' passengers per train.' },
     bogies:     { name: 'C1 bogie service',  desc: 'Trains run ' + pct(CAT.bogies.mult.speed) + '% faster.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
