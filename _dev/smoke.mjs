@@ -11,6 +11,10 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
 {
   const g = sim.newGame();
   if (sim.placementProblem(g, 0, 'head', [59.3260, 18.0700]) !== 'water') err('water placement should be rejected');
+  // The owner floated a station in Strömmen (2026-08-04): the bay east of
+  // Slussen and the open Riddarfjärden must both refuse.
+  if (sim.placementProblem(g, 0, 'head', [59.3240, 18.0880]) !== 'water') err('Strömmen must refuse placement');
+  if (sim.placementProblem(g, 0, 'head', [59.3240, 18.0500]) !== 'water') err('Riddarfjärden must refuse placement');
   if (sim.placementProblem(g, 0, 'tail', [59.3201, 18.0722]) !== 'tooClose') err('min spacing should be enforced');
   if (g.lines[0].stations[0].name !== 'T-Centralen' || !g.lines[0].stations[0].hub) err('the game should start at the T-Centralen hub');
   // District budgets: a fresh spot in Årsta claims real population; nowhere
