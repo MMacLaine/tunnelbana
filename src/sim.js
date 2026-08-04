@@ -68,14 +68,18 @@ export function effectAdd(g, key) {
   return a;
 }
 
+export const HUB_MULT = 1.5; // the hub is the busiest platform in the region
+
 // Total authored regional population, dormant districts included (report 620
 // finding 3: an awake-only denominator pins coverage near 100% forever). Units
-// are demand multiples; anchors count 1.0 each.
-export const REGION_POP = ANCHORS.length + DISTRICTS.reduce((a, d) => a + d.w, 0);
+// are demand multiples; anchors count their demand weight.
+export const REGION_POP =
+  ANCHORS.reduce((a, x) => a + (x.hub ? HUB_MULT : 1), 0) +
+  DISTRICTS.reduce((a, d) => a + d.w, 0);
 
 function anchorStation(i) {
   const a = ANCHORS[i];
-  return { name: a.name, geo: a.geo, anchor: i, mult: 1 };
+  return { name: a.name, geo: a.geo, anchor: i, mult: a.hub ? HUB_MULT : 1, hub: !!a.hub };
 }
 
 export function newGame() {
@@ -371,7 +375,8 @@ const NUMERALS = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX',
 export function freeSpotName(g, geo) {
   const base = densityAt(geo).district || 'Station';
   const taken = g.line.filter((s) => s.name === base || s.name.startsWith(base + ' ')).length;
-  return base + (NUMERALS[Math.min(taken, NUMERALS.length - 1)] || ' ' + (taken + 1));
+  // NUMERALS[0] is '' (the first take is unnumbered), so no || fallback here.
+  return base + (taken < NUMERALS.length ? NUMERALS[taken] : ' ' + (taken + 1));
 }
 
 // anchorIdx is null for a free spot. Returns true on success.
@@ -495,7 +500,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 export function serialize(g) {
   return JSON.stringify({
-    saveVersion: 4,
+    saveVersion: 5,
     savedAt: Date.now(),
     money: Math.round(g.money),
     pk: Math.round(g.pk * 100) / 100,
@@ -517,7 +522,7 @@ function validStation(st) {
     Number.isFinite(st.geo[0]) && Number.isFinite(st.geo[1]) &&
     st.geo[0] > 59.0 && st.geo[0] < 59.6 && st.geo[1] > 17.5 && st.geo[1] < 18.6 &&
     (st.anchor === null || (Number.isInteger(st.anchor) && st.anchor >= 0 && st.anchor < ANCHORS.length)) &&
-    typeof st.mult === 'number' && st.mult >= 0.2 && st.mult <= 1;
+    typeof st.mult === 'number' && st.mult >= 0.2 && st.mult <= HUB_MULT;
 }
 
 const posInt = (v, max) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));
@@ -539,9 +544,16 @@ export function hydrate(raw) {
   } else if (s.saveVersion >= 3 && Array.isArray(s.line) &&
              s.line.length >= 2 && s.line.length <= BAL.maxStations &&
              s.line.every(validStation)) {
-    g.line = s.line.map((st) => ({
-      name: st.name, geo: [st.geo[0], st.geo[1]], anchor: st.anchor, mult: st.mult,
-    }));
+    // Saves before v5 predate the T-Centralen + Gamla stan anchors: their
+    // anchor indices point two entries early. Remap, forward-only.
+    const shift = s.saveVersion < 5 ? 2 : 0;
+    g.line = s.line.map((st) => {
+      const anchor = st.anchor === null ? null : Math.min(ANCHORS.length - 1, st.anchor + shift);
+      return {
+        name: st.name, geo: [st.geo[0], st.geo[1]], anchor,
+        mult: st.mult, hub: anchor !== null && !!ANCHORS[anchor].hub,
+      };
+    });
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
   }
   const capMax = stationCap(g);
