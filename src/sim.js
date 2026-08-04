@@ -390,6 +390,28 @@ function od(g, li) {
 
 // Accel / cruise / brake time for a segment of d km (report 634 §2a). Short
 // segments never reach cruise speed: infill physically slows the line.
+// Top destinations for a platform's current crowd, read straight from the OD
+// weights and the directional queue split (a display of the sim's own numbers,
+// never a second model). Used by the station panel.
+export function odWeights(g, li, i) {
+  const L = g.lines[li];
+  const dirs = od(g, li);
+  const wf = L.waitingF[i], wb = L.waitingB[i];
+  const total = wf + wb;
+  if (total <= 0) return [];
+  const acc = new Map();
+  for (const [side, q] of [[dirs.fwd[i], wf], [dirs.bwd[i], wb]]) {
+    if (!side.sum || !q) continue;
+    for (const [j, w] of side.list) {
+      acc.set(j, (acc.get(j) || 0) + (w / side.sum) * (q / total));
+    }
+  }
+  return [...acc.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([j, share]) => ({ name: L.stations[j].name, share }));
+}
+
 export function moveTime(g, d) {
   const m = effectMult(g, 'speed'); // < 1 = faster stock
   const v = BAL.maxSpeedKmS / m;

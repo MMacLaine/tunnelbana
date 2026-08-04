@@ -90,6 +90,26 @@
   }
   .mini-btn:hover:not(:disabled) { border-color: var(--green); color: var(--ink); }
   .mini-btn:disabled { opacity: 0.4; cursor: default; }
+  .station-panel {
+    padding: 0.7rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    width: 300px;
+  }
+  .sp-head { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.82rem; }
+  .sp-head span { color: var(--muted); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  #sp-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  #sp-close:hover { color: var(--ink); }
+  .sp-line { font-size: 0.64rem; color: var(--muted); line-height: 1.5; }
   .era-panel { padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
   #era-now { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; }
   .era-needs { font-size: 0.62rem; color: var(--muted); line-height: 1.5; }
@@ -292,6 +312,20 @@
   </div>
 
   <div class="hud" id="hud-bl">
+    <div class="hud-panel station-panel" id="station-panel" hidden>
+      <div class="sp-head">
+        <b id="sp-name"></b>
+        <span id="sp-tier"></span>
+        <button id="sp-close" aria-label="Close">×</button>
+      </div>
+      <div class="sp-line" id="sp-stats"></div>
+      <div class="sp-line" id="sp-dest"></div>
+      <button class="mini-btn" id="sp-tier-btn"></button>
+      <div class="train-btns">
+        <button class="mini-btn" id="sp-ent"></button>
+        <button class="mini-btn" id="sp-gates"></button>
+      </div>
+    </div>
     <button id="bell">
       <span class="disc">
         <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
