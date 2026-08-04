@@ -232,17 +232,12 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   for (let k = sim.newGame().lines[0].stations.length; k < WEST_FIRST; k++) {
     sim.extendTo(e, 0, 'tail', ANCHORS[k].geo, k);
   }
-  e.lines.push({
-    stations: [e.lines[0].stations[0]],
-    waitingF: [0], waitingB: [0], rev: 0,
-  });
-  e.lines[1].stations = [e.lines[0].stations[0]];
+  e.pk = 1e6;
+  if (!sim.foundLine(e, 0, 0)) err('ending scenario: founding from T-Centralen failed');
   for (let k = WEST_FIRST; k < ANCHORS.length; k++) {
-    e.lines[1].stations.push({ name: ANCHORS[k].name, geo: ANCHORS[k].geo, anchor: k, mult: 1, hub: false });
-    e.lines[1].waitingF.push(0);
-    e.lines[1].waitingB.push(0);
+    e.money = 1e9;
+    if (!sim.extendTo(e, 1, 'tail', ANCHORS[k].geo, k)) err('ending scenario: extend to ' + ANCHORS[k].name + ' failed');
   }
-  e.lines[1].rev++;
   sim.tick(e, 0.05);
   if (!e.endingSeen) err('the ending should fire when the arc completes');
   if (!e.events.some((x) => x.type === 'ending')) err('ending event missing');
