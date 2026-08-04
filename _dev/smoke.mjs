@@ -27,6 +27,20 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.canBuy(g, 'westline')) err('westline must be era-gated');
 }
 
+// --- One-ahead anchor reveal (owner ruling, 2026-08-04): the map does not
+// hand out the answers. Only the next unbuilt anchor per corridor shows and
+// snaps; the west corridor shows nothing until its megaproject begins. ---
+{
+  const g = sim.newGame(); // T-Centralen + Gamla stan + Slussen built
+  if (!sim.anchorRevealed(g, 3)) err('the next anchor should be revealed');
+  if (sim.anchorRevealed(g, 4)) err('two ahead must stay hidden');
+  if (sim.anchorRevealed(g, WEST_FIRST) || sim.anchorRevealed(g, WEST_FIRST + 1)) err('an unbegun corridor must stay dark');
+  g.money = 1e9;
+  if (sim.extendTo(g, 0, 'tail', ANCHORS[5].geo, 5)) err('extending to a hidden anchor must refuse');
+  if (!sim.extendTo(g, 0, 'tail', ANCHORS[3].geo, 3)) err('extending to the revealed anchor should work');
+  if (!sim.anchorRevealed(g, 4)) err('building the railhead should stake out the next stop');
+}
+
 // --- Opening day (report 643): the game cannot lose before the player acts.
 // Upkeep and abandonment hold until the first dispatch; the bell is the
 // invigning. ---
