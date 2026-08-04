@@ -14,8 +14,8 @@ const STR = {
   hints: 'Fares pay ' + B.farePerKm + ' kr per passenger-kilometre, collected as passengers board ' +
     '(space rings the bell too). Drag either end of the line anywhere on the map: dashed rings are ' +
     'real stations with full demand, anywhere else earns what the label says. Right-click a line end ' +
-    'to demolish it (' + B.demolishCost + ' kr). Political capital (pk) grows with how much of the ' +
-    'region you serve. Esc for the menu.',
+    'to demolish it (' + B.demolishCost + ' kr). Trust grows with how much of the ' +
+    'region you serve, and buys the big projects. Esc for the menu.',
   tiers: ['', 'Hållplats', 'Station', 'Knutpunkt'],
   tierUp: ['', 'Upgrade to Station', 'Upgrade to Knutpunkt', ''],
   tierMax: 'Knutpunkt, fully built',
@@ -55,6 +55,10 @@ const STR = {
   },
   junction: 'Bytespunkt',
   riders: 'riders',
+  // 'pk' (political capital) read as jargon to the owner. The shop already
+  // said "the city pays in trust", so the copy just caught up with itself.
+  // The internal key stays `pk`: saves and the catalog do not need churning.
+  trust: 'trust',
   ridersCarried: 'riders carried',
   perMin: '/min',
   everyS: 'every ',
@@ -286,6 +290,7 @@ function menuView(which) {
   $('main-view').hidden = which !== 'main';
   $('settings-view').hidden = which !== 'settings';
   $('about-view').hidden = which !== 'about';
+  $('help-view').hidden = which !== 'help';
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
@@ -313,6 +318,8 @@ $('menu-resume').addEventListener('click', closeMenu);
 $('menu-settings').addEventListener('click', () => settingsView(true));
 $('menu-about').addEventListener('click', () => menuView('about'));
 $('about-back').addEventListener('click', () => menuView('main'));
+$('menu-help').addEventListener('click', () => menuView('help'));
+$('help-back').addEventListener('click', () => menuView('main'));
 $('about-mark').addEventListener('click', () => {
   if (menu.hidden) showMenu('pause');
   menuView('about');
@@ -422,7 +429,7 @@ $('settings-reset').addEventListener('click', () => {
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (menu.hidden) showMenu('pause');
-    else if (!$('settings-view').hidden || !$('about-view').hidden) menuView('main');
+    else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden) menuView('main');
     else closeMenu();
   }
 });
@@ -652,7 +659,7 @@ function updateStationPanel() {
     const gated = st.tier === 2 && sim.eraYear(g) < B.tier3Era;
     tierBtn.textContent = gated
       ? STR.tierEraGate
-      : STR.tierUp[st.tier] + ' · ' + fmt(cost.kr) + ' kr' + (cost.pk ? ' + ' + cost.pk + ' pk' : '');
+      : STR.tierUp[st.tier] + ' · ' + fmt(cost.kr) + ' kr' + (cost.pk ? ' + ' + cost.pk + ' ' + STR.trust : '');
     tierBtn.disabled = !sim.canUpgradeStation(g, selected.li, selected.i, 'tier');
   }
   stationUpgRow('ent');
@@ -664,7 +671,7 @@ function updateStationPanel() {
   const showFound = st.tier >= 3;
   fb.hidden = !showFound;
   if (showFound) {
-    fb.textContent = STR.foundBtn + ' · ' + fmt(B.foundLineKr) + ' kr + ' + B.foundLinePk + ' pk';
+    fb.textContent = STR.foundBtn + ' · ' + fmt(B.foundLineKr) + ' kr + ' + B.foundLinePk + ' ' + STR.trust;
     fb.disabled = !sim.canFoundLine(g, selected.li, selected.i);
   }
   // Left behind per minute: the headline diagnostic (abandonment).
@@ -743,7 +750,7 @@ function updateShop() {
     if (!visible) continue;
     const gated = item.needs && !g.owned[item.needs];
     card.disabled = maxed || gated || !sim.canBuy(g, item.id);
-    const unit = item.currency === 'pk' ? ' pk' : ' kr';
+    const unit = item.currency === 'pk' ? ' ' + STR.trust : ' kr';
     card.querySelector('.shop-cost').textContent =
       maxed ? STR.max : fmt(sim.shopCost(g, item.id)) + unit;
     const ownedEl = card.querySelector('.shop-owned');
@@ -757,9 +764,9 @@ function updateShop() {
   $('era-now').textContent = STR.eraNow + ' ' + sim.eraYear(g);
   if (next) {
     $('era-btn').hidden = false;
-    $('era-btn').textContent = STR.advance + ' ' + next.year + ' (' + next.pk + ' pk)';
+    $('era-btn').textContent = STR.advance + ' ' + next.year + ' (' + next.pk + ' ' + STR.trust + ')';
     $('era-btn').disabled = !sim.canAdvanceEra(g);
-    $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' ' + STR.riders + ' · ' + next.pk + ' pk';
+    $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' ' + STR.riders + ' · ' + next.pk + ' ' + STR.trust;
   } else {
     $('era-btn').hidden = true;
     $('era-needs').textContent = STR.arcDone;
@@ -787,7 +794,7 @@ function updateUI() {
   $('stat-trains').textContent =
     sim.idleTrains(g).length + ' / ' + (g.trains.length - mb) +
     (mb ? ' (+' + mb + ' ' + STR.mothballedTag + ')' : '');
-  $('pk').textContent = g.pk.toFixed(1) + ' pk';
+  $('pk').textContent = g.pk.toFixed(1) + ' ' + STR.trust;
   const phase = g.opened ? STR.phases[sim.dayPhase(g)] : STR.openingDay;
   $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage +
     (phase ? ' · ' + phase : '');

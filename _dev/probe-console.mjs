@@ -78,7 +78,7 @@ async function main() {
     console.log('menu hidden:', await evaluate(ws, 'document.getElementById("menu").hidden'));
     console.log('start label:', await evaluate(ws, 'document.getElementById("menu-start").textContent'));
     // Click every menu button and report the resulting view state.
-    for (const id of ['menu-settings', 'settings-back', 'menu-about', 'about-back', 'menu-start']) {
+    for (const id of ['menu-help', 'help-back', 'menu-settings', 'settings-back', 'menu-about', 'about-back']) {
       const r = await evaluate(ws, `(() => {
         const el = document.getElementById(${JSON.stringify(id)});
         if (!el) return 'MISSING';
@@ -92,6 +92,7 @@ async function main() {
         main: document.getElementById('main-view').hidden,
         settings: document.getElementById('settings-view').hidden,
         about: document.getElementById('about-view').hidden,
+        help: document.getElementById('help-view').hidden,
       })`);
       console.log(id + ':', r, '->', state);
     }
