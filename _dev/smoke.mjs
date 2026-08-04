@@ -106,6 +106,37 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!(g.totalDelivered > d0)) err('two-line network should deliver');
 }
 
+// Found-a-line from a Knutpunkt, player train allocation, abandonment.
+{
+  const tci = g.lines[0].stations.findIndex((s) => s.anchor === 0);
+  if (tci < 0) err('T-Centralen should be on line 0');
+  g.money = 1e6;
+  g.pk = 20;
+  const linesBefore = g.lines.length;
+  if (!sim.foundLine(g, 0, tci)) err('founding a line from a Knutpunkt should work');
+  if (g.lines.length !== linesBefore + 1) err('foundLine should add a line');
+  const nl = g.lines.length - 1;
+  if (g.lines[nl].color === g.lines[0].color) err('new line needs its own colour');
+  sim.extendTo(g, nl, 'tail', [59.3400, 18.0800], null); // out into Vasastan-ish
+  if (g.lines[nl].stations.length !== 2) err('found line should extend');
+  const before = g.trains.filter((t) => t.line === nl).length;
+  let moved = false;
+  for (let t = 0; t < 30 && !moved; t += 0.05) {
+    sim.tick(g, 0.05);
+    moved = sim.moveTrain(g, nl); // needs a moment when a train is idle
+    g.events.length = 0;
+  }
+  if (!moved) err('moveTrain should reassign an idle train');
+  if (g.trains.filter((t) => t.line === nl).length !== before + 1) err('moveTrain count wrong');
+
+  // Abandonment: cram a platform and watch it leak.
+  const a = sim.newGame();
+  a.totalDelivered = 60000; // demand-heavy
+  for (let t = 0; t < 120; t += 0.05) { sim.tick(a, 0.05); a.events.length = 0; }
+  const leftTotal = a.lines[0].left60.reduce((x, y) => x + y, 0);
+  if (!(leftTotal > 0)) err('crowded platforms should leak passengers (abandonment)');
+}
+
 // Demolition still works, per line.
 {
   const before = g.lines[0].stations.length;
