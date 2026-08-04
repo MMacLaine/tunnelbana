@@ -368,7 +368,7 @@ function dragState(p) {
     : STR.problems[problem];
   // A free spot must say what it is worth, not just what it costs.
   if (snap === null && (!problem || problem === 'money')) {
-    label += ' · ' + sim.freeSpotValue(geo) + 'x demand';
+    label += ' · ' + sim.freeSpotValue(g, geo) + 'x demand';
   }
   return { x: p.x, y: p.y, li: dragRef.li, end: dragRef.end, snap, geo, cost, problem, label };
 }
