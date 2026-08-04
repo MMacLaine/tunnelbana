@@ -51,7 +51,9 @@ const STR = {
     tooClose: 'Too close to another station',
     water: 'Cannot build in the water (yet)',
     max: 'The line is at its limit for now',
+    needsTier2: 'A junction needs a Tier 2 station first',
   },
+  junction: 'Bytespunkt',
   mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
     train:      { name: 'New train',         desc: 'One more train, on the emptiest line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
@@ -435,8 +437,12 @@ function dragState(p) {
   let label = !problem || problem === 'money'
     ? (problem === 'money' ? STR.problems.money + ' ' : '') + fmt(cost) + ' kr'
     : STR.problems[problem];
-  // A free spot must say what it is worth, not just what it costs.
-  if (snap === null && (!problem || problem === 'money')) {
+  const junction = sim.junctionPreview(g, dragRef.li, geo);
+  if (junction && (!problem || problem === 'money')) {
+    // Landing on another line's station: this extension shares it.
+    label += ' · ' + STR.junction + ' ' + junction.name;
+  } else if (snap === null && (!problem || problem === 'money')) {
+    // A free spot must say what it is worth, not just what it costs.
     label += ' · ' + sim.freeSpotValue(g, geo) + 'x demand';
   }
   return { x: p.x, y: p.y, li: dragRef.li, end: dragRef.end, snap, geo, cost, problem, label };
@@ -758,6 +764,7 @@ function frame(now) {
     if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSNING · ' + e.name);
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
+    if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
     if (e.type === 'era') showMoment(e.year);
     if (e.type === 'ending') showEnding();
   }
