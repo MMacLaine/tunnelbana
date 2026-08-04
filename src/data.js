@@ -29,7 +29,25 @@ export const ANCHORS = [
   { name: 'Tallkrogen',         geo: [59.2710, 18.0865], dia: [7, 8] },
   { name: 'Gubbängen',          geo: [59.2628, 18.0817], dia: [7, 9] },
   { name: 'Hökarängen',         geo: [59.2570, 18.0824], dia: [7, 10] },
+  // The 1952 Västerort line, Hötorget toward Vällingby (unlocked by megaproject).
+  { name: 'Hötorget',           geo: [59.3355, 18.0635], dia: [4, -3] },
+  { name: 'Rådmansgatan',       geo: [59.3405, 18.0590], dia: [3, -4] },
+  { name: 'Odenplan',           geo: [59.3428, 18.0496], dia: [2, -5] },
+  { name: 'S:t Eriksplan',      geo: [59.3395, 18.0370], dia: [1, -5] },
+  { name: 'Fridhemsplan',       geo: [59.3322, 18.0290], dia: [0, -4] },
+  { name: 'Kristineberg',       geo: [59.3330, 18.0030], dia: [-1, -4] },
+  { name: 'Alvik',              geo: [59.3335, 17.9800], dia: [-2, -4] },
+  { name: 'Stora mossen',       geo: [59.3345, 17.9663], dia: [-3, -4] },
+  { name: 'Abrahamsberg',       geo: [59.3364, 17.9530], dia: [-4, -4] },
+  { name: 'Åkeshov',            geo: [59.3419, 17.9247], dia: [-5, -5] },
+  { name: 'Islandstorget',      geo: [59.3462, 17.8927], dia: [-6, -6] },
+  { name: 'Blackeberg',         geo: [59.3482, 17.8823], dia: [-7, -6] },
+  { name: 'Råcksta',            geo: [59.3546, 17.8817], dia: [-7, -7] },
+  { name: 'Vällingby',          geo: [59.3634, 17.8722], dia: [-8, -8] },
 ];
+
+// Index of the anchor where the Västerort megaproject seeds its line.
+export const WEST_FIRST = 13; // Hötorget
 
 // Water rings, hand-authored in geo space. COST LOGIC ONLY (a segment crossing
 // one pays the bridge/tunnel multiplier) plus the offline-fallback background;
@@ -46,6 +64,10 @@ export const WATER = [
   { // Hammarby sjö / kanal, between Skanstull and Gullmarsplan
     label: 'Hammarby sjö',
     ring: [[59.3046, 18.0400], [59.3046, 18.1500], [59.3008, 18.1500], [59.3008, 18.0400]],
+  },
+  { // Tranebergssund, between Kristineberg and Alvik (the 1952 bridge)
+    label: 'Tranebergssund',
+    ring: [[59.3360, 17.9860], [59.3360, 18.0000], [59.3310, 18.0000], [59.3310, 17.9860]],
   },
 ];
 
@@ -65,6 +87,10 @@ export const DISTRICTS = [
   { name: 'Gamla stan',     geo: [59.3250, 18.0710], rKm: 0.4, w: 0.70 },
   { name: 'Norrmalm',       geo: [59.3320, 18.0630], rKm: 1.0, w: 0.95 },
   { name: 'Kungsholmen',    geo: [59.3310, 18.0290], rKm: 1.0, w: 0.80 },
+  { name: 'Vasastan',       geo: [59.3430, 18.0480], rKm: 0.9, w: 0.85 },
+  { name: 'Bromma',         geo: [59.3350, 17.9700], rKm: 1.2, w: 0.60 },
+  { name: 'Blackeberg',     geo: [59.3480, 17.8850], rKm: 0.8, w: 0.50 },
+  { name: 'Vällingby',      geo: [59.3634, 17.8722], rKm: 1.0, w: 0.60 },
   { name: 'Årsta',          geo: [59.2980, 18.0490], rKm: 0.9, w: 0.60 },
   { name: 'Johanneshov',    geo: [59.2970, 18.0780], rKm: 0.7, w: 0.70 },
   { name: 'Hammarbyhöjden', geo: [59.2950, 18.1050], rKm: 0.8, w: 0.60 },
