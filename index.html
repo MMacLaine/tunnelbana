@@ -50,6 +50,10 @@
     --mono: var(--tb-mono);
   }
   * { box-sizing: border-box; margin: 0; }
+  /* The board lesson: any display: on a class beats the hidden attribute
+     (the empty station panel shipped visible this way). Restated globally so
+     no future panel can repeat it. */
+  [hidden] { display: none !important; }
   html, body { height: 100%; overflow: hidden; }
   body {
     background: var(--bg);

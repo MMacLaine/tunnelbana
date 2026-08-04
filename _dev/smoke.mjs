@@ -231,6 +231,8 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (sim.stationCount(b) !== physBefore) err('a junction must not add a station on the ground');
   const shared = b.lines[1].stations[1];
   if (shared.tier !== 2 || shared.gates !== 1) err('shared entry must copy the twin built state');
+  // A junction stays a junction (642 §5b): tier 2 cannot be shed while shared.
+  if (sim.canDowngradeTier(b, 0, 1)) err('downgrading a shared junction below tier 2 must refuse');
   // Share one more trunk stop, then diverge to fresh ground: a real branch.
   if (!sim.extendTo(b, 1, 'tail', ANCHORS[2].geo, 2)) err('second trunk share failed');
   if (!sim.extendTo(b, 1, 'tail', ANCHORS[7].geo, 7)) err('branch divergence failed');
