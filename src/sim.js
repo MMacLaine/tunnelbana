@@ -291,10 +291,31 @@ export function addTrain(g, line) {
   return t;
 }
 
-function newLine(stations, colorIdx) {
+// Colours the campaign has already promised. Blue belongs to Blå linjen (1975)
+// and red to Röda linjen (1964), so nothing else may wear them: a 1952 line
+// painted blue tells the player they unlocked something they did not.
+export const LINE_IDENTITY = {
+  westline: { name: 'Västerortsbanan', color: '#6fd6b0' }, // historically the green line's west arm
+  redline:  { name: 'Röda linjen',     color: '#c8544a' },
+  blueline: { name: 'Blå linjen',      color: '#4f8fd4' },
+};
+const RESERVED = new Set(['#c8544a', '#4f8fd4', '#6fd6b0']);
+
+// Player-founded lines take the next palette colour that is not spoken for.
+export function foundedColor(g) {
+  const taken = new Set(g.lines.map((L) => L.color));
+  for (let i = 0; i < 40; i++) {
+    const c = lineColor(i);
+    if (!taken.has(c) && !RESERVED.has(c) && c !== LINE_COLORS[0]) return c;
+  }
+  return lineColor(g.lines.length);
+}
+
+function newLine(stations, colorIdx, identity) {
   return {
     stations,
-    color: lineColor(colorIdx),
+    name: identity?.name || (colorIdx === 0 ? 'Gröna linjen' : 'Linje ' + (colorIdx + 1)),
+    color: identity?.color || (typeof colorIdx === 'string' ? colorIdx : lineColor(colorIdx)),
     waitingF: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     waitingB: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     left60: stations.map(() => 0),
@@ -1584,7 +1605,7 @@ export function buy(g, id) {
     // the historical threaded route open, and lines opening as disconnected
     // stubs is itself historical).
     const [a, b] = PROJECT_SEEDS[id]();
-    g.lines.push(newLine([anchorStation(a), anchorStation(b)], g.lines.length));
+    g.lines.push(newLine([anchorStation(a), anchorStation(b)], g.lines.length, LINE_IDENTITY[id]));
     addTrain(g, g.lines.length - 1);
     computeDemand(g);
     g.events.push({ type: 'newline', geo: ANCHORS[b].geo, name: ANCHORS[b].name });
@@ -1645,7 +1666,7 @@ export function foundLine(g, li, i) {
   const clone = makeStation(st.name, st.geo, st.anchor, st.tier);
   clone.ent = st.ent;
   clone.gates = st.gates;
-  const L = newLine([clone], g.lines.length);
+  const L = newLine([clone], g.lines.length, { color: foundedColor(g) });
   L.waitingF = [0];
   L.waitingB = [0];
   g.lines.push(L);
@@ -1708,6 +1729,8 @@ export function serialize(g) {
       })),
       waitingF: L.waitingF.map((w) => Math.round(w)),
       waitingB: L.waitingB.map((w) => Math.round(w)),
+      name: L.name,
+      color: L.color,
     })),
     trains: g.trains.map((t) => ({ line: t.line, mothballed: t.mothballed })),
     freeSpots: g.freeSpots,
@@ -1783,7 +1806,9 @@ export function hydrate(raw) {
       s.lines.reduce((a, L) => a + L.stations.length, 0) <= BAL.maxStations + 16) {
     g.lines = s.lines.map((L, idx) => ({
       stations: sanitizeLine(L.stations),
-      color: lineColor(idx),
+      // Pre-identity saves fall back to the palette by founding order.
+      name: typeof L.name === 'string' ? L.name : (idx === 0 ? 'Gröna linjen' : 'Linje ' + (idx + 1)),
+      color: /^#[0-9a-f]{6}$/i.test(L.color || '') ? L.color : lineColor(idx),
       waitingF: [],
       waitingB: [],
       left60: [],

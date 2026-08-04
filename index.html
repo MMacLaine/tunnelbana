@@ -138,6 +138,17 @@
   .line-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.66rem; color: var(--muted); padding: 0.15rem 0; }
   .chip { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
   .line-row .mini-btn { margin-left: auto; padding: 0.1rem 0.45rem; }
+  .line-name {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    background: none;
+    border: none;
+    border-bottom: 1px dotted var(--line);
+    color: var(--ink);
+    padding: 0;
+    cursor: pointer;
+  }
+  .line-name:hover { color: var(--green); border-bottom-color: var(--green); }
   .era-panel { padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
   #era-now { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; }
   .era-needs { font-size: 0.62rem; color: var(--muted); line-height: 1.5; }
@@ -485,7 +496,7 @@
         </p>
       </div>
       <div id="help-view" hidden>
-        <h1>HUR MAN SPELAR</h1>
+        <h1>HOW TO PLAY</h1>
         <p class="sub">Everything the game never says out loud</p>
 
         <div class="help-sec">
@@ -498,8 +509,9 @@
         </div>
 
         <div class="help-sec">
-          <h2>Money (kr, Swedish kronor)</h2>
-          <p>Passengers pay per kilometre they ride, the moment they board. Every
+          <h2>Money</h2>
+          <p>Fares are in kronor (kr), the Swedish currency. Passengers pay per
+          kilometre they ride, the moment they board. Every
           train and every station costs upkeep each second, so a network you cannot
           fill is a network that drains you. Nothing is billed until your first
           departure: the line is not open yet.</p>
@@ -544,33 +556,8 @@
           <p>Click any station to see what it is doing: how crowded it is, where its
           passengers are heading, how many gave up waiting. Upgrade it there.
           Entrances widen its catchment, gates load trains faster, and a higher tier
-          is what lets lines meet: two lines can share a Station, and a Knutpunkt
-          (a hub) can found an entirely new line.</p>
-        </div>
-
-        <div class="help-sec">
-          <h2>The Swedish words</h2>
-          <p>The game is in English; the Swedish is kept where it is the real
-          name of a real thing. Everything it uses:</p>
-          <p><b>kr</b> — kronor, the Swedish currency (SEK). All prices are in it.<br>
-          <b>Tunnelbana</b> — the underground, literally "tunnel line".<br>
-          <b>Hållplats</b> — a stop. The smallest kind of station.<br>
-          <b>Station</b> — the middle tier, where two lines may share a platform.<br>
-          <b>Knutpunkt</b> — a hub, literally a "knot point". Big enough to found a
-          new line from.<br>
-          <b>Bytespunkt</b> — an interchange: a station where you can change lines.<br>
-          <b>Avgång</b> — departure. It is written on the dispatch button.<br>
-          <b>Invigning</b> — the opening ceremony, when your line first runs.<br>
-          <b>Öppningsdag</b> — opening day, before that first departure.<br>
-          <b>Morgonrusning / Kvällsrusning</b> — the morning and evening rush.<br>
-          <b>Natt</b> — night, when the city mostly sleeps.<br>
-          <b>Rusning</b> — a rush: a sudden crowd at one station.<br>
-          <b>Linje</b> — a line.<br>
-          <b>Slutstation</b> — the last stop on a line, and the name of the ending.<br>
-          <b>Söderort / Västerort</b> — the southern and western suburbs.<br>
-          <b>Nattrafik</b> — night service.<br>
-          <b>Konst i tunnelbanan</b> — "art in the underground", Stockholm's habit of
-          making stations into galleries.</p>
+          is what lets lines meet: two lines can share a Station, and a Hub can
+          found an entirely new line.</p>
         </div>
 
         <div class="help-sec">
@@ -583,7 +570,7 @@
         <button class="menu-btn" id="help-back" style="margin-top:1rem">Back</button>
       </div>
       <div id="about-view" hidden>
-        <h1>OM SPELET</h1>
+        <h1>ABOUT</h1>
         <p class="sub">Tunnelbana · Build Stockholm</p>
         <p class="menu-note" style="margin-top:0">
           An incremental game about building Stockholm's rail transit, from the first

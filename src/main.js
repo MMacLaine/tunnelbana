@@ -9,18 +9,18 @@ const CAT = Object.fromEntries(sim.CATALOG.map((u) => [u.id, u]));
 const pct = (x) => Math.round(Math.abs(1 - x) * 100);
 const STR = {
   dispatch: 'AVGÅNG',
-  dispatchSub: 'Dispatch a train (avgång = departure)',
+  dispatchSub: 'Dispatch a train',
   noIdle: 'All trains are out',
   hints: 'Fares pay ' + B.farePerKm + ' kr per passenger-kilometre, collected as passengers board ' +
     '(space rings the bell too). Drag either end of the line anywhere on the map: dashed rings are ' +
     'real stations with full demand, anywhere else earns what the label says. Right-click a line end ' +
     'to demolish it (' + B.demolishCost + ' kr). Trust grows with how much of the ' +
     'region you serve, and buys the big projects. Esc for the menu.',
-  tiers: ['', 'Hållplats · stop', 'Station', 'Knutpunkt · hub'],
-  tierUp: ['', 'Upgrade to Station', 'Upgrade to Knutpunkt (hub)', ''],
-  tierMax: 'Knutpunkt (hub), fully built',
+  tiers: ['', 'Stop', 'Station', 'Hub'],
+  tierUp: ['', 'Upgrade to Station', 'Upgrade to Hub', ''],
+  tierMax: 'Hub, fully built',
   tierDown: 'Downgrade tier (no refund)',
-  tierEraGate: 'Knutpunkt (hub) unlocks in 1957',
+  tierEraGate: 'Hubs unlock in 1957',
   entRow: 'Entrances',
   gatesRow: 'Gates',
   panelDemand: 'Demand',
@@ -38,7 +38,7 @@ const STR = {
   mothballedTag: 'mothballed',
   awayTitle: 'While you were away',
   coverage: 'coverage',
-  phases: ['MORGONRUSNING · morning rush', '', 'KVÄLLSRUSNING · evening rush', 'NATT · night'],
+  phases: ['MORNING RUSH', '', 'EVENING RUSH', 'NIGHT'],
   demolished: '−' + B.demolishCost + ' kr',
   cantDemolish: 'Cannot demolish now',
   menuStart: 'Start',
@@ -53,18 +53,18 @@ const STR = {
     max: 'The line is at its limit for now',
     needsTier2: 'A junction needs a Tier 2 station first',
   },
-  junction: 'Bytespunkt · interchange',
+  junction: 'Interchange',
   riders: 'riders',
   // 'pk' (political capital) read as jargon to the owner. The shop already
   // said "the city pays in trust", so the copy just caught up with itself.
   // The internal key stays `pk`: saves and the catalog do not need churning.
   trust: 'trust',
-  krTitle: 'kr = kronor, the Swedish currency (SEK)',
+  krTitle: 'Swedish kronor (SEK)',
   ridersCarried: 'riders carried',
   perMin: '/min',
   everyS: 'every ',
-  openingDay: 'ÖPPNINGSDAG · opening day',
-  ribbonCut: 'INVIGNING · the line is open',
+  openingDay: 'OPENING DAY',
+  ribbonCut: 'The line is open',
   stops: 'stops',
   fbOpen: 'Feedback',
   fbTitle: 'What broke, or what would you love?',
@@ -107,8 +107,9 @@ const STR = {
   arcDone: 'The arc is complete, for now.',
   linesStat: 'Lines',
   ending: {
-    title: 'SLUTSTATION · last stop',
-    blurb: 'Every station on the map has a line. The arc from 1950 is complete. ' +
+    title: 'SLUTSTATION',
+    blurb: 'Slutstation is the word Stockholm paints on the end of a line. ' +
+      'Every station on the map has one now, and the arc from 1950 is complete. ' +
       'This is the end of the story, and the trains keep running: your city does not stop because the chapter does.',
   },
   themeRow: 'Theme',
@@ -703,6 +704,18 @@ $('sp-found').addEventListener('click', () => {
 $('line-rows').addEventListener('click', (e) => {
   const li = e.target?.dataset?.li;
   if (li !== undefined && sim.moveTrain(g, Number(li))) updateUI();
+  // Clicking a line's name finds it: the map flies to its first stop and
+  // selects it, so "which one is that on the map" has an answer (owner,
+  // 2026-08-04: a chartered line was hard to locate at all).
+  const focus = e.target?.dataset?.focus;
+  if (focus !== undefined) {
+    const L = g.lines[Number(focus)];
+    if (L && L.stations.length) {
+      selectStation({ li: Number(focus), i: 0 });
+      if (map) map.easeTo({ center: [L.stations[0].geo[1], L.stations[0].geo[0]], duration: 600 });
+      updateUI();
+    }
+  }
 });
 
 function updateLineRows() {
@@ -711,7 +724,8 @@ function updateLineRows() {
     const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
     rows.push(
       '<div class="line-row"><span class="chip" style="background:' + g.lines[li].color + '"></span>' +
-      'Linje ' + (li + 1) + ' · ' + g.lines[li].stations.length + ' ' + STR.stops + ' · ' + active + ' 🚆 · ' +
+      '<button class="line-name" data-focus="' + li + '">' + g.lines[li].name + '</button> · ' +
+      g.lines[li].stations.length + ' ' + STR.stops + ' · ' + active + ' 🚆 · ' +
       (active ? STR.everyS + Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + ' ' +
       (g.lines.length > 1 ? '<button class="mini-btn" data-li="' + li + '">' + STR.addTrain + '</button>' : '') +
       '</div>'
@@ -833,7 +847,7 @@ function frame(now) {
     if (e.type === 'demolish') render.addFloatGeo(e.geo, e.name + ' ' + STR.demolished);
     if (e.type === 'alight') render.addFloatGeo(e.geo, '↓' + fmt(e.n), 'muted');
     if (e.type === 'mothball') render.addFloatGeo(e.geo, STR.mothballedFloat, 'muted');
-    if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSNING · ' + e.name);
+    if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSH · ' + e.name);
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
