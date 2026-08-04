@@ -83,6 +83,9 @@ const STR = {
     blurb: 'Every station on the map has a line. The arc from 1950 is complete. ' +
       'This is the end of the story, and the trains keep running: your city does not stop because the chapter does.',
   },
+  themeRow: 'Theme',
+  themeDark: 'Dark',
+  themeLight: 'Light',
   exportBtn: 'Export save',
   exportDone: 'Copied to clipboard',
   importBtn: 'Import save',
@@ -109,6 +112,34 @@ const $ = (id) => document.getElementById(id);
 // sv-SE groups with NBSP; the design system wants a plain thin gap (1 240 kr).
 const fmt = (n) => Math.floor(n).toLocaleString('sv-SE').replace(/ /g, ' ');
 
+// --- Theme (light mode is a testing aid; dark is the designed theme) ---
+const THEME_KEY = 'tunnelbana_theme';
+const NIGHT_STYLE = 'basemap/tunnelbana-night.json';
+const LIGHT_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+const urlTheme = new URLSearchParams(location.search).get('theme');
+let theme = (urlTheme || localStorage.getItem(THEME_KEY)) === 'light' ? 'light' : 'dark';
+
+function applyTheme(next) {
+  theme = next;
+  localStorage.setItem(THEME_KEY, theme);
+  document.documentElement.dataset.theme = theme;
+  render.setTheme(theme);
+  if (map) {
+    render.setBasemap('pending');
+    map.setStyle(theme === 'light' ? LIGHT_STYLE : NIGHT_STYLE);
+    // setStyle wipes custom layers; re-add the game layer once the new style
+    // has settled, then the veil comes back.
+    map.once('idle', () => {
+      try {
+        if (!map.getLayer('tb-game')) map.addLayer(gameLayer());
+      } catch {}
+      render.setBasemap('on');
+    });
+  }
+}
+document.documentElement.dataset.theme = theme;
+render.setTheme(theme);
+
 // --- Basemap (MapLibre + OpenFreeMap, same stack as the SL map) ---
 const wrap = $('map-wrap');
 render.init($('map'));
@@ -124,7 +155,7 @@ if (window.maplibregl) {
   try {
     map = new maplibregl.Map({
       container: 'basemap',
-      style: 'basemap/tunnelbana-night.json',
+      style: theme === 'light' ? LIGHT_STYLE : NIGHT_STYLE,
       center: [18.0640, 59.3230], // the hub and its first reach, not the empty south
       zoom: 12.0,
       minZoom: 10.3,
@@ -233,6 +264,7 @@ function settingsView(on) {
   $('settings-view').hidden = !on;
   $('main-view').hidden = on;
   $('settings-reset').textContent = STR.reset;
+  $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
   $('settings-export').textContent = STR.exportBtn;
   $('settings-import').textContent = STR.importBtn;
   $('import-text').hidden = true;
@@ -255,6 +287,10 @@ $('settings-back').addEventListener('click', () => settingsView(false));
 $('menu-quit').addEventListener('click', () => {
   save();
   showMenu('start');
+});
+$('settings-theme').addEventListener('click', () => {
+  applyTheme(theme === 'light' ? 'dark' : 'light');
+  $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
 });
 $('settings-export').addEventListener('click', () => {
   const btn = $('settings-export');

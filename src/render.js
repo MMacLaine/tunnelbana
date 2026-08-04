@@ -9,24 +9,49 @@ import {
   endStation, waitingAt, trainPos,
 } from './sim.js';
 
-// Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs literals).
-const COL = {
-  bg: '#0b0f14',
-  void: '#070a0e',
-  water: '#091320',
-  ink: '#e6edf4',
-  muted: '#8996a5',
-  ghost: '#5a6673',
-  amber: '#e0a63c',
-  red: '#c8544a',
-  lineHi: 'rgba(44, 61, 80, 0.85)',
-  plate: 'rgba(7, 10, 14, 0.62)',
-  train1950: '#6f7f5e',
-  trainInk: '#08130c',
-  trainDetail: 'rgba(11, 15, 20, 0.55)',
+// Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
+// literals). Dark is the designed theme; light is a TESTING aid (owner ask),
+// derived pragmatically, not a design-team deliverable yet.
+const THEMES = {
+  dark: {
+    bg: '#0b0f14',
+    void: '#070a0e',
+    water: '#091320',
+    ink: '#e6edf4',
+    muted: '#8996a5',
+    ghost: '#5a6673',
+    amber: '#e0a63c',
+    red: '#c8544a',
+    lineHi: 'rgba(44, 61, 80, 0.85)',
+    plate: 'rgba(7, 10, 14, 0.62)',
+    train1950: '#6f7f5e',
+    trainInk: '#08130c',
+    trainDetail: 'rgba(11, 15, 20, 0.55)',
+    veil: 'rgba(7, 10, 14, 0.78)',
+  },
+  light: {
+    bg: '#f4f6f8',
+    void: '#ffffff',
+    water: '#c9dded',
+    ink: '#17202a',
+    muted: '#5a6673',
+    ghost: '#97a2ae',
+    amber: '#9a6b16',
+    red: '#b23a30',
+    lineHi: 'rgba(90, 110, 130, 0.6)',
+    plate: 'rgba(255, 255, 255, 0.72)',
+    train1950: '#6f7f5e',
+    trainInk: '#08130c',
+    trainDetail: 'rgba(255, 255, 255, 0.4)',
+    veil: 'rgba(238, 243, 247, 0.78)',
+  },
 };
+let COL = THEMES.dark;
 
-const VEIL = 'rgba(7, 10, 14, 0.78)';
+export function setTheme(name) {
+  COL = THEMES[name] || THEMES.dark;
+}
+
 const REVEAL_KM = 0.65;
 
 let canvas, ctx, dpr;
@@ -211,7 +236,7 @@ function drawWaterFallback() {
 
 function drawVeil(g) {
   ctx.save();
-  ctx.fillStyle = VEIL;
+  ctx.fillStyle = COL.veil;
   ctx.fillRect(0, 0, W, H);
   ctx.globalCompositeOperation = 'destination-out';
   const r = Math.max(24, REVEAL_KM * pxPerKm());
