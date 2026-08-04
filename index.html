@@ -310,7 +310,12 @@
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
+    /* A long page (How to play) must scroll rather than run off the window. */
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
   }
+  /* The help page reads better a little wider; the start menu stays narrow. */
+  .menu-panel:has(#help-view:not([hidden])) { width: min(520px, calc(100vw - 3rem)); }
   .menu-panel h1 { font-size: 1.5rem; letter-spacing: 0.35em; font-weight: 600; }
   .menu-panel .sub { color: var(--muted); font-size: 0.72rem; margin-bottom: 1rem; }
   .menu-btn {
@@ -329,6 +334,20 @@
   .menu-btn.danger:hover { border-color: var(--red); color: var(--red); }
   .menu-note { color: var(--muted); font-size: 0.62rem; line-height: 1.6; margin-top: 1rem; }
   #settings-view[hidden], #main-view[hidden] { display: none; }
+  .help-sec { margin-top: 0.9rem; }
+  .help-sec h2 {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .help-sec p {
+    color: var(--muted);
+    font-size: 0.68rem;
+    line-height: 1.65;
+    margin-top: 0.3rem;
+  }
   .setting-row {
     display: flex;
     justify-content: space-between;
@@ -371,7 +390,7 @@
         <span id="rate-upkeep">−0.0 kr/s upkeep</span>
         <span id="rate-net">+0.0 kr/s</span>
       </div>
-      <div class="pk-line"><span id="pk">0.0 pk</span> · <span id="pk-cov">0% coverage</span></div>
+      <div class="pk-line"><span id="pk">0.0 trust</span> · <span id="pk-cov">0% coverage</span></div>
       <div class="riders-line"><b id="stat-delivered">0</b> <span id="riders-label">riders carried</span> <span id="riders-rate"></span></div>
     </div>
   </div>
@@ -456,6 +475,7 @@
         <p class="menu-note" id="offline-note" hidden style="color: var(--amber); margin-top: 0;"></p>
         <button class="menu-btn primary" id="menu-resume">Start</button>
         <button class="menu-btn" id="menu-settings">Settings</button>
+        <button class="menu-btn" id="menu-help">How to play</button>
         <button class="menu-btn" id="menu-about">About</button>
         <button class="menu-btn" id="menu-quit" hidden>Quit to menu</button>
         <p class="menu-note">
@@ -463,6 +483,79 @@
           1950 tunnelbana. Unofficial fan work, not affiliated with any transit operator
           or Region Stockholm. Everything you see is subject to change.
         </p>
+      </div>
+      <div id="help-view" hidden>
+        <h1>HUR MAN SPELAR</h1>
+        <p class="sub">Everything the game never says out loud</p>
+
+        <div class="help-sec">
+          <h2>The goal</h2>
+          <p>Build Stockholm's tunnelbana from the first 1950 tunnel to the whole
+          network. Each era is one real line's story: the green line south and west,
+          the red line in 1964, the blue line in 1975, and then the city is yours to
+          build freely. The game is finite and has an ending, and your trains keep
+          running after it.</p>
+        </div>
+
+        <div class="help-sec">
+          <h2>Money (kr)</h2>
+          <p>Passengers pay per kilometre they ride, the moment they board. Every
+          train and every station costs upkeep each second, so a network you cannot
+          fill is a network that drains you. Nothing is billed until your first
+          departure: the line is not open yet.</p>
+        </div>
+
+        <div class="help-sec">
+          <h2>Trust</h2>
+          <p>The city's patience with you, earned slowly by covering more of the
+          region with useful service. It cannot be bought. Trust pays for the things
+          money alone cannot: chartering a new line, upgrading a station into a
+          Knutpunkt, and advancing to the next era.</p>
+        </div>
+
+        <div class="help-sec">
+          <h2>Riders carried</h2>
+          <p>Every passenger you have ever delivered to their destination. This is
+          the number the eras ask for: reach the target, spend the trust, and the
+          city moves into its next decade.</p>
+        </div>
+
+        <div class="help-sec">
+          <h2>Building</h2>
+          <p>Drag either end of a line anywhere on the map. Dashed rings are real
+          stations, with the real name and the full demand of their neighbourhood;
+          anywhere else works too and earns whatever the label says. Only the next
+          station along a corridor is ever staked out, so you find the line as you
+          build it. Right-click a line end to demolish it.</p>
+          <p>Cost grows along the line you are extending, so a long line gets
+          expensive; a new line starts cheap again.</p>
+        </div>
+
+        <div class="help-sec">
+          <h2>Running trains</h2>
+          <p>Ring AVGÅNG (or press space) to send a train out. Hiring drivers
+          automates it. Each line shows how often it sends a train: more trains,
+          faster stock and a tighter timetable all shorten that number, and a
+          timetable also stops trains bunching into convoys.</p>
+        </div>
+
+        <div class="help-sec">
+          <h2>Stations</h2>
+          <p>Click any station to see what it is doing: how crowded it is, where its
+          passengers are heading, how many gave up waiting. Upgrade it there.
+          Entrances widen its catchment, gates load trains faster, and a higher tier
+          is what lets lines meet: two lines can share a Station, and a Knutpunkt can
+          found an entirely new line.</p>
+        </div>
+
+        <div class="help-sec">
+          <h2>Away from the game</h2>
+          <p>With drivers hired, the network keeps earning while you are gone, at a
+          fraction of what it makes with you watching. It is safe to close the tab;
+          progress saves itself.</p>
+        </div>
+
+        <button class="menu-btn" id="help-back" style="margin-top:1rem">Back</button>
       </div>
       <div id="about-view" hidden>
         <h1>OM SPELET</h1>
