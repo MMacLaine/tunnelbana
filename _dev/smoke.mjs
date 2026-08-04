@@ -7,6 +7,24 @@ import { ANCHORS, CORRIDORS, WEST_FIRST } from '../src/data.js';
 
 const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); };
 
+// --- ENTITY-LINT (report 648): no hand-built sim entities in the dev harness.
+// A literal is a silent fork of a constructor that keeps evolving: when
+// event-driven turnaround added readyAt, forked trains could never dispatch
+// (`clock >= undefined` is false) while every gate stayed green, and a review
+// spent its headline on one working train measured against zero. Rules are
+// worth more enforced than remembered, so the harness lints itself.
+{
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const dir = new URL('.', import.meta.url).pathname;
+  const key = new RegExp('(mothballed|readyAt)\\s*:');
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.mjs'))) {
+    readFileSync(dir + f, 'utf8').split('\n').forEach((line, i) => {
+      if (line.includes('ENTITY-LINT')) return;
+      if (key.test(line)) err(`${f}:${i + 1} hand-builds a sim entity. Use sim.addTrain(g, line).`);
+    });
+  }
+}
+
 // --- Placement, density, start state ---
 {
   const g = sim.newGame();
@@ -280,8 +298,8 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!sim.extendTo(b, 1, 'tail', ANCHORS[7].geo, 7)) err('branch divergence failed');
   // Both services run; the shared trunk splits riders between them.
   b.owned.drivers = 1;
-  b.trains.push({ line: 0, at: 0, run: null, mothballed: false, readyAt: 0 });
-  b.trains.push({ line: 1, at: 0, run: null, mothballed: false, readyAt: 0 });
+  sim.addTrain(b, 0);
+  sim.addTrain(b, 1);
   const d0 = b.totalDelivered;
   let branchBoarded = false;
   for (let t = 0; t < 90; t += 0.05) {

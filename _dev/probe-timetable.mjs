@@ -17,7 +17,7 @@ function build(owned) {
     g.owned[id] = n;
     if (id === 'train') {
       for (let i = 0; i < n; i++) {
-        g.trains.push({ line: 0, at: 0, run: null, mothballed: false, readyAt: 0 });
+        sim.addTrain(g, 0);
       }
     }
   }
