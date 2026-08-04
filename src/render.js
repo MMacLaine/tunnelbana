@@ -34,8 +34,13 @@ let W = 0, H = 0;
 let basemap = 'off'; // 'pending' | 'on' | 'off'; fallback water draws only when off
 let drag = null;   // {x, y, li, end, snap, cost, problem, label} set by main.js
 let floats = [];   // {geo, text, age, colour}
+let selected = null; // {li, i} | null
 let clockT = 0;
 let lastDrawAt = 0;
+
+export function setSelected(sel) {
+  selected = sel;
+}
 
 // --- Projection ---
 
@@ -133,6 +138,20 @@ export function nearEnd(g, p) {
       const d = Math.hypot(p.x - s.x, p.y - s.y);
       if (d < bestD) { best = { li, end }; bestD = d; }
     }
+  }
+  return best;
+}
+
+// Nearest built station on any line, for selection.
+export function nearStation(g, p) {
+  const r = grabRadius();
+  let best = null, bestD = r;
+  for (let li = 0; li < g.lines.length; li++) {
+    g.lines[li].stations.forEach((st, i) => {
+      const sp = project(st.geo);
+      const d = Math.hypot(p.x - sp.x, p.y - sp.y);
+      if (d < bestD) { best = { li, i }; bestD = d; }
+    });
   }
   return best;
 }
@@ -415,6 +434,28 @@ function drawStations(g) {
   }
 }
 
+// Selected station (design doc §4): ink ring plus four amber ticks at the
+// compass points.
+function drawSelected(g) {
+  if (!selected) return;
+  const st = g.lines[selected.li]?.stations[selected.i];
+  if (!st) return;
+  const p = project(st.geo);
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = COL.ink;
+  ctx.stroke();
+  ctx.strokeStyle = COL.amber;
+  ctx.lineWidth = 2;
+  for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+    ctx.beginPath();
+    ctx.moveTo(p.x + dx * 10, p.y + dy * 10);
+    ctx.lineTo(p.x + dx * 14, p.y + dy * 14);
+    ctx.stroke();
+  }
+}
+
 function drawSurge(g) {
   if (!g.surge || g.clock >= g.surge.until) return;
   const s = g.lines[g.surge.line].stations[g.surge.idx];
@@ -511,6 +552,7 @@ export function draw(g) {
   drawEndHandles(g);
   drawDragPreview(g);
   drawStations(g);
+  drawSelected(g);
   drawSurge(g);
   drawTrains(g);
   drawFloats(dt);
