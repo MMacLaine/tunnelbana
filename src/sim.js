@@ -11,12 +11,10 @@ export const BAL = {
   stationCapBase: 80,      // base waiting cap per station
   cityGrowthDiv: 900,      // demand multiplier = 1 + delivered / this
   trainCapBase: 120,
-  capPerLevel: 60,
   upkeepPerTrainPerSec: 1.2,
   secondsPerKm: 1.05,      // ride time from geo distance
   dwell: 0.32,             // per-stop time added to each segment
   dispatchBase: 8,         // drivers auto-dispatch interval, seconds
-  dispatchPerLevel: 0.82,  // timetable: interval multiplier per level
   seedWaiting: 8,          // passengers on a platform when it opens
   stationBase: 150,        // flat station cost, grows with count
   stationGrowth: 1.25,
@@ -26,12 +24,41 @@ export const BAL = {
   maxStations: 30,         // M0 cap
 };
 
-export const SHOP = [
-  { id: 'train',     base: 600,  growth: 1.6, max: 8 },
-  { id: 'drivers',   base: 900,  growth: 1,   max: 1 },
-  { id: 'timetable', base: 1400, growth: 1.8, max: 6, needs: 'drivers' },
-  { id: 'capacity',  base: 800,  growth: 1.7, max: 6 },
+// The upgrade CATALOG (plan §6, Cookie Clicker direction): upgrades are DATA, and
+// their effects compose through named modifiers, never through code reading BAL
+// directly. `mult` effects multiply per level owned; `add` effects add per level.
+// Today's handful is the seed of a 100+ catalog; `era` gates arrive with the era
+// system. `kind: 'fleet'` marks purchases that create units rather than modify.
+export const CATALOG = [
+  { id: 'train',      base: 600,  growth: 1.6, max: 8, era: 1950, kind: 'fleet' },
+  { id: 'drivers',    base: 900,  growth: 1,   max: 1, era: 1950 },
+  { id: 'timetable',  base: 1400, growth: 1.8, max: 6, era: 1950, needs: 'drivers',
+    mult: { dispatchInterval: 0.82 } },
+  { id: 'capacity',   base: 800,  growth: 1.7, max: 6, era: 1950,
+    add: { trainCap: 60 } },
+  { id: 'bogies',     base: 1200, growth: 1,   max: 1, era: 1950,
+    mult: { speed: 0.9 } },
+  { id: 'turnstiles', base: 1600, growth: 1,   max: 1, era: 1950,
+    mult: { fare: 1.05 } },
 ];
+
+export function effectMult(g, key) {
+  let m = 1;
+  for (const u of CATALOG) {
+    const n = g.owned[u.id] || 0;
+    if (n && u.mult && u.mult[key] !== undefined) m *= Math.pow(u.mult[key], n);
+  }
+  return m;
+}
+
+export function effectAdd(g, key) {
+  let a = 0;
+  for (const u of CATALOG) {
+    const n = g.owned[u.id] || 0;
+    if (n && u.add && u.add[key] !== undefined) a += u.add[key] * n;
+  }
+  return a;
+}
 
 function anchorStation(i) {
   const a = ANCHORS[i];
@@ -39,13 +66,15 @@ function anchorStation(i) {
 }
 
 export function newGame() {
+  const owned = {};
+  for (const u of CATALOG) owned[u.id] = 0;
   return {
     clock: 0,
     money: BAL.startMoney,
     line: Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)),
     waiting: Array.from({ length: START_BUILT }, () => BAL.seedWaiting),
     trains: [{ at: 0, run: null }],
-    owned: { train: 0, drivers: 0, timetable: 0, capacity: 0 },
+    owned,
     freeSpots: 0,
     autoTimer: 0,
     totalDelivered: 0,
@@ -65,11 +94,11 @@ export function stationCap(g) {
 }
 
 export function trainCap(g) {
-  return BAL.trainCapBase + g.owned.capacity * BAL.capPerLevel;
+  return BAL.trainCapBase + effectAdd(g, 'trainCap');
 }
 
 export function autoInterval(g) {
-  return BAL.dispatchBase * Math.pow(BAL.dispatchPerLevel, g.owned.timetable);
+  return BAL.dispatchBase * effectMult(g, 'dispatchInterval');
 }
 
 export function upkeepRate(g) {
@@ -85,8 +114,8 @@ export function usedAnchors(g) {
   return new Set(g.line.map((s) => s.anchor).filter((a) => a !== null));
 }
 
-function segTimeBetween(a, b) {
-  return kmBetween(a.geo, b.geo) * BAL.secondsPerKm + BAL.dwell;
+function segTimeBetween(g, a, b) {
+  return kmBetween(a.geo, b.geo) * BAL.secondsPerKm * effectMult(g, 'speed') + BAL.dwell;
 }
 
 function pickUp(g, train, idx) {
@@ -108,7 +137,7 @@ export function dispatch(g) {
   const dir = train.at === 0 ? 1 : -1;
   const next = g.line[train.at + dir];
   if (!next) return false;
-  train.run = { dir, from: train.at, t: 0, onboard: 0, dur: segTimeBetween(g.line[train.at], next) };
+  train.run = { dir, from: train.at, t: 0, onboard: 0, dur: segTimeBetween(g, g.line[train.at], next) };
   pickUp(g, train, train.at);
   return true;
 }
@@ -121,7 +150,7 @@ function arrive(g, train) {
   if (atTerminus) {
     // No pickup here: passengers on the terminus platform have not travelled.
     // They board on the next dispatch from this end.
-    const amt = run.onboard * BAL.fare;
+    const amt = Math.round(run.onboard * BAL.fare * effectMult(g, 'fare'));
     if (run.onboard > 0) {
       g.money += amt;
       g.totalDelivered += run.onboard;
@@ -132,7 +161,7 @@ function arrive(g, train) {
     train.run = null;
   } else {
     pickUp(g, train, run.from);
-    run.dur = segTimeBetween(g.line[run.from], g.line[run.from + run.dir]);
+    run.dur = segTimeBetween(g, g.line[run.from], g.line[run.from + run.dir]);
   }
 }
 
@@ -276,12 +305,12 @@ export function demolish(g, end) {
 // --- Shop ---
 
 export function shopCost(g, id) {
-  const item = SHOP.find((s) => s.id === id);
+  const item = CATALOG.find((s) => s.id === id);
   return Math.round(item.base * Math.pow(item.growth, g.owned[id]));
 }
 
 export function canBuy(g, id) {
-  const item = SHOP.find((s) => s.id === id);
+  const item = CATALOG.find((s) => s.id === id);
   if (g.owned[id] >= item.max) return false;
   if (item.needs && !g.owned[item.needs]) return false;
   return g.money >= shopCost(g, id);
@@ -332,7 +361,7 @@ export function hydrate(raw) {
   try { s = JSON.parse(raw); } catch { return g; }
   if (!s || typeof s.saveVersion !== 'number') return g;
   g.money = Math.max(0, Number(s.money) || 0);
-  for (const item of SHOP) g.owned[item.id] = posInt(s.owned?.[item.id], item.max);
+  for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max);
   g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   if (s.saveVersion === 2 && typeof s.built === 'number') {
     // v2 stored a station count along the fixed 1950 sequence.
