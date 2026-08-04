@@ -312,8 +312,10 @@ export function grossRate(g) {
   return g.grossEma;
 }
 
+// Stations ON THE GROUND (physical), not line entries: a junction shared by
+// two services is one station, and costs/limits must read it that way.
 export function stationCount(g) {
-  return g.lines.reduce((a, l) => a + l.stations.length, 0);
+  return physicalStations(g).size;
 }
 
 export function waitingAt(g, li, i) {
@@ -1108,10 +1110,41 @@ export function endStation(g, li, end) {
   return end === 'head' ? L.stations[0] : L.stations[L.stations.length - 1];
 }
 
+// Cross-line sharing (M5 slice 3, report 634 idea 7): placing on top of
+// another line's station makes it a JUNCTION served by both, which is how the
+// real network branches (the green line's branches are overlapping linear
+// services on a shared trunk, never Y-shaped lines; the sim's physical-station
+// dedup was built for exactly this). Sharing requires the existing station be
+// tier 2+: a junction is station-game infrastructure, not a free verb.
+// Returns 'own' (this line already calls within spacing), a {li, i, st}
+// share target on another line, or null (clear ground).
+function shareTarget(g, li, geo) {
+  let own = false, best = null, bestD = BAL.minSpacingKm;
+  for (let l2 = 0; l2 < g.lines.length; l2++) {
+    const sts = g.lines[l2].stations;
+    for (let i2 = 0; i2 < sts.length; i2++) {
+      const d = kmBetween(sts[i2].geo, geo);
+      if (d >= BAL.minSpacingKm) continue;
+      if (l2 === li) { own = true; continue; }
+      if (d < bestD) { bestD = d; best = { li: l2, i: i2, st: sts[i2] }; }
+    }
+  }
+  return own ? 'own' : best;
+}
+
+// What the drag label needs to say about a junction, read-only.
+export function junctionPreview(g, li, geo) {
+  const s = shareTarget(g, li, geo);
+  return s && s !== 'own' ? { name: s.st.name, tier: s.st.tier } : null;
+}
+
 export function extensionCost(g, li, end, geo) {
   const from = endStation(g, li, end);
   const km = kmBetween(from.geo, geo);
-  const station = BAL.stationBase * Math.pow(BAL.stationGrowth, stationCount(g) - START_BUILT);
+  const share = shareTarget(g, li, geo);
+  // A junction shares a station that already exists: track is the only build.
+  const station = share && share !== 'own' ? 0
+    : BAL.stationBase * Math.pow(BAL.stationGrowth, stationCount(g) - START_BUILT);
   const track = km * BAL.trackPerKm * (crossesWater(from.geo, geo) ? BAL.waterMult : 1);
   return Math.round(station + track);
 }
@@ -1121,10 +1154,14 @@ export function maxStationsNow(g) {
 }
 
 export function placementProblem(g, li, end, geo) {
-  if (stationCount(g) >= maxStationsNow(g)) return 'max';
-  for (const w of WATER) if (inRing(geo, w.ring)) return 'water';
-  for (const s of g.lines[li].stations) {
-    if (kmBetween(s.geo, geo) < BAL.minSpacingKm) return 'tooClose';
+  const share = shareTarget(g, li, geo);
+  if (share && share !== 'own') {
+    // A junction adds no station on the ground and sits on dry land already.
+    if (share.st.tier < 2) return 'needsTier2';
+  } else {
+    if (stationCount(g) >= maxStationsNow(g)) return 'max';
+    for (const w of WATER) if (inRing(geo, w.ring)) return 'water';
+    if (share === 'own') return 'tooClose';
   }
   if (g.money < extensionCost(g, li, end, geo)) return 'money';
   return null;
@@ -1199,13 +1236,24 @@ export function freeSpotName(g, geo) {
 }
 
 // anchorIdx is null for a free spot. An anchor already on THIS line is refused;
-// an anchor on another line becomes an interchange. Returns true on success.
+// landing on another line's tier-2+ station shares it (a junction, see
+// shareTarget). Returns true on success.
 export function extendTo(g, li, end, geo, anchorIdx) {
   if (anchorIdx !== null && usedAnchorsOnLine(g, li).has(anchorIdx)) return false;
   if (placementProblem(g, li, end, geo)) return false;
   g.money -= extensionCost(g, li, end, geo);
+  const share = shareTarget(g, li, geo); // 'own'/under-tier already refused above
   let station;
-  if (anchorIdx !== null) {
+  if (share) {
+    // The SAME station on the ground: copy identity AND built state, so the
+    // new entry starts in lockstep with its physical twin (upgradeStation
+    // keeps them there via entriesOfSame; a fresh tier-1 entry here would
+    // desync dwell, gates and upkeep from what the player actually built).
+    const s = share.st;
+    station = { name: s.name, geo: s.geo, anchor: s.anchor, tier: s.tier,
+                ent: s.ent, gates: s.gates, mult: s.mult, hub: s.hub };
+    g.events.push({ type: 'junction', geo: s.geo, name: s.name });
+  } else if (anchorIdx !== null) {
     station = anchorStation(anchorIdx);
   } else {
     g.freeSpots += 1;
