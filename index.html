@@ -241,6 +241,9 @@
     padding: 0.6rem 0.75rem;
   }
   .stats span { color: var(--ink); }
+  .riders-line { font-size: 0.66rem; color: var(--muted); margin-top: 0.15rem; }
+  .riders-line b { color: var(--ink); font-size: 0.72rem; }
+  #riders-rate { color: var(--faint, var(--muted)); }
 
   #hud-br { bottom: 0.5rem; right: 0.6rem; display: flex; align-items: flex-end; gap: 0.4rem; }
   #fb-panel {
@@ -369,6 +372,7 @@
         <span id="rate-net">+0.0 kr/s</span>
       </div>
       <div class="pk-line"><span id="pk">0.0 pk</span> · <span id="pk-cov">0% coverage</span></div>
+      <div class="riders-line"><b id="stat-delivered">0</b> <span id="riders-label">riders carried</span> <span id="riders-rate"></span></div>
     </div>
   </div>
 
@@ -413,7 +417,6 @@
     <div id="shop" style="display:contents"></div>
     <div class="stats hud-panel">
       <div>Stations: <span id="stat-stations">3</span></div>
-      <div>Passengers delivered: <span id="stat-delivered">0</span></div>
       <div>City demand: <span id="stat-demand">×1.00</span></div>
       <div>Trains idle / active: <span id="stat-trains">1 / 1</span></div>
       <div id="line-rows"></div>
