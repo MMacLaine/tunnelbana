@@ -49,10 +49,6 @@ function build(owned, demand) {
       }
     }
   }
-  // Surges off: they are deterministic but PHASE-SENSITIVE, so any timing
-  // change re-rolls which surges land in the window, and that variance drowns
-  // small honest effects (measured: reproducible ±0.3/s on a zero-effect item).
-  g.nextSurgeAt = Infinity;
   // Demand regime: capacity items need demand beyond supply; demand items need
   // slack. 'high' = a grown city (the budgets at their growth cap).
   if (demand === 'high' || demand === 'mid') {
@@ -63,13 +59,33 @@ function build(owned, demand) {
   return g;
 }
 
+// Surge PHASE is a regime, not noise (report 640): a case can be positive when
+// surges favour its station and negative when they load trains elsewhere. So
+// every measurement runs across phase offsets and is graded on the MEAN delta,
+// with the spread reported; a bimodal item announces itself through its spread
+// instead of vanishing behind a pinned phase.
+const SURGE_PHASES = [5, 35, 65, 95];
+
 // Net income (kr/s) at steady state; money pinned high so deficits never mothball.
-function netRate(owned, demand) {
+function netRate(owned, demand, surgeAt) {
   const g = build(owned, demand);
+  g.nextSurgeAt = surgeAt;
   for (let t = 0; t < WARMUP; t += 0.05) { sim.tick(g, 0.05); g.events.length = 0; }
   const m0 = g.money;
   for (let t = 0; t < MEASURE; t += 0.05) { sim.tick(g, 0.05); g.events.length = 0; }
   return (g.money - m0) / MEASURE;
+}
+
+function measure(withoutOwned, withOwned, demand, applyStation) {
+  const deltas = SURGE_PHASES.map((ph) => {
+    const a = applyStation ? netRateStation(withoutOwned, demand, null, ph) : netRate(withoutOwned, demand, ph);
+    const b = applyStation ? netRateStation(withOwned.owned, demand, withOwned.upgrade, ph) : netRate(withOwned, demand, ph);
+    return b - a;
+  });
+  const mean = deltas.reduce((x, y) => x + y, 0) / deltas.length;
+  const sd = Math.sqrt(deltas.reduce((x, y) => x + (y - mean) ** 2, 0) / deltas.length);
+  const min = Math.min(...deltas);
+  return { mean, sd, min };
 }
 
 // Each case: a baseline where the item's effect should bind, plus the marginal
@@ -98,27 +114,27 @@ const CASES = [
 let failed = 0;
 let warned = 0;
 for (const c of CASES) {
-  const without = netRate({ ...c.base }, c.demand);
-  const withIt = netRate({ ...c.base, ...c.buy }, c.demand);
-  const delta = withIt - without;
-  const ok = delta >= MIN_GAIN;
+  const { mean, sd, min } = measure({ ...c.base }, { ...c.base, ...c.buy }, c.demand, false);
+  const ok = mean >= MIN_GAIN;
   const ledgered = !ok && LEDGER[c.id];
   if (!ok && !ledgered) failed++;
   if (ledgered) warned++;
   console.log(
-    `${ok ? 'ok  ' : ledgered ? 'WARN' : 'FAIL'} ${c.id.padEnd(12)} without=${without.toFixed(2)}/s  with=${withIt.toFixed(2)}/s  delta=${delta >= 0 ? '+' : ''}${delta.toFixed(2)}/s`
+    `${ok ? 'ok  ' : ledgered ? 'WARN' : 'FAIL'} ${c.id.padEnd(12)} mean=${mean >= 0 ? '+' : ''}${mean.toFixed(2)}/s  sd=${sd.toFixed(2)}  worst=${min >= 0 ? '+' : ''}${min.toFixed(2)}/s`
   );
 }
 
 // Per-station upgrades (slice 1) must also earn their keep. Applied to the
 // busiest platform (T-Centralen, index 0) in the regime where each binds.
 const STATION_CASES = [
-  { id: 'st gates',  demand: 'high', base: { drivers: 1 }, kind: 'gates' },
+  // Gates pay only when arriving trains have ROOM (640: coupled to capacity).
+  { id: 'st gates',  demand: 'high', base: { drivers: 1, capacity: 2 }, kind: 'gates' },
   { id: 'st ent',    demand: 'mid',  base: { drivers: 1, train: 4, timetable: 2 }, kind: 'ent' },
 ];
 
-function netRateStation(owned, demand, upgrade) {
+function netRateStation(owned, demand, upgrade, surgeAt) {
   const g = build(owned, demand);
+  g.nextSurgeAt = surgeAt;
   if (upgrade) {
     g.money = 1e12;
     const targets = upgrade.all
@@ -139,15 +155,17 @@ function netRateStation(owned, demand, upgrade) {
 }
 
 for (const c of STATION_CASES) {
-  const without = netRateStation({ ...c.base }, c.demand, null);
-  const withIt = netRateStation({ ...c.base }, c.demand, { kind: c.kind, at: c.at });
-  const delta = withIt - without;
-  const ok = delta >= MIN_GAIN;
+  const { mean, sd, min } = measure(
+    { ...c.base },
+    { owned: { ...c.base }, upgrade: { kind: c.kind, at: c.at } },
+    c.demand, true
+  );
+  const ok = mean >= MIN_GAIN;
   const ledgered = !ok && LEDGER[c.id];
   if (!ok && !ledgered) failed++;
   if (ledgered) warned++;
   console.log(
-    `${ok ? 'ok  ' : ledgered ? 'WARN' : 'FAIL'} ${c.id.padEnd(12)} without=${without.toFixed(2)}/s  with=${withIt.toFixed(2)}/s  delta=${delta >= 0 ? '+' : ''}${delta.toFixed(2)}/s`
+    `${ok ? 'ok  ' : ledgered ? 'WARN' : 'FAIL'} ${c.id.padEnd(12)} mean=${mean >= 0 ? '+' : ''}${mean.toFixed(2)}/s  sd=${sd.toFixed(2)}  worst=${min >= 0 ? '+' : ''}${min.toFixed(2)}/s`
   );
 }
 
