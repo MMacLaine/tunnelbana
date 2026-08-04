@@ -37,6 +37,7 @@ const STR = {
   mothballedTag: 'mothballed',
   awayTitle: 'While you were away',
   coverage: 'coverage',
+  phases: ['MORGONRUSNING', '', 'KVÄLLSRUSNING', 'NATT'],
   demolished: '−' + B.demolishCost + ' kr',
   cantDemolish: 'Cannot demolish now',
   menuStart: 'Start',
@@ -660,7 +661,9 @@ function updateUI() {
     sim.idleTrains(g).length + ' / ' + (g.trains.length - mb) +
     (mb ? ' (+' + mb + ' ' + STR.mothballedTag + ')' : '');
   $('pk').textContent = g.pk.toFixed(1) + ' pk';
-  $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage;
+  const phase = STR.phases[sim.dayPhase(g)];
+  $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage +
+    (phase ? ' · ' + phase : '');
   $('btn-mothball').disabled = sim.idleTrains(g).length === 0 || g.trains.length - mb <= 1;
   $('btn-reactivate').disabled = mb === 0;
   bell.querySelector('.bell-sub').textContent =
