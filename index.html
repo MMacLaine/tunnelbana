@@ -237,7 +237,34 @@
   }
   .stats span { color: var(--ink); }
 
-  #hud-br { bottom: 0.5rem; right: 0.6rem; }
+  #hud-br { bottom: 0.5rem; right: 0.6rem; display: flex; align-items: flex-end; gap: 0.4rem; }
+  #fb-panel {
+    position: absolute;
+    bottom: 2.4rem;
+    right: 0;
+    width: 280px;
+    background: var(--panel-t);
+    border: 1px solid var(--line);
+    padding: 0.7rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-family: var(--mono);
+  }
+  .fb-head { display: flex; align-items: baseline; font-size: 0.78rem; }
+  #fb-close { margin-left: auto; background: none; border: none; color: var(--muted); font-family: var(--mono); cursor: pointer; }
+  #fb-close:hover { color: var(--ink); }
+  #fb-text {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 0.4rem;
+    resize: vertical;
+  }
+  .fb-row { display: flex; align-items: center; gap: 0.5rem; }
+  #fb-note { font-size: 0.62rem; color: var(--muted); }
   #about-mark {
     font-family: var(--mono);
     font-size: 0.72rem;
@@ -393,6 +420,15 @@
   </div>
 
   <div class="hud" id="hud-br">
+    <div id="fb-panel" hidden>
+      <div class="fb-head"><b id="fb-title"></b><button id="fb-close" aria-label="Close">×</button></div>
+      <textarea id="fb-text" rows="5" spellcheck="false"></textarea>
+      <div class="fb-row">
+        <button class="mini-btn" id="fb-send"></button>
+        <span id="fb-note"></span>
+      </div>
+    </div>
+    <button class="mini-btn" id="fb-open"></button>
     <button id="about-mark" aria-label="About and credits">&copy;</button>
   </div>
 
