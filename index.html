@@ -21,6 +21,21 @@
     font-weight: 600;
     font-display: swap;
   }
+  /* Light mode: a testing aid (owner ask), derived pragmatically; dark is the
+     designed theme. */
+  :root[data-theme="light"] {
+    --tb-bg: #f4f6f8;
+    --tb-panel: #ffffff;
+    --tb-panel-t: rgba(255, 255, 255, 0.9);
+    --tb-line: #d4dbe3;
+    --tb-ink: #17202a;
+    --tb-muted: #5a6673;
+    --tb-ghost: #97a2ae;
+    --tb-green: #1e7a4b;
+    --tb-amber: #9a6b16;
+    --tb-red: #b23a30;
+    --tb-politic: #6b5aa8;
+  }
   /* Legacy names mapped onto the pass-01 design tokens (tokens.css). */
   :root {
     --bg: var(--tb-bg);
@@ -397,6 +412,7 @@
       <div id="settings-view" hidden>
         <h1>SETTINGS</h1>
         <p class="sub">Placeholders mostly, for now.</p>
+        <div class="setting-row"><span>Theme</span><button class="mini-btn" id="settings-theme">Dark</button></div>
         <div class="setting-row"><span>Sound</span><span>coming later</span></div>
         <div class="setting-row"><span>Language</span><span>English</span></div>
         <div class="setting-row"><span>Save</span><span>automatic, local</span></div>
