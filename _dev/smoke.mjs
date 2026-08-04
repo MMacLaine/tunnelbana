@@ -5,7 +5,7 @@ import * as sim from '../src/sim.js';
 import { ANCHORS } from '../src/data.js';
 
 const g = sim.newGame();
-const UPGRADES = ['drivers', 'train', 'timetable', 'capacity', 'train', 'timetable', 'capacity'];
+const UPGRADES = ['drivers', 'train', 'timetable', 'capacity', 'bogies', 'turnstiles', 'train', 'timetable', 'capacity'];
 let up = 0;
 let freeSpotPlaced = false;
 

@@ -2,8 +2,11 @@ import * as sim from './sim.js';
 import * as render from './render.js';
 import { ANCHORS } from './data.js';
 
-// UI copy interpolates from BAL so a balance change can never make the interface lie.
+// UI copy interpolates from BAL and the CATALOG so a balance change can never
+// make the interface lie.
 const B = sim.BAL;
+const CAT = Object.fromEntries(sim.CATALOG.map((u) => [u.id, u]));
+const pct = (x) => Math.round(Math.abs(1 - x) * 100);
 const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
@@ -27,10 +30,12 @@ const STR = {
   },
   mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
-    train:     { name: 'New train',        desc: 'One more train on the line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
-    drivers:   { name: 'Hire drivers',     desc: 'Trains dispatch themselves. You can still ring the bell.' },
-    timetable: { name: 'Tighter timetable', desc: 'Drivers dispatch ' + Math.round((1 - B.dispatchPerLevel) * 100) + '% faster per level.' },
-    capacity:  { name: 'Longer trains',    desc: '+' + B.capPerLevel + ' passengers per train.' },
+    train:      { name: 'New train',         desc: 'One more train on the line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
+    drivers:    { name: 'Hire drivers',      desc: 'Trains dispatch themselves. You can still ring the bell.' },
+    timetable:  { name: 'Tighter timetable', desc: 'Drivers dispatch ' + pct(CAT.timetable.mult.dispatchInterval) + '% faster per level.' },
+    capacity:   { name: 'Longer trains',     desc: '+' + CAT.capacity.add.trainCap + ' passengers per train.' },
+    bogies:     { name: 'C1 bogie service',  desc: 'Trains run ' + pct(CAT.bogies.mult.speed) + '% faster.' },
+    turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
   },
   owned: 'Owned',
   level: 'Level',
@@ -328,7 +333,7 @@ wrap.addEventListener('contextmenu', (e) => {
 // --- Shop ---
 const shopEl = $('shop');
 const cards = {};
-for (const item of sim.SHOP) {
+for (const item of sim.CATALOG) {
   const s = STR.shop[item.id];
   const card = document.createElement('button');
   card.className = 'shop-card';
@@ -345,7 +350,7 @@ for (const item of sim.SHOP) {
 }
 
 function updateShop() {
-  for (const item of sim.SHOP) {
+  for (const item of sim.CATALOG) {
     const card = cards[item.id];
     const owned = g.owned[item.id];
     const maxed = owned >= item.max;
