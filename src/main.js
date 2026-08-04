@@ -265,14 +265,20 @@ const menu = $('menu');
 function hasSave() {
   return localStorage.getItem(sim.SAVE_KEY) !== null;
 }
+function menuView(which) {
+  $('main-view').hidden = which !== 'main';
+  $('settings-view').hidden = which !== 'settings';
+  $('about-view').hidden = which !== 'about';
+  if (which === 'settings') {
+    $('settings-reset').textContent = STR.reset;
+    $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
+    $('settings-export').textContent = STR.exportBtn;
+    $('settings-import').textContent = STR.importBtn;
+    $('import-text').hidden = true;
+  }
+}
 function settingsView(on) {
-  $('settings-view').hidden = !on;
-  $('main-view').hidden = on;
-  $('settings-reset').textContent = STR.reset;
-  $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
-  $('settings-export').textContent = STR.exportBtn;
-  $('settings-import').textContent = STR.importBtn;
-  $('import-text').hidden = true;
+  menuView(on ? 'settings' : 'main');
 }
 function showMenu(mode) {
   paused = true;
@@ -288,6 +294,12 @@ function closeMenu() {
 }
 $('menu-resume').addEventListener('click', closeMenu);
 $('menu-settings').addEventListener('click', () => settingsView(true));
+$('menu-about').addEventListener('click', () => menuView('about'));
+$('about-back').addEventListener('click', () => menuView('main'));
+$('about-mark').addEventListener('click', () => {
+  if (menu.hidden) showMenu('pause');
+  menuView('about');
+});
 $('settings-back').addEventListener('click', () => settingsView(false));
 $('menu-quit').addEventListener('click', () => {
   save();
@@ -357,7 +369,7 @@ $('settings-reset').addEventListener('click', () => {
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (menu.hidden) showMenu('pause');
-    else if (!$('settings-view').hidden) settingsView(false);
+    else if (!$('settings-view').hidden || !$('about-view').hidden) menuView('main');
     else closeMenu();
   }
 });
