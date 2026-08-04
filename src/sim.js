@@ -6,7 +6,7 @@
 import { ANCHORS, CORRIDORS, DISTRICTS, START_BUILT, WEST_FIRST, WATER, kmBetween, crossesWater, inRing, densityAt } from './data.js';
 
 export const BAL = {
-  startMoney: 300,
+  startMoney: 900,  // enough that the opening minute ends in a build, not a wait
   farePerKm: 6,            // kr per passenger-kilometre, paid as passengers board.
                            // Scaled with the 2026-08-04 slowdown (2.4 at the old
                            // speeds): slower trains earn per visit, so fares must
@@ -89,9 +89,22 @@ export const BAL = {
   upgMax: 3,
   offlineDiscount: 0.7,    // offline income earns this share of the measured online rate
   seedWaiting: 8,          // passengers on a platform when it opens
-  stationBase: 150,        // flat station cost, grows with network size
-  stationGrowth: 1.25,
-  trackPerKm: 150,         // kr per km of track
+  // Building the network is the spine of a 20-hour arc, so it must cost real
+  // time. Owner playtest 2026-08-04: "I can build the entire green line in
+  // about 5 minutes". Was 150 / 1.25 / 150, which put the 13th station at
+  // ~1 400 kr, seconds of income. Station cost now compounds harder and track
+  // is priced like tunnelling, so each extension is a decision you save for.
+  // Extending costs grow along the LINE you are extending, not across the whole
+  // network (changed 2026-08-04). A single network-wide exponent cannot be both
+  // steep early and payable late: at 1.42 station 45 passed a billion kr and
+  // walled the blue era, and at 1.16 the whole 1950 line fell in nine minutes.
+  // Per line, each corridor is its own project: pressure builds within a line,
+  // a new era's line starts fresh (and you are richer, which is the era pacing
+  // doing the work instead of a runaway exponent). Founding lines to dodge the
+  // curve is gated by political capital and by needing trains to run them.
+  stationBase: 1100,       // flat station cost, grows with THIS line's length
+  stationGrowth: 1.32,
+  trackPerKm: 520,         // kr per km of track
   waterMult: 2.0,          // track cost multiplier when the segment crosses water
   minSpacingKm: 0.35,      // same-line stations may not land closer than this
   maxStations: 90,         // network-wide cap (upgrades can raise it). Was 40
@@ -375,6 +388,16 @@ export function lineCycleEst(g, li) {
     t += 2 * Math.max(BAL.minDwell, BAL.baseDwell[L.stations[i].tier]);
   }
   return t;
+}
+
+// How often this line sends a train, aggregated over both ends: the cadence
+// the player actually watches. Every relevant purchase moves it (a train
+// divides it, speed shortens the cycle, a timetable makes it regular), so it
+// is the honest readout of "how good is my service" (owner ask, 2026-08-04).
+export function lineHeadwayS(g, li) {
+  const active = g.trains.reduce((n, t) => n + (t.line === li && !t.mothballed ? 1 : 0), 0);
+  if (!active) return Infinity;
+  return Math.max(minHeadway(g), lineCycleEst(g, li) / (2 * active));
 }
 
 export function upkeepRate(g) {
@@ -1298,7 +1321,7 @@ export function extensionCost(g, li, end, geo) {
   const share = shareTarget(g, li, geo);
   // A junction shares a station that already exists: track is the only build.
   const station = share && share !== 'own' ? 0
-    : BAL.stationBase * Math.pow(BAL.stationGrowth, stationCount(g) - START_BUILT);
+    : BAL.stationBase * Math.pow(BAL.stationGrowth, Math.max(0, g.lines[li].stations.length - 2));
   const track = km * BAL.trackPerKm * (crossesWater(from.geo, geo) ? BAL.waterMult : 1);
   return Math.round(station + track);
 }

@@ -63,6 +63,21 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (!sim.anchorRevealed(g, 4)) err('building the railhead should stake out the next stop');
 }
 
+// --- The cadence readout (owner ask, 2026-08-04): the number the player
+// watches must respond to the purchases that claim to improve it. ---
+{
+  const c = sim.newGame();
+  c.money = 1e9;
+  for (let k = 3; k < 8; k++) sim.extendTo(c, 0, 'tail', ANCHORS[k].geo, k);
+  const one = sim.lineHeadwayS(c, 0);
+  if (!(one > 0 && isFinite(one))) err('a line with a train should report a headway');
+  sim.addTrain(c, 0);
+  const two = sim.lineHeadwayS(c, 0);
+  if (!(two < one)) err('a second train must shorten the headway, got ' + two + ' vs ' + one);
+  c.owned.bogies = 1; // faster stock shortens the cycle, so the cadence tightens
+  if (!(sim.lineHeadwayS(c, 0) < two)) err('faster stock must shorten the headway');
+}
+
 // --- Opening day (report 643): the game cannot lose before the player acts.
 // Upkeep and abandonment hold until the first dispatch; the bell is the
 // invigning. ---
@@ -123,8 +138,25 @@ for (let t = 0; t < 600; t += 0.05) {
 
 if (!(g.pk > 0)) err('political capital should accrue');
 if (!sawSurge) err('a surge should have occurred within ten minutes');
-const free = g.lines[0].stations.find((s) => s.anchor === null);
-if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholmen should take the district name, got ' + (free && free.name));
+
+// PACING (owner playtest ruling, 2026-08-04: "I can build the entire green
+// line in about 5 minutes"). Ten minutes of greedy, near-optimal play must
+// make real progress and must NOT finish the 1950 line: building is the spine
+// of a 20-hour arc, so it has to cost time, not just clicks.
+{
+  const n = sim.stationCount(g);
+  if (n >= 13) err('ten minutes should not build the whole 1950 line, got ' + n + ' stations');
+  if (n < 7) err('ten minutes of good play should still build a real line, got ' + n + ' stations');
+}
+
+// Free-spot naming is a naming rule, not an economy one: test it with money.
+{
+  const n = sim.newGame();
+  n.money = 1e9;
+  sim.extendTo(n, 0, 'head', [59.3315, 18.0380], null);
+  const free = n.lines[0].stations.find((s) => s.anchor === null);
+  if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholmen should take the district name, got ' + (free && free.name));
+}
 
 // --- Eras and the Västerort megaproject ---
 {
@@ -421,7 +453,7 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
 // --- The ending fires once when the final era has every anchor connected ---
 {
   const e = sim.newGame();
-  e.money = 1e9;
+  e.money = 1e12;
   e.era = sim.ERAS.length - 1; // the sandbox, Hela Stockholm
   // Line 0 takes the southern anchors; every other corridor gets its own
   // chartered line from the hub (the campaign's full sweep, 59 anchors).
@@ -435,7 +467,7 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
     for (const id of group) {
       const c = CORRIDORS.find((x) => x.id === id);
       for (let k = c.start; k < c.end; k++) {
-        e.money = 1e9;
+        e.money = 1e12;
         if (!sim.extendTo(e, li, 'tail', ANCHORS[k].geo, k)) err('ending scenario: extend to ' + ANCHORS[k].name + ' failed');
       }
     }
@@ -450,6 +482,6 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!back.endingSeen) err('endingSeen must persist');
 }
 
-const ok = sim.stationCount(g) >= 14 && g.totalDelivered > 5000 && g.money >= 0 && up >= 5 && freeSpotPlaced;
-console.log(ok ? 'SMOKE OK' : `SMOKE FAILED stations=${sim.stationCount(g)} delivered=${Math.round(g.totalDelivered)} upgrades=${up} freeSpot=${freeSpotPlaced}`);
+const ok = sim.stationCount(g) >= 7 && g.totalDelivered > 2000 && g.money >= 0 && up >= 5;
+console.log(ok ? 'SMOKE OK' : `SMOKE FAILED stations=${sim.stationCount(g)} delivered=${Math.round(g.totalDelivered)} upgrades=${up}`);
 process.exit(ok ? 0 : 1);
