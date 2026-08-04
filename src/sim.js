@@ -364,6 +364,27 @@ export function usedAnchorsAll(g) {
   return set;
 }
 
+// The city does not hand you the whole map (owner ruling, 2026-08-04): along
+// each authored corridor only the NEXT unbuilt anchor is revealed, staked out
+// one stop beyond the railhead. Not knowing where you are building toward is
+// the fun; free spots stay legal anywhere, so the reveal is the city's
+// proposal, not a leash. A corridor that has not begun shows only its FIRST
+// anchor, and only once its era has arrived (the era OPENS the corridor:
+// Hötorget appears in 1952, whether the player takes the megaproject or
+// builds there themselves). This is the seam the era-per-line direction
+// plugs into: a new era = a new corridor's first stake appearing on the map.
+export function anchorRevealed(g, i) {
+  const used = usedAnchorsAll(g);
+  if (used.has(i)) return true;
+  const start = i >= WEST_FIRST ? WEST_FIRST : 0;
+  const end = i >= WEST_FIRST ? ANCHORS.length : WEST_FIRST;
+  const opensIn = i >= WEST_FIRST ? 1952 : 1950;
+  let maxBuilt = start - 1;
+  for (let k = start; k < end; k++) if (used.has(k)) maxBuilt = k;
+  if (maxBuilt < start) return i === start && eraYear(g) >= opensIn;
+  return i === maxBuilt + 1;
+}
+
 // How many lines call at this anchor (2+ means interchange).
 export function linesAtAnchor(g, anchor) {
   let n = 0;
@@ -1277,6 +1298,7 @@ export function freeSpotName(g, geo) {
 // shareTarget). Returns true on success.
 export function extendTo(g, li, end, geo, anchorIdx) {
   if (anchorIdx !== null && usedAnchorsOnLine(g, li).has(anchorIdx)) return false;
+  if (anchorIdx !== null && !anchorRevealed(g, anchorIdx)) return false;
   if (placementProblem(g, li, end, geo)) return false;
   g.money -= extensionCost(g, li, end, geo);
   const share = shareTarget(g, li, geo); // 'own'/under-tier already refused above

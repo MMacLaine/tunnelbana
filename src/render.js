@@ -6,7 +6,7 @@
 import { ANCHORS, WEST_FIRST, LINE, WATER, TEASE } from './data.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
-  endStation, waitingAt, trainPos,
+  endStation, waitingAt, trainPos, anchorRevealed,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -203,7 +203,7 @@ export function nearAnchor(g, p, li) {
   const used = li === null ? usedAnchorsAll(g) : usedAnchorsOnLine(g, li);
   let best = null, bestD = snapRadius();
   ANCHORS.forEach((a, i) => {
-    if (used.has(i)) return;
+    if (used.has(i) || !anchorRevealed(g, i)) return;
     const ap = project(a.geo);
     const d = Math.hypot(p.x - ap.x, p.y - ap.y);
     if (d < bestD) { best = i; bestD = d; }
@@ -326,7 +326,7 @@ function drawAnchors(g) {
   const hot = drag ? drag.snap : null;
   const namesAtRest = pxPerKm() >= 60;
   ANCHORS.forEach((a, i) => {
-    if (used.has(i) && i !== hot) return;
+    if ((used.has(i) || !anchorRevealed(g, i)) && i !== hot) return;
     const p = project(a.geo);
     if (i === hot) {
       ctx.beginPath();
