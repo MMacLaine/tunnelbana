@@ -13,6 +13,11 @@ export const LINE = {
 export const START_BUILT = 3;
 
 export const ANCHORS = [
+  // The hub. Historically the tunnelbana reached T-Centralen in 1957, but the
+  // game starts here by owner ruling (2026-08-03): the network grows out from
+  // the centre, and gameplay clarity beats strict chronology on this one.
+  { name: 'T-Centralen',        geo: [59.3312, 18.0619], dia: [5, -2], hub: true },
+  { name: 'Gamla stan',         geo: [59.3232, 18.0672], dia: [6, -1] },
   { name: 'Slussen',            geo: [59.3200, 18.0720], dia: [6, 0] },
   { name: 'Medborgarplatsen',   geo: [59.3143, 18.0736], dia: [6, 1] },
   { name: 'Skanstull',          geo: [59.3078, 18.0763], dia: [6, 2] },
@@ -30,9 +35,13 @@ export const ANCHORS = [
 // one pays the bridge/tunnel multiplier) plus the offline-fallback background;
 // the visible water comes from the basemap tiles. Approximate bands for M0.
 export const WATER = [
-  { // Saltsjön / Söderström, north of Slussen
-    label: 'Saltsjön',
-    ring: [[59.3300, 18.0400], [59.3300, 18.1500], [59.3222, 18.1500], [59.3222, 18.0400]],
+  { // Norrström / Riddarfjärden, between T-Centralen and Gamla stan
+    label: 'Riddarfjärden',
+    ring: [[59.3288, 18.0400], [59.3288, 18.1500], [59.3250, 18.1500], [59.3250, 18.0400]],
+  },
+  { // Söderström, between Gamla stan and Slussen
+    label: 'Söderström',
+    ring: [[59.3226, 18.0400], [59.3226, 18.1500], [59.3210, 18.1500], [59.3210, 18.0400]],
   },
   { // Hammarby sjö / kanal, between Skanstull and Gullmarsplan
     label: 'Hammarby sjö',
@@ -40,12 +49,12 @@ export const WATER = [
   },
 ];
 
-// The pull northward: T-Centralen is on the far side of the water, era 1957.
+// The pull outward from the hub: the 1952 line toward Vällingby is next.
 export const TEASE = {
-  from: [59.3200, 18.0720],
-  to: [59.3292, 18.0703],
-  label: 'mot T-Centralen · 1957',
-  labelAt: [59.3278, 18.0730],
+  from: [59.3312, 18.0619],
+  to: [59.3345, 18.0525],
+  label: 'mot Hötorget · 1952',
+  labelAt: [59.3352, 18.0540],
 };
 
 // Authored population-density blobs: the first cut of the density field. A free
@@ -55,6 +64,7 @@ export const DISTRICTS = [
   { name: 'Södermalm',      geo: [59.3140, 18.0700], rKm: 1.2, w: 0.90 },
   { name: 'Gamla stan',     geo: [59.3250, 18.0710], rKm: 0.4, w: 0.70 },
   { name: 'Norrmalm',       geo: [59.3320, 18.0630], rKm: 1.0, w: 0.95 },
+  { name: 'Kungsholmen',    geo: [59.3310, 18.0290], rKm: 1.0, w: 0.80 },
   { name: 'Årsta',          geo: [59.2980, 18.0490], rKm: 0.9, w: 0.60 },
   { name: 'Johanneshov',    geo: [59.2970, 18.0780], rKm: 0.7, w: 0.70 },
   { name: 'Hammarbyhöjden', geo: [59.2950, 18.1050], rKm: 0.8, w: 0.60 },
@@ -73,15 +83,16 @@ const DENSITY_CAP = 0.95; // anchors (1.0) always beat free spots
 export function densityAt(geo) {
   let mult = DENSITY_FLOOR;
   let district = null;
+  let best = -1;
   for (const d of DISTRICTS) {
     const dist = kmBetween(geo, d.geo);
     if (dist > d.rKm * 1.4) continue;
     const score = d.w * Math.max(0, 1 - (dist / d.rKm) ** 2);
-    if (score > mult) {
-      mult = score;
-      district = d.name;
+    if (score > best) {
+      best = score;
+      district = d.name; // the strongest blob names the place, even at its edge
     }
-    if (district === null && dist <= d.rKm * 1.4) district = d.name;
+    if (score > mult) mult = score;
   }
   return { mult: Math.min(DENSITY_CAP, Math.round(mult * 100) / 100), district };
 }
