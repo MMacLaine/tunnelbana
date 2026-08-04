@@ -15,7 +15,7 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (g.lines[0].stations[0].name !== 'T-Centralen' || !g.lines[0].stations[0].hub) err('the game should start at the T-Centralen hub');
   if (!(sim.freeSpotValue([59.2980, 18.0490]) > 0.35)) err('Årsta should beat the density floor');
   if (sim.freeSpotValue([59.2000, 18.4000]) !== 0.35) err('nowhere should sit at the density floor');
-  if (sim.canBuy(g, 'atc')) err('1965 catalog items must be era-gated');
+  if (sim.canBuy(g, 'c4stock')) err('1965 catalog items must be era-gated');
   if (sim.canBuy(g, 'westline')) err('westline must be era-gated');
 }
 
@@ -83,7 +83,7 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   if (!(sim.waitingAt(g, 1, 0) > 0)) err('interchange should accumulate waiting on line 2');
 
   // Era gating still holds forward.
-  if (sim.canBuy(g, 'atc')) err('atc must stay gated until 1965');
+  if (sim.canBuy(g, 'c4stock')) err('c4stock must stay gated until 1965');
 
   // Extend the west line a few anchors and let both lines run.
   for (let k = WEST_FIRST + 2; k < WEST_FIRST + 6; k++) {
@@ -170,8 +170,12 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
   sim.buy(o, 'drivers');
   sim.buy(o, 'train');
   o.money = 100;
+  // The closed-form estimate reads the measured online rate: warm it up first.
+  for (let t = 0; t < 120; t += 0.05) { sim.tick(o, 0.05); o.events.length = 0; }
   const rep = sim.simulateOffline(o, 2 * 3600);
   if (!rep || !(rep.earned > 0)) err('offline with drivers should earn');
+  const noDrivers = sim.newGame();
+  if (sim.simulateOffline(noDrivers, 3600) !== null) err('offline without drivers must earn nothing');
   if (sim.simulateOffline(o, 30) !== null) err('short gaps should not produce an offline report');
   const capped = sim.simulateOffline(o, 99 * 3600);
   if (capped.seconds !== sim.BAL.offlineCapS) err('offline must cap');
