@@ -59,13 +59,13 @@ const CASES = [
   { id: 'timetable',  demand: 'high', base: { drivers: 1, train: 3 },                  buy: { timetable: 1 } },
   { id: 'timetable 3',demand: 'high', base: { drivers: 1, train: 3, timetable: 2 },    buy: { timetable: 3 } },
   { id: 'capacity',   demand: 'high', base: { drivers: 1, train: 1 },                  buy: { capacity: 1 } },
-  { id: 'bogies',     demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { bogies: 1 } },
+  { id: 'bogies',     demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { bogies: 1 } },
   { id: 'turnstiles', demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { turnstiles: 1 } },
   { id: 'entrances',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 2 },    buy: { entrances: 1 } },
   { id: 'through',    demand: 'low',  base: { drivers: 1, train: 2, westline: 1 },     buy: { through: 1 } },
-  { id: 'stock1957',  demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { stock1957: 1 } },
-  { id: 'c4stock',    demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { c4stock: 1 } },
-  { id: 'c14stock',   demand: 'high', base: { drivers: 1, timetable: 3 },              buy: { c14stock: 1 } },
+  { id: 'stock1957',  demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { stock1957: 1 } },
+  { id: 'c4stock',    demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { c4stock: 1 } },
+  { id: 'c14stock',   demand: 'high', base: { drivers: 1, train: 1, timetable: 3 },    buy: { c14stock: 1 } },
   { id: 'zonefare',   demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { zonefare: 1 } },
 ];
 
