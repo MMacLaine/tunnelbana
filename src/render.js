@@ -52,12 +52,15 @@ export function setTheme(name) {
   COL = THEMES[name] || THEMES.dark;
 }
 
-const REVEAL_KM = 0.65;
+// Base visible reach. Was 0.65: owner playtest 2026-08-04 read the default
+// circle as too generous; a bare Hållplats starts modest and the growth per
+// tier/entrance is steeper, so buying reach is what makes the circle big.
+const REVEAL_KM = 0.4;
 
 // A station's visible reach grows with tier and entrances: the upgrade you
 // bought is the circle you see.
 function stationRevealKm(st) {
-  return REVEAL_KM * (1 + 0.15 * (st.tier - 1) + 0.12 * st.ent);
+  return REVEAL_KM * (1 + 0.25 * (st.tier - 1) + 0.2 * st.ent);
 }
 
 function hexA(hex, a) {

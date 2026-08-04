@@ -38,8 +38,11 @@ export const BAL = {
   // platform while passengers board at the gate rate. Game-scale units: km and
   // seconds. Short segments never reach cruise speed, so infill makes a line
   // slow as a physical consequence, not a balance constant.
-  maxSpeedKmS: 1.35,       // cruise speed; stock upgrades raise it (and accel)
-  accelKmS2: 5.2,          // acceleration = braking; v^2/a ≈ 0.35 km, so normal
+  maxSpeedKmS: 0.7,        // cruise speed; stock upgrades raise it (and accel).
+                           // Was 1.35: owner playtest 2026-08-04 read it as far
+                           // too fast; the base is deliberately sedate so the
+                           // four stock upgrades are FELT speed, not decoration.
+  accelKmS2: 1.4,          // acceleration = braking; v^2/a ≈ 0.35 km, so normal
                            // spacing cruises while 350 m infill never does
   minDwell: 0.2,           // fixed dwell never goes below this
   baseDwell: [0, 0.45, 0.35, 0.3],   // fixed doors/departure cost by tier (1-indexed)
@@ -102,13 +105,16 @@ export const ERAS = [
 export const CATALOG = [
   { id: 'train',      base: 600,  growth: 1.6, max: 8, era: 1950, kind: 'fleet' },
   { id: 'drivers',    base: 900,  growth: 1,   max: 1, era: 1950 },
-  // timetable max is 3, not 6: the value gate measured levels beyond 3 dead at
-  // any realistic fleet (the spawn ceiling drains first). Deeper signalling
-  // returns with M4's holding control and demand growth.
-  // Owning ANY timetable level also switches terminus dispatch to even
-  // intervals (lineCycleEst): level 1 buys regularity, deeper levels buy the
-  // lower signalling floor that binds on dense lines (M5 slice 2 measurement).
-  { id: 'timetable',  base: 1400, growth: 1.8, max: 3, era: 1950, needs: 'drivers',
+  // timetable max is 1 (was 3, was 6): each cap is a measurement. Levels 4-6
+  // died at the spawn ceiling; when base train speed halved (2026-08-04)
+  // cycles doubled and NO reachable fleet gets terminus spacing under the
+  // floor, so every floor-only level measured dead, including level 2 with
+  // the whole fleet stacked on a short branch (+0.08/s, phase-invariant).
+  // The item IS the even-interval terminus dispatch (lineCycleEst): buying a
+  // timetable buys regularity. Deeper signalling floors return with the
+  // red/blue line inventory IF they earn a job then; CBTC carries the late
+  // dispatch story meanwhile.
+  { id: 'timetable',  base: 1400, growth: 1.8, max: 1, era: 1950, needs: 'drivers',
     mult: { dispatchInterval: 0.82 } },
   { id: 'capacity',   base: 800,  growth: 1.7, max: 6, era: 1950,
     add: { trainCap: 60 } },
@@ -1410,6 +1416,10 @@ export function canDowngradeTier(g, li, i) {
   const st = g.lines[li].stations[i];
   if (st.tier <= 1) return false;
   if (st.anchor !== null && ANCHORS[st.anchor].hub && st.tier <= 3) return false;
+  // A junction stays a junction: while several lines call here, the tier may
+  // not drop below 2 (tier 2 is what the sharing was bought with; report 642
+  // §5b, ruled 2026-08-04).
+  if (st.tier === 2 && entriesOfSame(g, li, i).length > 1) return false;
   return true;
 }
 
@@ -1560,7 +1570,9 @@ export function hydrate(raw) {
       return Number.isFinite(v) ? Math.min(base * BAL.growthCap, Math.max(base, v)) : base;
     });
   }
-  for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max + 8);
+  // Clamp to the CURRENT catalog max: when a cap is lowered (a measurement
+  // ruling, e.g. timetable 3 -> 1), saved over-cap levels retire with it.
+  for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max);
   g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   const capMax = stationCap(g);
   const readQueue = (arr, i, st, fallbackHalf) => {
