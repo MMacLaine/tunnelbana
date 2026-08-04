@@ -71,7 +71,7 @@ const STR = {
     bogies:     { name: 'C1 bogie service',  desc: 'Top speed and acceleration up ' + pct(CAT.bogies.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
-    redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line, T-Centralen to Mariatorget, with a train. Fruängen waits at the far end.' },
+    redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line as a Söder shuttle, Mariatorget to Zinkensdamm, with a train. Connect it to your network your way; Fruängen waits at the far end.' },
     blueline:   { name: 'Blå linjen',        desc: 'Megaproject: charter the deep blue line, T-Centralen to Rådhuset, with a train. Hjulsta waits beyond Järvafältet.' },
     entrances:  { name: 'Extra entrances',   desc: 'Wider catchment: +' + Math.round(CAT.entrances.add.demand * 100) + '% demand everywhere, per level.' },
     through:    { name: 'Through-running',   desc: 'Megaproject: changing lines gets easier, so more of the city rides across them.' },

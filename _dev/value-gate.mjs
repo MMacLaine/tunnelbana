@@ -13,6 +13,13 @@ import { ANCHORS, WEST_FIRST } from '../src/data.js';
 const WARMUP = 360;
 const MEASURE = 360;
 const MIN_GAIN = 0.05; // kr/s a purchase must add in its scenario
+// An absolute floor alone hides a class of problem (report 646 sec c: st ent
+// fell +3.30 -> +0.08 across the slowdown and still 'passed', clearing the
+// floor by four hundredths of a krona). So the gate also grades RELATIVE to
+// the scenario's own income: a purchase worth less than this share of what
+// the network already earns is reported THIN. Thin is a signal, not a build
+// break, in the same spirit as the surge averaging: the instrument says what
+// it saw instead of collapsing it to a boolean.
 
 // The expected-fail ledger. A ledger entry must record the MEASUREMENT that
 // justifies it, not just the mechanism that explains it (report 638 §7: a
@@ -72,6 +79,7 @@ function build(owned, demand) {
 // with the spread reported; a bimodal item announces itself through its spread
 // instead of vanishing behind a pinned phase.
 const SURGE_PHASES = [5, 35, 65, 95];
+const REL_THIN = 0.01; // 1% of the scenario's own net income
 
 // Net income (kr/s) at steady state; money pinned high so deficits never mothball.
 function netRate(owned, demand, surgeAt) {
@@ -84,15 +92,37 @@ function netRate(owned, demand, surgeAt) {
 }
 
 function measure(withoutOwned, withOwned, demand, applyStation) {
+  const bases = [];
   const deltas = SURGE_PHASES.map((ph) => {
     const a = applyStation ? netRateStation(withoutOwned, demand, null, ph) : netRate(withoutOwned, demand, ph);
     const b = applyStation ? netRateStation(withOwned.owned, demand, withOwned.upgrade, ph) : netRate(withOwned, demand, ph);
+    bases.push(a);
     return b - a;
   });
   const mean = deltas.reduce((x, y) => x + y, 0) / deltas.length;
   const sd = Math.sqrt(deltas.reduce((x, y) => x + (y - mean) ** 2, 0) / deltas.length);
   const min = Math.min(...deltas);
-  return { mean, sd, min };
+  const base = bases.reduce((x, y) => x + y, 0) / bases.length;
+  return { mean, sd, min, base };
+}
+
+// One report line per case, with the relative reading spelled out.
+function report(c, m) {
+  const ok = m.mean >= MIN_GAIN;
+  // The relative test is meaningless when the scenario earns nothing without
+  // the item (drivers from a standing start): everything is infinitely thick
+  // against zero, so measure only where there is a base to be a share OF.
+  const rated = m.base >= 1;
+  const share = rated ? m.mean / m.base : NaN;
+  const thin = ok && rated && share < REL_THIN;
+  const ledgered = !ok && LEDGER[c.id];
+  console.log(
+    `${ok ? (thin ? 'THIN' : 'ok  ') : ledgered ? 'WARN' : 'FAIL'} ${c.id.padEnd(12)} ` +
+    `mean=${m.mean >= 0 ? '+' : ''}${m.mean.toFixed(2)}/s  sd=${m.sd.toFixed(2)}  ` +
+    `worst=${m.min >= 0 ? '+' : ''}${m.min.toFixed(2)}/s  ` +
+    (rated ? `${(share * 100).toFixed(2)}% of base` : 'base~0')
+  );
+  return { ok, thin, ledgered };
 }
 
 // Each case: a baseline where the item's effect should bind, plus the marginal
@@ -110,7 +140,12 @@ const CASES = [
   { id: 'capacity',   demand: 'high', base: { drivers: 1, train: 1 },                  buy: { capacity: 1 } },
   { id: 'bogies',     demand: 'high', base: { drivers: 1, train: 1, timetable: 1 },    buy: { bogies: 1 } },
   { id: 'turnstiles', demand: 'low',  base: { drivers: 1, train: 2 },                  buy: { turnstiles: 1 } },
-  { id: 'entrances',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 1 },    buy: { entrances: 1 } },
+  // Demand-side items need SERVICE HEADROOM to convert: with accessibility
+  // raising baseline generation (646 accessibility work), a 3-train line is
+  // already shedding riders to crowding, so extra catchment only abandons
+  // (measured -0.22 at train:3, positive from train:5). Same lesson st ent
+  // taught at the slowdown.
+  { id: 'entrances',  demand: 'low',  base: { drivers: 1, train: 5, timetable: 1 },    buy: { entrances: 1 } },
   { id: 'through',    demand: 'low',  base: { drivers: 1, train: 2, westline: 1 },     buy: { through: 1 } },
   { id: 'stock1957',  demand: 'high', base: { drivers: 1, train: 1, timetable: 1 },    buy: { stock1957: 1 } },
   { id: 'c4stock',    demand: 'high', base: { drivers: 1, train: 1, timetable: 1 },    buy: { c4stock: 1 } },
@@ -124,15 +159,13 @@ const CASES = [
 
 let failed = 0;
 let warned = 0;
+let thinCount = 0;
 for (const c of CASES) {
-  const { mean, sd, min } = measure({ ...c.base }, { ...c.base, ...c.buy }, c.demand, false);
-  const ok = mean >= MIN_GAIN;
-  const ledgered = !ok && LEDGER[c.id];
-  if (!ok && !ledgered) failed++;
-  if (ledgered) warned++;
-  console.log(
-    `${ok ? 'ok  ' : ledgered ? 'WARN' : 'FAIL'} ${c.id.padEnd(12)} mean=${mean >= 0 ? '+' : ''}${mean.toFixed(2)}/s  sd=${sd.toFixed(2)}  worst=${min >= 0 ? '+' : ''}${min.toFixed(2)}/s`
-  );
+  const m = measure({ ...c.base }, { ...c.base, ...c.buy }, c.demand, false);
+  const r = report(c, m);
+  if (!r.ok && !r.ledgered) failed++;
+  if (r.ledgered) warned++;
+  if (r.thin) thinCount++;
 }
 
 // Per-station upgrades (slice 1) must also earn their keep. Applied to the
@@ -169,20 +202,21 @@ function netRateStation(owned, demand, upgrade, surgeAt) {
 }
 
 for (const c of STATION_CASES) {
-  const { mean, sd, min } = measure(
+  const m = measure(
     { ...c.base },
     { owned: { ...c.base }, upgrade: { kind: c.kind, at: c.at } },
     c.demand, true
   );
-  const ok = mean >= MIN_GAIN;
-  const ledgered = !ok && LEDGER[c.id];
-  if (!ok && !ledgered) failed++;
-  if (ledgered) warned++;
-  console.log(
-    `${ok ? 'ok  ' : ledgered ? 'WARN' : 'FAIL'} ${c.id.padEnd(12)} mean=${mean >= 0 ? '+' : ''}${mean.toFixed(2)}/s  sd=${sd.toFixed(2)}  worst=${min >= 0 ? '+' : ''}${min.toFixed(2)}/s`
-  );
+  const r = report(c, m);
+  if (!r.ok && !r.ledgered) failed++;
+  if (r.ledgered) warned++;
+  if (r.thin) thinCount++;
 }
 
+if (thinCount) {
+  console.error(`THIN: ${thinCount} purchase(s) earn less than ${REL_THIN * 100}% of their scenario's income. ` +
+    'Passing, but on the agenda: this is how a live item decays into dead content.');
+}
 if (warned) {
   console.error(`LEDGERED: ${warned} item(s) measured dead, reasons in LEDGER. Review agenda, not silence.`);
 }
