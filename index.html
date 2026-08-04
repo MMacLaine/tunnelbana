@@ -36,6 +36,11 @@
     --tb-red: #b23a30;
     --tb-politic: #6b5aa8;
   }
+  /* Full-screen overlays (menu, era moments) hard-coded a dark backdrop, so
+     light mode drew dark text on it, unreadable (owner screenshot,
+     2026-08-04). The backdrop follows the theme. */
+  :root[data-theme="light"] #moment { background: rgba(238, 241, 244, 0.9); }
+  :root[data-theme="light"] #menu { background: rgba(238, 241, 244, 0.82); }
   /* Legacy names mapped onto the pass-01 design tokens (tokens.css). */
   :root {
     --bg: var(--tb-bg);
