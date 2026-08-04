@@ -3,7 +3,7 @@
 // transfer flow, surges, political capital, the mothball deficit rule, offline
 // progress, and save round-trips. Run: node _dev/smoke.mjs
 import * as sim from '../src/sim.js';
-import { ANCHORS, WEST_FIRST } from '../src/data.js';
+import { ANCHORS, CORRIDORS, WEST_FIRST } from '../src/data.js';
 
 const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); };
 
@@ -404,16 +404,23 @@ if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholm
 {
   const e = sim.newGame();
   e.money = 1e9;
-  e.era = 4; // 1975
-  // Line 0 takes the southern anchors, line 1 the west; both from the hub.
+  e.era = sim.ERAS.length - 1; // the sandbox, Hela Stockholm
+  // Line 0 takes the southern anchors; every other corridor gets its own
+  // chartered line from the hub (the campaign's full sweep, 59 anchors).
   for (let k = sim.newGame().lines[0].stations.length; k < WEST_FIRST; k++) {
     sim.extendTo(e, 0, 'tail', ANCHORS[k].geo, k);
   }
   e.pk = 1e6;
-  if (!sim.foundLine(e, 0, 0)) err('ending scenario: founding from T-Centralen failed');
-  for (let k = WEST_FIRST; k < ANCHORS.length; k++) {
-    e.money = 1e9;
-    if (!sim.extendTo(e, 1, 'tail', ANCHORS[k].geo, k)) err('ending scenario: extend to ' + ANCHORS[k].name + ' failed');
+  for (const group of [['green-west'], ['red-south', 'red-orn', 'red-ost'], ['blue-main', 'blue-akalla']]) {
+    if (!sim.foundLine(e, 0, 0)) err('ending scenario: founding from T-Centralen failed');
+    const li = e.lines.length - 1;
+    for (const id of group) {
+      const c = CORRIDORS.find((x) => x.id === id);
+      for (let k = c.start; k < c.end; k++) {
+        e.money = 1e9;
+        if (!sim.extendTo(e, li, 'tail', ANCHORS[k].geo, k)) err('ending scenario: extend to ' + ANCHORS[k].name + ' failed');
+      }
+    }
   }
   sim.tick(e, 0.05);
   if (!e.endingSeen) err('the ending should fire when the arc completes');
