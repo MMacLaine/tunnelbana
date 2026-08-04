@@ -54,6 +54,19 @@ export function setTheme(name) {
 
 const REVEAL_KM = 0.65;
 
+// A station's visible reach grows with tier and entrances: the upgrade you
+// bought is the circle you see.
+function stationRevealKm(st) {
+  return REVEAL_KM * (1 + 0.15 * (st.tier - 1) + 0.12 * st.ent);
+}
+
+function hexA(hex, a) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const gc = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${gc}, ${b}, ${a})`;
+}
+
 let canvas, ctx, dpr;
 let W = 0, H = 0;
 let basemap = 'off'; // 'pending' | 'on' | 'off'; fallback water draws only when off
@@ -239,9 +252,10 @@ function drawVeil(g) {
   ctx.fillStyle = COL.veil;
   ctx.fillRect(0, 0, W, H);
   ctx.globalCompositeOperation = 'destination-out';
-  const r = Math.max(24, REVEAL_KM * pxPerKm());
+  const ppk = pxPerKm();
   for (const L of g.lines) {
     for (const s of L.stations) {
+      const r = Math.max(24, stationRevealKm(s) * ppk);
       const p = project(s.geo);
       const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
       grad.addColorStop(0, 'rgba(0, 0, 0, 1)');
@@ -258,10 +272,31 @@ function drawVeil(g) {
   ctx.lineWidth = 1;
   for (const L of g.lines) {
     for (const s of L.stations) {
+      const r = Math.max(24, stationRevealKm(s) * ppk);
       const p = project(s.geo);
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.stroke();
+    }
+  }
+}
+
+// The subtle catchment glow (owner ask): a soft tint of the line's colour over
+// each station's reach, so the served area reads at a glance in both themes.
+function drawGlow(g) {
+  const ppk = pxPerKm();
+  for (const L of g.lines) {
+    for (const s of L.stations) {
+      const r = Math.max(24, stationRevealKm(s) * ppk);
+      const p = project(s.geo);
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      grad.addColorStop(0, hexA(L.color, 0.09));
+      grad.addColorStop(0.7, hexA(L.color, 0.05));
+      grad.addColorStop(1, hexA(L.color, 0));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 }
@@ -571,6 +606,7 @@ export function draw(g) {
   ctx.clearRect(0, 0, W, H);
   if (basemap === 'off') drawWaterFallback();
   if (basemap === 'on') drawVeil(g);
+  drawGlow(g);
   drawTease(g);
   drawAnchors(g);
   for (const L of g.lines) { if (L.stations.length >= 2) drawLinePath(linePoints(L), L.color); }
