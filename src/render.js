@@ -4,7 +4,7 @@
 // is up, a static equirectangular fallback when offline).
 
 import { ANCHORS, LINE, WATER, TEASE } from './data.js';
-import { stationCap, usedAnchors, endStation } from './sim.js';
+import { stationCap, usedAnchors, endStation, waitingAt } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs literals).
 const COL = {
@@ -112,8 +112,8 @@ export function setDrag(d) {
   drag = d;
 }
 
-export function addFloatGeo(geo, text) {
-  floats.push({ geo, text, age: 0 });
+export function addFloatGeo(geo, text, colour) {
+  floats.push({ geo, text, age: 0, colour: colour || 'amber' });
 }
 
 // --- Hit helpers (canvas px) ---
@@ -323,7 +323,7 @@ function drawDragPreview(g) {
 // denomination, the denomination is printed as soon as it stops being one,
 // and nothing is rounded away silently.
 function drawWaitingDots(g, i, p) {
-  const n = Math.floor(g.waiting[i]);
+  const n = Math.floor(waitingAt(g, i));
   if (!n) return;
   let denom = 1;
   if (n > 180) denom = 100;
@@ -437,7 +437,7 @@ function drawFloats(dt) {
     f.age += dt;
     const p = project(f.geo);
     ctx.globalAlpha = Math.max(0, 1 - f.age / 1.2);
-    ctx.fillStyle = COL.amber;
+    ctx.fillStyle = f.colour === 'muted' ? COL.muted : COL.amber;
     ctx.fillText(f.text, p.x + 22, p.y - 12 - f.age * 22);
   }
   ctx.globalAlpha = 1;

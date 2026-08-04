@@ -1,17 +1,23 @@
-// Simulation: one line with free station placement, trains, fares, upkeep, purchases.
-// DOM-free on purpose so it can run under node for smoke tests.
+// Simulation: one line with free station placement, origin-destination passenger
+// flows, distance-based fares, upkeep with mothballing, political capital, and
+// offline progress. Aggregate flows, never agents (plan §4). DOM-free on purpose
+// so it can run under node for smoke tests.
 
-import { ANCHORS, START_BUILT, WATER, kmBetween, crossesWater, inRing, densityAt } from './data.js';
+import { ANCHORS, DISTRICTS, START_BUILT, WATER, kmBetween, crossesWater, inRing, densityAt } from './data.js';
 
 export const BAL = {
   startMoney: 300,
-  fare: 3,                 // kr per delivered passenger
-  spawnPerSec: 0.5,        // base passengers per station per second (anchors)
+  farePerKm: 2.4,          // kr per passenger-kilometre, paid as passengers board
+  gravityExp: 1.4,         // distance decay for destination choice (2 makes every trip a one-stop hop)
+  gravityFloorKm: 0.4,     // distances below this stop mattering to destination choice
+  spawnPerSec: 0.5,        // base passengers per station per second (full demand)
   demolishCost: 150,       // flat cost to remove a line end; provisional
   stationCapBase: 80,      // base waiting cap per station
   cityGrowthDiv: 900,      // demand multiplier = 1 + delivered / this
   trainCapBase: 120,
   upkeepPerTrainPerSec: 1.2,
+  mothballShare: 0.2,      // a mothballed train costs this share of upkeep
+  deficitMothballAfter: 20,// seconds broke and losing before a train auto-mothballs
   secondsPerKm: 1.05,      // ride time from geo distance
   dwell: 0.32,             // per-stop time added to each segment
   dispatchBase: 8,         // drivers auto-dispatch interval, seconds
@@ -22,6 +28,8 @@ export const BAL = {
   waterMult: 2.0,          // track cost multiplier when the segment crosses water
   minSpacingKm: 0.35,      // stations may not land closer than this
   maxStations: 30,         // M0 cap
+  pkFullRatePerSec: 0.02,  // political capital per second at 100% regional coverage
+  offlineCapS: 8 * 3600,   // offline progress simulates at most this long
 };
 
 // The upgrade CATALOG (plan §6, Cookie Clicker direction): upgrades are DATA, and
@@ -60,6 +68,11 @@ export function effectAdd(g, key) {
   return a;
 }
 
+// Total authored regional population, dormant districts included (report 620
+// finding 3: an awake-only denominator pins coverage near 100% forever). Units
+// are demand multiples; anchors count 1.0 each.
+export const REGION_POP = ANCHORS.length + DISTRICTS.reduce((a, d) => a + d.w, 0);
+
 function anchorStation(i) {
   const a = ANCHORS[i];
   return { name: a.name, geo: a.geo, anchor: i, mult: 1 };
@@ -71,14 +84,18 @@ export function newGame() {
   return {
     clock: 0,
     money: BAL.startMoney,
+    pk: 0,
     line: Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)),
-    waiting: Array.from({ length: START_BUILT }, () => BAL.seedWaiting),
-    trains: [{ at: 0, run: null }],
+    waitingF: Array.from({ length: START_BUILT }, () => BAL.seedWaiting / 2),
+    waitingB: Array.from({ length: START_BUILT }, () => BAL.seedWaiting / 2),
+    trains: [{ at: 0, run: null, mothballed: false }],
     owned,
     freeSpots: 0,
     autoTimer: 0,
+    deficitT: 0,
     totalDelivered: 0,
     grossEma: 0,    // smoothed fares per second, for the income display
+    lineRev: 0,     // bumps on any line change; invalidates the OD cache
     events: [],     // drained by the renderer (payout floats etc.)
   };
 }
@@ -102,7 +119,9 @@ export function autoInterval(g) {
 }
 
 export function upkeepRate(g) {
-  return g.trains.length * BAL.upkeepPerTrainPerSec;
+  let r = 0;
+  for (const t of g.trains) r += BAL.upkeepPerTrainPerSec * (t.mothballed ? BAL.mothballShare : 1);
+  return r;
 }
 
 // Gross fares per second, exponentially smoothed (payouts are lumpy impulses).
@@ -110,25 +129,78 @@ export function grossRate(g) {
   return g.grossEma;
 }
 
+// Waiting passengers at station i, both directions (display + quality).
+export function waitingAt(g, i) {
+  return g.waitingF[i] + g.waitingB[i];
+}
+
 export function usedAnchors(g) {
   return new Set(g.line.map((s) => s.anchor).filter((a) => a !== null));
+}
+
+// --- Gravity origin-destination model (aggregate flows) ---
+// For each station: how its spawn splits toward tail (F) vs head (B), and the
+// destination weights in each direction, w_ij = mult_j / d_ij^2. Cached per
+// line revision; O(n^2) rebuild only when the line changes.
+function od(g) {
+  if (g._odRev === g.lineRev && g._od) return g._od;
+  const n = g.line.length;
+  const fwd = [], bwd = [], splitF = [];
+  for (let i = 0; i < n; i++) {
+    const f = [], b = [];
+    let fSum = 0, bSum = 0;
+    for (let j = 0; j < n; j++) {
+      if (j === i) continue;
+      const d = Math.max(0.25, kmBetween(g.line[i].geo, g.line[j].geo));
+      const w = g.line[j].mult / Math.pow(Math.max(BAL.gravityFloorKm, d), BAL.gravityExp);
+      if (j > i) { f.push([j, w, d]); fSum += w; }
+      else { b.push([j, w, d]); bSum += w; }
+    }
+    fwd.push({ list: f, sum: fSum });
+    bwd.push({ list: b, sum: bSum });
+    splitF.push(fSum + bSum > 0 ? fSum / (fSum + bSum) : 0.5);
+  }
+  g._od = { fwd, bwd, splitF };
+  g._odRev = g.lineRev;
+  return g._od;
 }
 
 function segTimeBetween(g, a, b) {
   return kmBetween(a.geo, b.geo) * BAL.secondsPerKm * effectMult(g, 'speed') + BAL.dwell;
 }
 
-function pickUp(g, train, idx) {
-  const room = trainCap(g) - train.run.onboard;
-  const take = Math.min(g.waiting[idx], room);
-  if (take > 0) {
-    g.waiting[idx] -= take;
-    train.run.onboard += take;
+// Board passengers heading in the train's direction; fares are paid per
+// passenger-kilometre at boarding (the destination is already determined by the
+// gravity weights, so nothing is owed later).
+function board(g, train, i) {
+  const run = train.run;
+  const dirs = od(g);
+  const side = run.dir === 1 ? dirs.fwd[i] : dirs.bwd[i];
+  if (!side.sum) return;
+  const queue = run.dir === 1 ? g.waitingF : g.waitingB;
+  const room = trainCap(g) - run.onboard;
+  const take = Math.min(queue[i], room);
+  if (take <= 0) return;
+  queue[i] -= take;
+  run.onboard += take;
+  let paxKm = 0;
+  for (const [j, w, d] of side.list) {
+    const cnt = take * (w / side.sum);
+    run.dest[j] += cnt;
+    paxKm += cnt * d;
   }
+  const amt = paxKm * BAL.farePerKm * effectMult(g, 'fare');
+  g.money += amt;
+  g.grossEma += amt / GROSS_TAU;
+  if (amt >= 0.5) g.events.push({ type: 'payout', geo: g.line[i].geo, amt: Math.round(amt) });
 }
 
 export function idleTrains(g) {
-  return g.trains.filter((t) => !t.run);
+  return g.trains.filter((t) => !t.run && !t.mothballed);
+}
+
+export function mothballedTrains(g) {
+  return g.trains.filter((t) => t.mothballed);
 }
 
 export function dispatch(g) {
@@ -137,8 +209,12 @@ export function dispatch(g) {
   const dir = train.at === 0 ? 1 : -1;
   const next = g.line[train.at + dir];
   if (!next) return false;
-  train.run = { dir, from: train.at, t: 0, onboard: 0, dur: segTimeBetween(g, g.line[train.at], next) };
-  pickUp(g, train, train.at);
+  train.run = {
+    dir, from: train.at, t: 0, onboard: 0,
+    dest: new Array(g.line.length).fill(0),
+    dur: segTimeBetween(g, g.line[train.at], next),
+  };
+  board(g, train, train.at);
   return true;
 }
 
@@ -146,37 +222,74 @@ function arrive(g, train) {
   const run = train.run;
   run.from += run.dir;
   run.t = 0;
-  const atTerminus = run.from === 0 || run.from === g.line.length - 1;
+  const k = run.from;
+  const off = run.dest[k] || 0;
+  if (off > 0) {
+    run.dest[k] = 0;
+    run.onboard = Math.max(0, run.onboard - off);
+    g.totalDelivered += off;
+    if (off >= 1) g.events.push({ type: 'alight', geo: g.line[k].geo, n: Math.round(off) });
+  }
+  const atTerminus = k === 0 || k === g.line.length - 1;
   if (atTerminus) {
-    // No pickup here: passengers on the terminus platform have not travelled.
-    // They board on the next dispatch from this end.
-    const amt = Math.round(run.onboard * BAL.fare * effectMult(g, 'fare'));
-    if (run.onboard > 0) {
-      g.money += amt;
-      g.totalDelivered += run.onboard;
-      g.grossEma += amt / GROSS_TAU;
-      g.events.push({ type: 'payout', geo: g.line[run.from].geo, amt });
-    }
-    train.at = run.from;
+    // Numerical dust only: every destination at or before this point has alighted.
+    g.totalDelivered += Math.max(0, run.onboard);
+    train.at = k;
     train.run = null;
   } else {
-    pickUp(g, train, run.from);
-    run.dur = segTimeBetween(g, g.line[run.from], g.line[run.from + run.dir]);
+    board(g, train, k);
+    run.dur = segTimeBetween(g, g.line[k], g.line[k + run.dir]);
   }
+}
+
+// Share of the authored regional population with quality rail access (report
+// 620 finding 3): each served station contributes its demand weight, discounted
+// by crowding, against the FULL region including dormant districts.
+export function coverage(g) {
+  const cap = stationCap(g);
+  let cov = 0;
+  for (let i = 0; i < g.line.length; i++) {
+    const m = g.line[i].mult;
+    const crowd = Math.min(1, waitingAt(g, i) / (cap * m));
+    cov += m * (1 - 0.7 * crowd);
+  }
+  return Math.min(1, cov / REGION_POP);
 }
 
 export function tick(g, dt) {
   g.clock += dt;
 
-  // Passengers gather on platforms; demand grows with everyone you have moved.
+  // Passengers gather, split by direction from the gravity weights; demand
+  // grows with everyone you have moved.
   const cap = stationCap(g);
-  const spawn = BAL.spawnPerSec * cityMult(g) * dt;
+  const dirs = od(g);
+  const spawnBase = BAL.spawnPerSec * cityMult(g) * dt;
   for (let i = 0; i < g.line.length; i++) {
-    g.waiting[i] = Math.min(cap * g.line[i].mult, g.waiting[i] + spawn * g.line[i].mult);
+    const m = g.line[i].mult;
+    const room = cap * m - waitingAt(g, i);
+    const add = Math.min(Math.max(0, room), spawnBase * m);
+    const f = dirs.splitF[i];
+    g.waitingF[i] += add * f;
+    g.waitingB[i] += add * (1 - f);
   }
 
-  // Upkeep drains, floored at zero (deficit rules proper arrive in M1).
+  // Upkeep drains, floored at zero; a sustained deficit mothballs a train
+  // (report 620 finding 4: the punishment is sunk cost and lost time, never
+  // the map, and mothballing must cut upkeep faster than it cuts fares).
   g.money = Math.max(0, g.money - upkeepRate(g) * dt);
+  // "In trouble" is a rates question, not a cash-exactly-zero question: fare
+  // bursts bounce the balance above zero without changing the arithmetic.
+  const losing = g.money < upkeepRate(g) * 10 && grossRate(g) < upkeepRate(g);
+  g.deficitT = losing ? g.deficitT + dt : Math.max(0, g.deficitT - dt * 0.5);
+  if (g.deficitT >= BAL.deficitMothballAfter) {
+    const active = g.trains.filter((t) => !t.mothballed);
+    const cand = active.find((t) => !t.run);
+    if (active.length > 1 && cand) {
+      cand.mothballed = true;
+      g.events.push({ type: 'mothball', geo: g.line[cand.at].geo });
+    }
+    g.deficitT = 0;
+  }
 
   // Trains move.
   for (const train of g.trains) {
@@ -197,8 +310,28 @@ export function tick(g, dt) {
     }
   }
 
+  // Political capital accrues from coverage.
+  g.pk += BAL.pkFullRatePerSec * coverage(g) * dt;
+
   // Decay the smoothed income readout.
   g.grossEma = Math.max(0, g.grossEma - g.grossEma * dt / GROSS_TAU);
+}
+
+// --- Mothballing (manual; the automatic path lives in tick) ---
+
+export function mothball(g) {
+  const active = g.trains.filter((t) => !t.mothballed);
+  const cand = active.find((t) => !t.run);
+  if (!cand || active.length <= 1) return false;
+  cand.mothballed = true;
+  return true;
+}
+
+export function reactivate(g) {
+  const t = g.trains.find((x) => x.mothballed);
+  if (!t) return false;
+  t.mothballed = false;
+  return true;
 }
 
 // --- Extending the line: from either end, to an anchor or a free spot ---
@@ -255,21 +388,25 @@ export function extendTo(g, end, geo, anchorIdx) {
   }
   if (end === 'head') {
     g.line.unshift(station);
-    g.waiting.unshift(BAL.seedWaiting * station.mult);
+    g.waitingF.unshift(BAL.seedWaiting * station.mult / 2);
+    g.waitingB.unshift(BAL.seedWaiting * station.mult / 2);
     for (const t of g.trains) {
       t.at += 1;
-      if (t.run) t.run.from += 1;
+      if (t.run) {
+        t.run.from += 1;
+        t.run.dest.unshift(0);
+      }
     }
   } else {
     g.line.push(station);
-    g.waiting.push(BAL.seedWaiting * station.mult);
+    g.waitingF.push(BAL.seedWaiting * station.mult / 2);
+    g.waitingB.push(BAL.seedWaiting * station.mult / 2);
+    for (const t of g.trains) if (t.run) t.run.dest.push(0);
   }
+  g.lineRev += 1;
   g.events.push({ type: 'extend', geo: station.geo, name: station.name });
   return true;
 }
-
-// --- Demolition: line ends only, costs money, never refunds (pillar 1 is about
-// the game taking things away, not the player choosing to) ---
 
 export function canDemolish(g, end) {
   if (g.line.length <= 2) return false;
@@ -289,20 +426,30 @@ export function demolish(g, end) {
   const st = g.line[idx];
   if (end === 'head') {
     g.line.shift();
-    g.waiting.shift();
+    g.waitingF.shift();
+    g.waitingB.shift();
     for (const t of g.trains) {
       t.at = Math.max(0, t.at - 1);
-      if (t.run) t.run.from -= 1;
+      if (t.run) {
+        t.run.from -= 1;
+        t.run.dest.shift();
+      }
     }
   } else {
     g.line.pop();
-    g.waiting.pop();
+    g.waitingF.pop();
+    g.waitingB.pop();
+    for (const t of g.trains) {
+      if (t.at >= g.line.length) t.at = g.line.length - 1;
+      if (t.run) t.run.dest.pop();
+    }
   }
+  g.lineRev += 1;
   g.events.push({ type: 'demolish', geo: st.geo, name: st.name });
   return true;
 }
 
-// --- Shop ---
+// --- Catalog purchases ---
 
 export function shopCost(g, id) {
   const item = CATALOG.find((s) => s.id === id);
@@ -320,9 +467,26 @@ export function buy(g, id) {
   if (!canBuy(g, id)) return false;
   g.money -= shopCost(g, id);
   g.owned[id] += 1;
-  if (id === 'train') g.trains.push({ at: 0, run: null });
+  if (id === 'train') g.trains.push({ at: 0, run: null, mothballed: false });
   if (id === 'drivers') g.autoTimer = 0;
   return true;
+}
+
+// --- Offline progress: coarse 1-second integration, capped (plan §2/§8) ---
+// Earning offline requires drivers, which is by design: automation is what buys
+// you idle income. Returns null when the gap is too short to matter.
+
+export function simulateOffline(g, seconds) {
+  const s = Math.floor(Math.min(Math.max(0, seconds), BAL.offlineCapS));
+  if (s < 60) return null;
+  const m0 = g.money;
+  const d0 = g.totalDelivered;
+  for (let i = 0; i < s; i++) {
+    tick(g, 1);
+    if (i % 120 === 0) g.events.length = 0;
+  }
+  g.events.length = 0;
+  return { seconds: s, earned: g.money - m0, delivered: g.totalDelivered - d0 };
 }
 
 // --- Save / load (saveVersion is monotonic; forward-only migrations) ---
@@ -331,10 +495,14 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 export function serialize(g) {
   return JSON.stringify({
-    saveVersion: 3,
+    saveVersion: 4,
+    savedAt: Date.now(),
     money: Math.round(g.money),
+    pk: Math.round(g.pk * 100) / 100,
     line: g.line,
-    waiting: g.waiting.map((w) => Math.round(w)),
+    waitingF: g.waitingF.map((w) => Math.round(w)),
+    waitingB: g.waitingB.map((w) => Math.round(w)),
+    mothballed: mothballedTrains(g).length,
     freeSpots: g.freeSpots,
     owned: g.owned,
     totalDelivered: Math.round(g.totalDelivered),
@@ -361,6 +529,7 @@ export function hydrate(raw) {
   try { s = JSON.parse(raw); } catch { return g; }
   if (!s || typeof s.saveVersion !== 'number') return g;
   g.money = Math.max(0, Number(s.money) || 0);
+  g.pk = Math.max(0, Number(s.pk) || 0);
   for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max);
   g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   if (s.saveVersion === 2 && typeof s.built === 'number') {
@@ -376,11 +545,22 @@ export function hydrate(raw) {
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
   }
   const capMax = stationCap(g);
-  g.waiting = g.line.map((st, i) => {
-    const saved = Array.isArray(s.waiting) ? Number(s.waiting[i]) : NaN;
-    const fallback = BAL.seedWaiting * st.mult;
-    return Number.isFinite(saved) ? Math.min(capMax * st.mult, Math.max(0, saved)) : fallback;
-  });
-  for (let i = 0; i < g.owned.train; i++) g.trains.push({ at: 0, run: null });
+  const half = (arr, i, st) => {
+    const saved = Array.isArray(arr) ? Number(arr[i]) : NaN;
+    return Number.isFinite(saved)
+      ? Math.min(capMax * st.mult, Math.max(0, saved))
+      : BAL.seedWaiting * st.mult / 2;
+  };
+  if (s.saveVersion >= 4) {
+    g.waitingF = g.line.map((st, i) => half(s.waitingF, i, st));
+    g.waitingB = g.line.map((st, i) => half(s.waitingB, i, st));
+  } else {
+    // v3 stored one undirected queue: split it evenly.
+    g.waitingF = g.line.map((st, i) => half(s.waiting, i, st) / 2);
+    g.waitingB = g.line.map((st, i) => half(s.waiting, i, st) / 2);
+  }
+  for (let i = 0; i < g.owned.train; i++) g.trains.push({ at: 0, run: null, mothballed: false });
+  const mb = posInt(s.mothballed, Math.max(0, g.trains.length - 1));
+  for (let i = 0; i < mb; i++) g.trains[g.trains.length - 1 - i].mothballed = true;
   return g;
 }
