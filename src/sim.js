@@ -1357,10 +1357,14 @@ export function canDemolish(g, li, end) {
   if (L.stations.length <= 2) return false;
   if (g.money < BAL.demolishCost) return false;
   const idx = end === 'head' ? 0 : L.stations.length - 1;
+  // Only a train IN MOTION at or toward the doomed station blocks demolition
+  // (its run references the geometry). A parked idle train never does: trains
+  // rest at exactly the ends a player may demolish, so refusing on idle
+  // soft-locked removal (owner hit it 2026-08-04); demolish() already
+  // relocates parked trains to the surviving end.
   for (const t of g.trains) {
-    if (t.line !== li) continue;
-    if (!t.run && t.at === idx) return false;
-    if (t.run && (t.run.from === idx || t.run.from + t.run.dir === idx)) return false;
+    if (t.line !== li || !t.run) continue;
+    if (t.run.from === idx || t.run.from + t.run.dir === idx) return false;
   }
   return true;
 }
