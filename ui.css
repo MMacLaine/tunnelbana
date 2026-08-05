@@ -166,6 +166,26 @@
 .tb-btn--onmap { background: var(--tb-panel-t);
   -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur)); }
 
+/* The buy-quantity control: a pressed state on the inline button family, so
+   a mode you are holding looks held. */
+.tb-quant { display: flex; gap: 0.3rem; }
+.tb-quant .tb-btn { flex: 1; justify-content: center; }
+.tb-btn[aria-pressed="true"] { border-color: var(--tb-green); color: var(--tb-ink);
+  background: var(--tb-hover-green); }
+
+/* Achievements: one row each, earned rows keyed green, locked rows stating what
+   to chase rather than hiding it. */
+.tb-ach { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.6rem; }
+.tb-ach__row { display: flex; align-items: baseline; gap: 0.5rem;
+  border: var(--tb-border) solid var(--tb-line); padding: 0.45rem 0.6rem; }
+.tb-ach__row--got { border-color: var(--tb-green-dim); }
+.tb-ach__name { font-size: var(--tb-fs-title); font-weight: var(--tb-weight-semi); }
+.tb-ach__row--got .tb-ach__name { color: var(--tb-green); }
+.tb-ach__row:not(.tb-ach__row--got) .tb-ach__name { color: var(--tb-muted); }
+.tb-ach__hint { font-size: var(--tb-fs-body); color: var(--tb-muted); }
+.tb-ach__bonus { margin-left: auto; font-size: var(--tb-fs-caption); color: var(--tb-amber); white-space: nowrap; }
+.tb-ach__row:not(.tb-ach__row--got) .tb-ach__bonus { color: var(--tb-ghost); }
+
 /* The rail of stacked panels down the right of the screen. */
 .tb-rail { display: flex; flex-direction: column; gap: var(--tb-gap-panel); }
 

@@ -141,6 +141,32 @@
     padding: 0.4rem;
   }
 
+  /* The earn toast: bottom centre, out of the way of both HUD rails, gone in a
+     few seconds. An achievement should be noticed, not acknowledged. */
+  #ach-toast {
+    position: fixed;
+    bottom: 1.4rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 12;
+    border-color: var(--tb-green);
+    text-align: center;
+    min-width: 200px;
+  }
+
+  #boot {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    background: var(--tb-void);
+    color: var(--tb-muted);
+    font-size: var(--tb-fs-md);
+    letter-spacing: var(--tb-track-caps);
+    text-transform: uppercase;
+  }
+
   @media (max-width: 900px) {
     #hud-r { width: 240px; }
     #hud-tl .brand { display: none; }
@@ -148,6 +174,8 @@
 </style>
 </head>
 <body>
+  <div id="boot">Loading Stockholm…</div>
+
   <div id="map-wrap">
     <div id="basemap"></div>
     <canvas id="map"></canvas>
@@ -173,11 +201,12 @@
           <div class="tb-readout__rates">
             <span class="tb-rate tb-rate--up" id="rate-gross">+0.0 kr/s fares</span>
             <span class="tb-rate tb-rate--down" id="rate-upkeep">−0.0 kr/s upkeep</span>
+            <span class="tb-rate tb-rate--up" id="rate-rent"></span>
             <span class="tb-rate" id="rate-net">+0.0 kr/s</span>
           </div>
         </div>
         <hr class="tb-divider">
-        <div class="tb-row"><span class="tb-num tb-num--trust" id="pk">0.0 trust</span><span id="pk-cov">0% coverage</span></div>
+        <div class="tb-row"><span><span class="tb-num tb-num--trust" id="pk">0.0 trust</span> <span class="tb-rate" id="pk-rate" style="color: var(--tb-politic)"></span></span><span id="pk-cov">0% coverage</span></div>
         <div class="tb-row"><span><b class="tb-row__v" id="stat-delivered">0</b> <span id="riders-label">riders carried</span></span><span id="riders-rate"></span></div>
       </div>
     </div>
@@ -199,6 +228,7 @@
         <button class="tb-btn tb-btn--inline tb-btn--block" id="sp-tier-btn"></button>
         <button class="tb-btn tb-btn--inline" id="sp-ent"></button>
         <button class="tb-btn tb-btn--inline" id="sp-gates"></button>
+        <button class="tb-btn tb-btn--inline" id="sp-shop"></button>
         <button class="tb-btn tb-btn--inline tb-btn--danger" id="sp-down" hidden></button>
         <button class="tb-btn tb-btn--inline tb-btn--project tb-btn--block" id="sp-found" hidden></button>
       </div>
@@ -226,6 +256,14 @@
         <button class="tb-btn tb-btn--inline tb-btn--project tb-btn--block" id="era-btn" hidden></button>
         <div class="tb-row" id="era-needs" style="color: var(--tb-ghost)"></div>
       </div>
+    </div>
+
+    <div class="tb-panel">
+      <div class="tb-panel__head">
+        <span class="tb-panel__title">Upgrades</span>
+        <span class="tb-panel__tag" id="qty-tag">Buy</span>
+      </div>
+      <div class="tb-panel__body"><div class="tb-quant" id="qty-row"></div></div>
     </div>
 
     <div id="shop" style="display: contents"></div>
@@ -264,6 +302,13 @@
     <button id="about-mark" aria-label="About and credits">&copy;</button>
   </div>
 
+  <div class="tb-panel" id="ach-toast" hidden>
+    <div class="tb-panel__body">
+      <div class="tb-panel__title" id="ach-toast-label"></div>
+      <div class="tb-ach__name" id="ach-toast-name"></div>
+    </div>
+  </div>
+
   <div class="tb-moment" id="moment" hidden>
     <div class="tb-moment__panel">
       <h2 id="moment-title"></h2>
@@ -290,6 +335,7 @@
         <p class="tb-menu__note" id="offline-note" hidden style="color: var(--tb-amber); margin-top: 0"></p>
         <button class="tb-btn tb-btn--primary tb-btn--block" id="menu-resume">Start</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-help">How to play</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="menu-ach">Achievements</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-settings">Settings</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-about">About</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-quit" hidden>Quit to menu</button>
@@ -367,6 +413,13 @@
         <button class="tb-btn tb-btn--std tb-btn--block" id="help-back" style="margin-top: 1rem">Back</button>
       </div>
 
+      <div class="tb-menu__view" id="ach-view" hidden>
+        <div class="tb-menu__title">ACHIEVEMENTS</div>
+        <div class="tb-menu__sub" id="ach-count"></div>
+        <div id="ach-list"></div>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="ach-back" style="margin-top: 1rem">Back</button>
+      </div>
+
       <div class="tb-menu__view" id="about-view" hidden>
         <div class="tb-menu__title">ABOUT</div>
         <div class="tb-menu__sub">Tunnelbana · Build Stockholm · <span data-version></span></div>
@@ -389,6 +442,7 @@
         <div class="tb-menu__title">SETTINGS</div>
         <div class="tb-menu__sub">Placeholders mostly, for now.</div>
         <div class="tb-setting"><span>Theme</span><button class="tb-btn tb-btn--inline" id="settings-theme">Dark</button></div>
+        <div class="tb-setting"><span>Numbers</span><button class="tb-btn tb-btn--inline" id="settings-numfmt">Short</button></div>
         <div class="tb-setting"><span>Sound</span><span class="tb-setting__v" style="color: var(--tb-ghost)">coming later</span></div>
         <div class="tb-setting"><span>Language</span><span class="tb-setting__v">English</span></div>
         <div class="tb-setting"><span>Save</span><span class="tb-setting__v" style="color: var(--tb-muted)">automatic, local</span></div>

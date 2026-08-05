@@ -83,10 +83,40 @@ export const BAL = {
   tier2Cost: 1500,
   tier3CostKr: 6000,
   tier3CostPk: 8,
+  tier3PkGrowth: 1.7,     // each hub costs more trust than the last, so hubs
+                          // cannot quietly eat the budget the eras need
   tier3Era: 1957,          // Knutpunkt unlocks here; T-Centralen is born one
-  upgCostBase: { ent: 500, gates: 400 },
-  upgCostGrowth: 2,
-  upgMax: 3,
+  upgCostBase: { ent: 500, gates: 400, shop: 2200 },
+  // Retail rent: the flat-income axis. Steeper than the service axes because it
+  // prints money directly, and deliberately small per level: its job is a floor
+  // under the player who looks away and a sink for the cash that used to pile up
+  // unspent (probe-arc measured a quarter of a million idle at minute 60), NOT a
+  // way to earn without running a railway. Budgeted at ~15% of income.
+  shopKrPerLevel: 0.25,      // kr/s per level, scaled by the station's own footfall
+  // A station axis used to be THREE levels at x2 (500-1000-2000), so every
+  // station was permanently finished after ~3 minutes of income and the
+  // mid-game ran dry: probe-arc measured nine dead zones in the first hour,
+  // the worst 450 s with nothing to buy. Eight levels at 1.35 keeps the first
+  // levels costing about what they did (500-675-911 vs 500-1000-2000) while
+  // turning a finished axis into a ladder there is always something to spend
+  // into. This is the r~1.15 lesson from the idle literature applied to the
+  // surface we already have 59 copies of.
+  upgCostGrowth: 1.35,
+  upgMax: 8,
+  // ...but the depth is EARNED, not available on day one. With a flat cap of 8
+  // the cheapest thing in the game was always another level on a three-station
+  // line, and probe-arc showed the bot upgrading a stub for twenty minutes
+  // instead of building (5 stations at 20 min, down from 13). Tier gates the
+  // ladder instead: a Hållplats supports two levels, a Station five, a Hub all
+  // eight. So the loop reads build wide -> tier up -> then deepen, and tier
+  // upgrades gain a second job beyond dwell and interchange.
+  // Depth is bought with MONEY (tier 2 at 1 500 kr), never with trust. Gating
+  // the full ladder behind tier 3 looked tidy and measured badly: tier 3 costs
+  // trust, so deepening competed with the era gates for the scarce currency and
+  // probe-arc's bot spent its trust on hubs and then could not advance the era
+  // (17 dead zones, 785k kr idle). Trust stays for eras, megaprojects and the
+  // interchange powers of a hub. The loop is: build wide, tier up, then deepen.
+  upgMaxByTier: [0, 3, 8, 8],
   offlineDiscount: 0.7,    // offline income earns this share of the measured online rate
   seedWaiting: 8,          // passengers on a platform when it opens
   // Building the network is the spine of a 20-hour arc, so it must cost real
@@ -110,7 +140,14 @@ export const BAL = {
   maxStations: 90,         // network-wide cap (upgrades can raise it). Was 40
                            // pre-campaign; the campaign authors 59 anchors, so
                            // the cap must leave room for them plus free spots
-  pkFullRatePerSec: 0.02,  // political capital per second at 100% regional coverage
+  // Trust per second at 100% regional coverage. Sized from the arc, not by
+  // feel: the story costs ~250 trust (eras 182 + megaprojects 41 + a few hubs),
+  // and probe-arc measured average coverage near 50% across a run, so a 2.5 h
+  // arc needs 250 / (9000 s x 0.5) = 0.055. At the old 0.02 the era gates alone
+  // were ~9 hours of accrual and TRUST, not riders, was what actually stalled
+  // the mid-game: at minute 60 the bot had 175k riders against an 80k threshold
+  // and could not advance for want of 6 more trust.
+  pkFullRatePerSec: 0.055,
   surgeEvery: 120,         // seconds between rush events
   surgeDur: 25,            // seconds a rush lasts
   surgeSpawnMult: 3,       // spawn multiplier at the rushed station
@@ -132,19 +169,103 @@ export const BAL = {
 // the 2026-08-04 slowdown; reshaped the same day for the CAMPAIGN (owner
 // direction): each era is one real line's story, and the final era is the
 // sandbox, "Hela Stockholm", where the last constraints lift.
+// Rescaled 2026-08-05 from measurement, not from an hours model. probe-arc
+// showed era 1950's content exhausting around minute 20 while the 1952 gate sat
+// at minute 28, and 1957 unreachable inside an hour: the story was waiting on a
+// counter while the player had nothing to buy. Thresholds now land shortly
+// after each corridor's content runs out (plan 2b), which is what puts the arc
+// on the player's building pace instead of on a rider tally.
 export const ERAS = [
   { year: 1950 },
-  { year: 1952, pk: 5,  delivered: 40000 },
-  { year: 1957, pk: 12, delivered: 250000 },
-  { year: 1964, pk: 25, delivered: 700000 },
-  { year: 1975, pk: 50, delivered: 1300000 },
-  { year: 2000, pk: 90, delivered: 2200000 },
+  { year: 1952, pk: 5,  delivered: 25000 },
+  { year: 1957, pk: 12, delivered: 80000 },
+  { year: 1964, pk: 25, delivered: 180000 },
+  { year: 1975, pk: 50, delivered: 340000 },
+  { year: 2000, pk: 90, delivered: 600000 },
 ];
 
 // The upgrade CATALOG (plan §6, Cookie Clicker direction): upgrades are DATA, and
 // their effects compose through named modifiers, never through code reading BAL
 // directly. `mult` effects multiply per level owned; `add` effects add per level.
 // `currency: 'pk'` marks megaprojects; `kind` marks purchases with side effects.
+// --- Achievements (owner ask, 2026-08-05) ---
+// Data, like the catalog: id, name, what earns it, and a SMALL named modifier.
+// Rewards are deliberately minor (the set is worth roughly x1.3 in total, inside
+// the demand and fare budgets in the balance plan): these are aims and
+// recognition first, power second. `hint` shows while locked, so a player always
+// knows what to chase; nothing here is a secret.
+export const ACHIEVEMENTS = [
+  { id: 'first-departure', name: 'Invigning', hint: 'Send out your first train',
+    check: (g) => g.opened, add: { demand: 0.01 } },
+  { id: 'ten-stations', name: 'A line worth the name', hint: 'Run ten stations',
+    check: (g) => stationCount(g) >= 10, add: { demand: 0.02 } },
+  { id: 'full-1950', name: 'Hökarängen', hint: 'Complete the 1950 line',
+    check: (g) => usedAnchorsAll(g).size >= 13, mult: { fare: 1.02 } },
+  { id: 'hundred-k', name: 'Hundred thousand journeys', hint: 'Carry 100 000 riders',
+    check: (g) => g.totalDelivered >= 1e5, mult: { fare: 1.02 } },
+  { id: 'million', name: 'A million rides', hint: 'Carry 1 000 000 riders',
+    check: (g) => g.totalDelivered >= 1e6, mult: { fare: 1.03 } },
+  { id: 'ten-million', name: 'The city rides', hint: 'Carry 10 000 000 riders',
+    check: (g) => g.totalDelivered >= 1e7, mult: { fare: 1.05 } },
+  { id: 'first-junction', name: 'Bytespunkt', hint: 'Let two lines share a station',
+    check: (g) => {
+      for (let i = 0; i < ANCHORS.length; i++) if (linesAtAnchor(g, i) > 1) return true;
+      return false;
+    }, mult: { transfer: 1.05 } },
+  { id: 'first-hub', name: 'Knutpunkt', hint: 'Build a hub of your own',
+    check: (g) => {
+      const seen = new Set();
+      for (const L of g.lines) for (const st of L.stations) {
+        const k = st.anchor !== null ? 'a' + st.anchor : st.name;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) return true;
+      }
+      return false;
+    }, add: { demand: 0.02 } },
+  { id: 'three-lines', name: 'A network', hint: 'Run three lines at once',
+    check: (g) => g.lines.length >= 3, add: { demand: 0.03 } },
+  { id: 'red-line', name: 'Röda linjen', hint: 'Reach Fruängen',
+    check: (g) => usedAnchorsAll(g).has(35), mult: { fare: 1.03 } },
+  { id: 'blue-line', name: 'Blå linjen', hint: 'Reach Hjulsta',
+    check: (g) => usedAnchorsAll(g).has(52), mult: { fare: 1.03 } },
+  { id: 'whole-map', name: 'Hela Stockholm', hint: 'Connect every station on the map',
+    check: (g) => usedAnchorsAll(g).size >= ANCHORS.length, mult: { fare: 1.05 } },
+  { id: 'millionaire', name: 'A million kronor', hint: 'Hold 1 000 000 kr at once',
+    check: (g) => g.money >= 1e6, mult: { fare: 1.02 } },
+  { id: 'billion', name: 'En miljard', hint: 'Bank 1 000 000 000 kr',
+    check: (g) => g.money >= 1e9, mult: { fare: 1.05 } },
+  { id: 'retailer', name: 'Rent collector', hint: 'Earn 100 kr/s from retail',
+    check: (g) => commerceRate(g) >= 100, add: { demand: 0.02 } },
+  { id: 'punctual', name: 'Turn-up-and-go', hint: 'Run a line at a headway under 30 s',
+    check: (g) => {
+      for (let li = 0; li < g.lines.length; li++) {
+        if (g.lines[li].stations.length >= 4 && lineHeadwayS(g, li) < 30) return true;
+      }
+      return false;
+    }, mult: { dispatchInterval: 0.98 } },
+  { id: 'nobody-left', name: 'Nobody left behind', hint: 'Carry 5 000 riders with nobody giving up',
+    check: (g) => g.opened && g.totalDelivered > 5000 &&
+      g.lines.every((L) => L.left60.every((x) => x === 0)), add: { demand: 0.02 } },
+  { id: 'final-era', name: 'Hela staden', hint: 'Reach the last era',
+    check: (g) => g.era >= ERAS.length - 1, mult: { fare: 1.05 } },
+];
+
+// Checked once a second rather than every tick: eighteen predicates over a live
+// network is not free, and none of them needs sub-second latency.
+export function checkAchievements(g) {
+  if (!g.achieved) g.achieved = {};
+  for (const a of ACHIEVEMENTS) {
+    if (g.achieved[a.id]) continue;
+    let ok = false;
+    try { ok = !!a.check(g); } catch { ok = false; }
+    if (ok) {
+      g.achieved[a.id] = true;
+      g.events.push({ type: 'achievement', id: a.id, name: a.name });
+    }
+  }
+}
+
 export const CATALOG = [
   { id: 'train',      base: 600,  growth: 1.6, max: 8, era: 1950, kind: 'fleet' },
   { id: 'drivers',    base: 900,  growth: 1,   max: 1, era: 1950 },
@@ -211,6 +332,11 @@ export function effectMult(g, key) {
     const n = g.owned[u.id] || 0;
     if (n && u.mult && u.mult[key] !== undefined) m *= Math.pow(u.mult[key], n);
   }
+  // Achievements feed the SAME named modifiers as purchases, so a reward can
+  // never mean something the economy does not already understand.
+  for (const a of ACHIEVEMENTS) {
+    if (g.achieved && g.achieved[a.id] && a.mult && a.mult[key] !== undefined) m *= a.mult[key];
+  }
   return m;
 }
 
@@ -219,6 +345,9 @@ export function effectAdd(g, key) {
   for (const u of CATALOG) {
     const n = g.owned[u.id] || 0;
     if (n && u.add && u.add[key] !== undefined) a += u.add[key] * n;
+  }
+  for (const ac of ACHIEVEMENTS) {
+    if (g.achieved && g.achieved[ac.id] && ac.add && ac.add[key] !== undefined) a += ac.add[key];
   }
   return a;
 }
@@ -237,10 +366,26 @@ function makeStation(name, geo, anchor, tier) {
   return {
     name, geo, anchor,
     tier,
-    ent: 0, gates: 0,
+    ent: 0, gates: 0, shop: 0,
     mult: 0.15,          // placeholder until computeDemand runs
     hub: tier >= 3,
   };
+}
+
+// A second line entry for the SAME station on the ground. Field-by-field copies
+// of an entity are how a new field goes missing (report 648's lesson, and it
+// happened here with `shop`), so the clone is spread, never enumerated.
+function cloneStationEntry(st) {
+  return { ...st };
+}
+
+// The entry a new line should get for an anchor: a copy of what is already
+// built there if the network reaches it, else a fresh one.
+function stationForAnchor(g, i) {
+  for (const L of g.lines) {
+    for (const st of L.stations) if (st.anchor === i) return cloneStationEntry(st);
+  }
+  return anchorStation(i);
 }
 
 function anchorStation(i) {
@@ -354,6 +499,8 @@ export function newGame() {
     // Upkeep and abandonment hold until the ribbon is cut; the first bell
     // is the invigning.
     opened: false,
+    achieved: {},
+    achieveAt: 0,
     events: [],
   };
   computeDemand(g);
@@ -421,6 +568,30 @@ export function lineHeadwayS(g, li) {
   return Math.max(minHeadway(g), lineCycleEst(g, li) / (2 * active));
 }
 
+// Rent from every station's commerce, counted once per physical station and
+// scaled by its demand, so a kiosk at Hökarängen is not a mall at T-Centralen.
+export function commerceRate(g) {
+  let r = 0;
+  const seen = new Set();
+  for (const L of g.lines) {
+    for (const st of L.stations) {
+      const key = physKeyOf(st);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      r += st.shop * BAL.shopKrPerLevel * Math.max(0.5, st.mult);
+    }
+  }
+  return r;
+}
+
+// Trust per second right now: the rate the HUD shows, so the player can see
+// both what it is and what changes it (coverage, i.e. serving more of the
+// region). Owner feedback 2026-08-05: "no idea how I'm gaining it nor how long
+// I will take till 5."
+export function pkRate(g) {
+  return BAL.pkFullRatePerSec * coverage(g);
+}
+
 export function upkeepRate(g) {
   let r = 0;
   for (const t of g.trains) r += BAL.upkeepPerTrainPerSec * (t.mothballed ? BAL.mothballShare : 1);
@@ -432,7 +603,7 @@ export function upkeepRate(g) {
       const key = st.anchor !== null ? 'a' + st.anchor : st.geo[0].toFixed(4) + ',' + st.geo[1].toFixed(4);
       if (seen.has(key)) continue;
       seen.add(key);
-      r += BAL.stationUpkeep[st.tier] + BAL.upgradeUpkeep * (st.ent + st.gates);
+      r += BAL.stationUpkeep[st.tier] + BAL.upgradeUpkeep * (st.ent + st.gates + st.shop);
     }
   }
   return r;
@@ -1213,6 +1384,12 @@ export function tick(g, dt) {
   // Nothing is billed before opening day (report 643: the game could lose
   // itself at 128 s of menu-reading otherwise).
   if (g.opened) {
+    const rent = commerceRate(g) * dt;
+    if (rent > 0) {
+      g.money += rent;
+      g.grossEma += rent / GROSS_TAU;
+      g.gross60 += rent / 60;
+    }
     g.money = Math.max(0, g.money - upkeepRate(g) * dt);
     const losing = g.money < upkeepRate(g) * 10 && grossRate(g) < upkeepRate(g);
     g.deficitT = losing ? g.deficitT + dt : Math.max(0, g.deficitT - dt * 0.5);
@@ -1257,6 +1434,12 @@ export function tick(g, dt) {
 
   // The city grows where it is served well.
   growCity(g, dt);
+
+  // Achievements, on a one-second cadence.
+  if (g.clock - g.achieveAt >= 1) {
+    g.achieveAt = g.clock;
+    checkAchievements(g);
+  }
 
   // Political capital accrues from coverage.
   g.pk += BAL.pkFullRatePerSec * coverage(g) * dt;
@@ -1393,10 +1576,37 @@ function entriesOfSame(g, li, i) {
   return out;
 }
 
+// How deep this station's ladders may go, given what it has been built into.
+// An upgrade applies to every entry of the physical station, so the level that
+// matters is the highest among them.
+function levelOf(g, li, i, kind) {
+  let lvl = 0;
+  for (const [l2, i2] of entriesOfSame(g, li, i)) lvl = Math.max(lvl, g.lines[l2].stations[i2][kind]);
+  return lvl;
+}
+
+export function upgMaxFor(st) {
+  return BAL.upgMaxByTier[st.tier] ?? BAL.upgMax;
+}
+
 export function upgradeCost(g, li, i, kind) {
   const st = g.lines[li].stations[i];
   if (kind === 'tier') {
-    return st.tier === 1 ? { kr: BAL.tier2Cost } : { kr: BAL.tier3CostKr, pk: BAL.tier3CostPk };
+    if (st.tier === 1) return { kr: BAL.tier2Cost };
+    // Count only hubs the PLAYER built: the ones the city starts with (a born
+    // Knutpunkt at T-Centralen) must not inflate the first purchase, which
+    // otherwise cost 14 trust against a documented 8.
+    let hubs = 0;
+    const seen = new Set();
+    for (const L of g.lines) {
+      for (const s2 of L.stations) {
+        const k = physKeyOf(s2);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (s2.tier >= 3 && !(s2.anchor !== null && ANCHORS[s2.anchor].hub)) hubs++;
+      }
+    }
+    return { kr: BAL.tier3CostKr, pk: Math.round(BAL.tier3CostPk * Math.pow(BAL.tier3PkGrowth, hubs)) };
   }
   return { kr: Math.round(BAL.upgCostBase[kind] * Math.pow(BAL.upgCostGrowth, st[kind])) };
 }
@@ -1407,7 +1617,7 @@ export function canUpgradeStation(g, li, i, kind) {
   if (kind === 'tier') {
     if (st.tier >= 3) return false;
     if (st.tier === 2 && eraYear(g) < BAL.tier3Era) return false;
-  } else if (st[kind] >= BAL.upgMax) {
+  } else if (levelOf(g, li, i, kind) >= upgMaxFor(st)) {
     return false;
   }
   return g.money >= (cost.kr || 0) && g.pk >= (cost.pk || 0);
@@ -1460,10 +1670,8 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     // new entry starts in lockstep with its physical twin (upgradeStation
     // keeps them there via entriesOfSame; a fresh tier-1 entry here would
     // desync dwell, gates and upkeep from what the player actually built).
-    const s = share.st;
-    station = { name: s.name, geo: s.geo, anchor: s.anchor, tier: s.tier,
-                ent: s.ent, gates: s.gates, mult: s.mult, hub: s.hub };
-    g.events.push({ type: 'junction', geo: s.geo, name: s.name });
+    station = cloneStationEntry(share.st);
+    g.events.push({ type: 'junction', geo: station.geo, name: station.name });
   } else if (anchorIdx !== null) {
     station = anchorStation(anchorIdx);
   } else {
@@ -1579,6 +1787,79 @@ export function shopCost(g, id) {
   return Math.round(item.base * Math.pow(item.growth, g.owned[id]));
 }
 
+// Buying a ladder one level at a time is the classic incremental complaint, so
+// every levelled purchase supports x10 and MAX. Both are closed forms rather
+// than loops, so a MAX on a deep ladder is one calculation:
+//   cost of n from level k:  b * r^k * (r^n - 1) / (r - 1)
+//   max affordable with c:   floor(log_r( c(r-1) / (b*r^k) + 1 ))
+// (r == 1 degenerates to n * b, which `train` and friends rely on.)
+function geoSum(base, growth, owned, n) {
+  if (n <= 0) return 0;
+  if (growth === 1) return Math.round(base * n);
+  return Math.round(base * Math.pow(growth, owned) * (Math.pow(growth, n) - 1) / (growth - 1));
+}
+
+function geoMax(base, growth, owned, budget) {
+  if (budget < base * Math.pow(growth, owned)) return 0;
+  if (growth === 1) return Math.floor(budget / base);
+  const n = Math.log(budget * (growth - 1) / (base * Math.pow(growth, owned)) + 1) / Math.log(growth);
+  return Math.max(0, Math.floor(n + 1e-9));
+}
+
+// How many levels of `id` the player could buy right now, capped by the item's
+// own max and by the era gate.
+export function affordableLevels(g, id, want) {
+  const item = CATALOG.find((s) => s.id === id);
+  if (!item || !eraVisible(g, item)) return 0;
+  if (item.needs && !g.owned[item.needs]) return 0;
+  const room = maxFor(g, item) - g.owned[id];
+  if (room <= 0) return 0;
+  const budget = item.currency === 'pk' ? g.pk : g.money;
+  const can = geoMax(item.base, item.growth, g.owned[id], budget);
+  return Math.max(0, Math.min(room, can, want || room));
+}
+
+export function bulkCost(g, id, n) {
+  const item = CATALOG.find((s) => s.id === id);
+  return item ? geoSum(item.base, item.growth, g.owned[id], n) : 0;
+}
+
+// Buy up to `want` levels in one transaction; returns how many were bought.
+export function buyN(g, id, want) {
+  const n = affordableLevels(g, id, want);
+  if (n <= 0) return 0;
+  let bought = 0;
+  for (let k = 0; k < n; k++) {
+    if (!buy(g, id)) break;   // buy() owns every side effect (charters, fleet)
+    bought++;
+  }
+  return bought;
+}
+
+export function stationBulkCost(g, li, i, kind, n) {
+  if (kind === 'tier') return upgradeCost(g, li, i, kind).kr;
+  return geoSum(BAL.upgCostBase[kind], BAL.upgCostGrowth, levelOf(g, li, i, kind), n);
+}
+
+export function stationAffordableLevels(g, li, i, kind, want) {
+  if (kind === 'tier') return canUpgradeStation(g, li, i, kind) ? 1 : 0;
+  const st = g.lines[li].stations[i];
+  const room = upgMaxFor(st) - levelOf(g, li, i, kind);
+  if (room <= 0) return 0;
+  const can = geoMax(BAL.upgCostBase[kind], BAL.upgCostGrowth, st[kind], g.money);
+  return Math.max(0, Math.min(room, can, want || room));
+}
+
+export function upgradeStationN(g, li, i, kind, want) {
+  const n = stationAffordableLevels(g, li, i, kind, want);
+  let done = 0;
+  for (let k = 0; k < n; k++) {
+    if (!upgradeStation(g, li, i, kind)) break;
+    done++;
+  }
+  return done;
+}
+
 export function canBuy(g, id) {
   const item = CATALOG.find((s) => s.id === id);
   if (!eraVisible(g, item)) return false;
@@ -1617,7 +1898,7 @@ export function buy(g, id) {
     // the historical threaded route open, and lines opening as disconnected
     // stubs is itself historical).
     const [a, b] = PROJECT_SEEDS[id]();
-    g.lines.push(newLine([anchorStation(a), anchorStation(b)], g.lines.length, LINE_IDENTITY[id]));
+    g.lines.push(newLine([stationForAnchor(g, a), stationForAnchor(g, b)], g.lines.length, LINE_IDENTITY[id]));
     addTrain(g, g.lines.length - 1);
     computeDemand(g);
     g.events.push({ type: 'newline', geo: ANCHORS[b].geo, name: ANCHORS[b].name });
@@ -1645,7 +1926,22 @@ export function canDowngradeTier(g, li, i) {
   // not drop below 2 (tier 2 is what the sharing was bought with; report 642
   // §5b, ruled 2026-08-04).
   if (st.tier === 2 && entriesOfSame(g, li, i).length > 1) return false;
+  // Tier gates how deep the ladders may go, so dropping a tier would strand
+  // levels above the new cap (measured: ent 8 on a station capped at 5, room
+  // -3). Refuse rather than silently destroy what the player paid for; the
+  // panel says which ladder is in the way.
+  const cap = BAL.upgMaxByTier[st.tier - 1] ?? BAL.upgMax;
+  for (const kind of ['ent', 'gates', 'shop']) if (st[kind] > cap) return false;
   return true;
+}
+
+// Which ladder blocks a downgrade, for the panel to name.
+export function downgradeBlockedBy(g, li, i) {
+  const st = g.lines[li].stations[i];
+  if (st.tier <= 1) return null;
+  const cap = BAL.upgMaxByTier[st.tier - 1] ?? BAL.upgMax;
+  for (const kind of ['ent', 'gates', 'shop']) if (st[kind] > cap) return kind;
+  return null;
 }
 
 export function downgradeTier(g, li, i) {
@@ -1675,9 +1971,7 @@ export function foundLine(g, li, i) {
   const st = g.lines[li].stations[i];
   g.money -= BAL.foundLineKr;
   g.pk -= BAL.foundLinePk;
-  const clone = makeStation(st.name, st.geo, st.anchor, st.tier);
-  clone.ent = st.ent;
-  clone.gates = st.gates;
+  const clone = cloneStationEntry(st);   // spread, never enumerated (report 648)
   const L = newLine([clone], g.lines.length, { color: foundedColor(g) });
   L.waitingF = [0];
   L.waitingB = [0];
@@ -1741,7 +2035,7 @@ export function serialize(g) {
     lines: g.lines.map((L) => ({
       stations: L.stations.map((st) => ({
         name: st.name, geo: st.geo, anchor: st.anchor,
-        tier: st.tier, ent: st.ent, gates: st.gates,
+        tier: st.tier, ent: st.ent, gates: st.gates, shop: st.shop,
       })),
       waitingF: L.waitingF.map((w) => Math.round(w)),
       waitingB: L.waitingB.map((w) => Math.round(w)),
@@ -1753,6 +2047,7 @@ export function serialize(g) {
     owned: g.owned,
     endingSeen: g.endingSeen,
     opened: g.opened,
+    achieved: g.achieved,
     srcW: g.srcW.map((w) => Math.round(w * 1000) / 1000),
     gross60: Math.round(g.gross60 * 100) / 100,
     deliv60: Math.round(g.deliv60 * 100) / 100,
@@ -1779,6 +2074,10 @@ function sanitizeLine(stations) {
     const s2 = makeStation(st.name, [st.geo[0], st.geo[1]], anchor, tier);
     s2.ent = posInt(st.ent, BAL.upgMax);
     s2.gates = posInt(st.gates, BAL.upgMax);
+    const cap = BAL.upgMaxByTier[s2.tier] ?? BAL.upgMax;
+    s2.ent = Math.min(s2.ent, cap);
+    s2.gates = Math.min(s2.gates, cap);
+    s2.shop = Math.min(posInt(st.shop, BAL.upgMax), cap);
     return s2;
   });
 }
@@ -1795,6 +2094,10 @@ export function hydrate(raw) {
   g.endingSeen = !!s.endingSeen;
   // Saves from before opening day existed: any delivery proves the ribbon cut.
   g.opened = !!s.opened || g.totalDelivered > 0;
+  g.achieved = {};
+  if (s.achieved && typeof s.achieved === 'object') {
+    for (const a of ACHIEVEMENTS) if (s.achieved[a.id]) g.achieved[a.id] = true;
+  }
   g.gross60 = Math.max(0, Number(s.gross60) || 0);
   g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
   if (Array.isArray(s.srcW) && s.srcW.length === g.srcW.length) {
