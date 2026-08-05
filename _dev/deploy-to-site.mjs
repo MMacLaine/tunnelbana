@@ -72,6 +72,11 @@ const version = (readFileSync(join(SRC, 'src/sim.js'), 'utf8').match(/VERSION = 
 {
   const html = readFileSync(join(SRC, 'index.html'), 'utf8');
   const stale = [...html.matchAll(/\?v=([0-9.]+)/g)].map((m) => m[1]).filter((v) => v !== version);
+  const meta = (html.match(/name="tb-version" content="([^"]+)"/) || [])[1];
+  if (meta !== version) {
+    console.error(`VERSION SKEW: index.html declares tb-version ${meta} but the game is ${version}.`);
+    process.exit(1);
+  }
   if (stale.length) {
     console.error(`VERSION SKEW: index.html cache-busts with ?v=${stale[0]} but the game is ${version}.`);
     console.error('Update the ?v= queries in index.html (module + stylesheets) and re-run.');

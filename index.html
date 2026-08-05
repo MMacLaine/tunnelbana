@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tunnelbana · Build Stockholm</title>
+<!-- The version this PAGE was built for. main.js compares it against its own
+     and reloads once if they differ, so a cached script can never pair with a
+     newer page (that shipped a dead Achievements screen and a 0.7 readout on a
+     0.8 page). The handshake lives in the HTML because the HTML is the copy a
+     browser revalidates. -->
+<meta name="tb-version" content="0.8.0">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="vendor/maplibre-gl.css" rel="stylesheet">
 <script src="vendor/maplibre-gl.js"></script>
