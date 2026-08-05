@@ -341,6 +341,7 @@ $('fb-open').textContent = STR.fbOpen;
 $('fb-title').textContent = STR.fbTitle;
 $('fb-send').textContent = STR.fbSend;
 $('fb-text').placeholder = STR.fbPlaceholder;
+document.querySelectorAll('[data-version]').forEach((el) => { el.textContent = 'v' + sim.VERSION; });
 $('fb-note').textContent = STR.fbHint;
 $('fb-open').addEventListener('click', () => {
   const p = $('fb-panel');
@@ -359,8 +360,8 @@ const FEEDBACK_URL = 'https://maclaine.se/api/feedback';
 // itch build older than the deploy), because a submit button that silently
 // eats what someone bothered to type is the worst outcome available.
 async function submitFeedback(text) {
-  const ctx = 'era ' + sim.eraYear(g) + ' · ' + sim.stationCount(g) + ' stations · ' +
-    sim.CATALOG.filter((i) => g.owned[i.id]).length + ' upgrades';
+  const ctx = 'v' + sim.VERSION + ' · era ' + sim.eraYear(g) + ' · ' + sim.stationCount(g) +
+    ' stations · ' + sim.CATALOG.filter((i) => g.owned[i.id]).length + ' upgrades';
   try {
     const res = await fetch(FEEDBACK_URL, {
       method: 'POST',
