@@ -122,6 +122,9 @@ const STR = {
   themeRow: 'Theme',
   numRow: 'Numbers',
   achEarned: 'ACHIEVEMENT',
+  migrated: 'Save updated for this version: stations now take deeper upgrades ' +
+    '(a Station holds more than a Hållplats), retail is new, and the era targets moved. ' +
+    'Nothing was lost.',
   bonusName: { fare: 'fares', demand: 'demand', transfer: 'transfers', dispatchInterval: 'dispatch' },
   about: 'about',
   trustFrom: 'trust grows with coverage',
@@ -153,6 +156,34 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { memStore.delete(k); } },
 };
 
+// --- Version handshake -------------------------------------------------------
+// A browser can hold a cached module alongside a newer page. The page states
+// which build it expects; if this module is a different one, reload ONCE (a
+// session flag prevents a loop) so the player never plays a half-updated game.
+{
+  const want = document.querySelector('meta[name="tb-version"]')?.content;
+  if (want && want !== sim.VERSION) {
+    // The "already tried" marker lives in the URL, not in storage: a privacy
+    // mode that refuses sessionStorage would otherwise never record the attempt
+    // and the page would reload forever, which is far worse than the bug this
+    // guard exists to fix.
+    const tried = new URLSearchParams(location.search).get('v') === want;
+    const boot = document.getElementById('boot');
+    if (boot) boot.textContent = 'Updating…';
+    if (!tried) {
+      // Cache-busted query so the reload cannot be served the same stale copy.
+      location.replace(location.pathname + '?v=' + encodeURIComponent(want));
+      throw new Error('reloading for ' + want);   // stop this stale module here
+    }
+    // Second time through: reloading did not help, so say so rather than
+    // silently running a mismatched build.
+    if (boot) {
+      boot.textContent = 'This page expects v' + want + ' but loaded v' + sim.VERSION +
+        '. Please empty your cache and reload.';
+    }
+  }
+}
+
 const savedRaw = store.get(sim.SAVE_KEY);
 let g = sim.hydrate(savedRaw);
 let offline = null;
@@ -163,6 +194,13 @@ try {
   }
 } catch {}
 let paused = true; // boot into the menu
+
+// If the save came from an older build, say so once in the menu. v0.8.0 changed
+// what some saved numbers mean (station ladders went from three flat levels to
+// eight gated by tier, retail is new, era thresholds moved), so a returning
+// player sees room reappear on upgrades they had "finished". That is the
+// migration working, not a bug, and the game should say which.
+const migratedFrom = g.migratedFrom;
 
 const $ = (id) => document.getElementById(id);
 const NUMFMT_KEY = 'tunnelbana_numfmt';
@@ -1207,6 +1245,16 @@ if (offline) {
     STR.awayTitle + ' (' + (h ? h + ' h ' : '') + m + ' min): +' + fmt(offline.earned) +
     ' kr, ' + fmt(offline.delivered) + ' ' + STR.riders + ' carried.';
   save();
+}
+// A migrated save explains itself once, in the same place as the away summary,
+// so "my finished upgrades have room again" reads as an update rather than a
+// bug. Nothing was destroyed to get here.
+if (migratedFrom) {
+  const note = $('offline-note');
+  const prev = note.hidden ? '' : note.textContent + '  ';
+  note.hidden = false;
+  note.textContent = prev + STR.migrated;
+  save();   // rewrite at the current save version
 }
 // The module reached the end: everything is wired, so drop the loading veil.
 // (It first went in above the wrong showMenu and the game booted behind a
