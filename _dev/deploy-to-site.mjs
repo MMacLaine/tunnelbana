@@ -12,8 +12,9 @@
 //
 //   node _dev/deploy-to-site.mjs            # copy, then print what changed
 //   node _dev/deploy-to-site.mjs --check    # report drift only, change nothing
-import { readdirSync, statSync, mkdirSync, copyFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { readdirSync, statSync, mkdirSync, copyFileSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { createHash } from 'node:crypto';
 
 const SRC = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const SITE = '/Users/matthewmaclaine/personal website/tunnelbana';
@@ -66,24 +67,32 @@ for (const rel of existing) {
 }
 
 const version = (readFileSync(join(SRC, 'src/sim.js'), 'utf8').match(/VERSION = '([^']+)'/) || [])[1];
+
+// Cache-bust by CONTENT, not by version number. Busting by version failed the
+// moment two different builds shipped under the same version: the CDN kept
+// serving the first main.js for ?v=0.8.0 for hours, which is the same
+// stale-pairing bug one layer out. A hash of the actual shipped code cannot
+// drift from the code, and needs nobody to remember anything.
+const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'ui.css', 'tokens-ui.css', 'tokens.css']
+  .map((f) => readFileSync(join(SRC, f))).join('\n');
+const stamp = createHash('sha256').update(hashSrc).digest('hex').slice(0, 10);
+{
+  const htmlPath = join(SITE, 'index.html');
+  const html = readFileSync(htmlPath, 'utf8').replace(/\?v=[0-9a-z.]+/g, '?v=' + stamp);
+  writeFileSync(htmlPath, html);
+}
 // index.html cache-busts its module and stylesheets with ?v=<version>. If that
 // drifts from the version, a browser can pair a new page with a stale script,
 // which is precisely how v0.8.0 shipped a permanent loading screen.
 {
   const html = readFileSync(join(SRC, 'index.html'), 'utf8');
-  const stale = [...html.matchAll(/\?v=([0-9.]+)/g)].map((m) => m[1]).filter((v) => v !== version);
   const meta = (html.match(/name="tb-version" content="([^"]+)"/) || [])[1];
   if (meta !== version) {
     console.error(`VERSION SKEW: index.html declares tb-version ${meta} but the game is ${version}.`);
     process.exit(1);
   }
-  if (stale.length) {
-    console.error(`VERSION SKEW: index.html cache-busts with ?v=${stale[0]} but the game is ${version}.`);
-    console.error('Update the ?v= queries in index.html (module + stylesheets) and re-run.');
-    process.exit(1);
-  }
 }
-console.log(`tunnelbana v${version} -> ${SITE}`);
+console.log(`tunnelbana v${version} (assets stamped ${stamp}) -> ${SITE}`);
 console.log(`  ${wanted.size} files · +${added.length} added · ~${updated.length} changed · -${removed.length} removed`);
 for (const r of [...added.slice(0, 5), ...updated.slice(0, 5)]) console.log('    ' + r);
 if (added.length + updated.length > 10) console.log('    ...');
