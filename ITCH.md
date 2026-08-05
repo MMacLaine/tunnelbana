@@ -1,74 +1,101 @@
-# Publishing to itch.io
+# Publishing
+
+Two surfaces, one source of truth: **this repo**. maclaine.se updates itself on
+push, itch does not. Re-upload deliberately, and only from a build that passed
+the gates below.
+
+| Surface | URL | Updated by |
+|---|---|---|
+| itch.io | https://maclaine.itch.io/tunnelbana-build-stockholm | manual zip upload |
+| maclaine.se | https://www.maclaine.se/tunnelbana | `node _dev/deploy-to-site.mjs` + push |
+| incrementaldb | listing pending council review | see below |
 
 The zip is built by `node _dev/build-itch.mjs` and lands at `dist/tunnelbana.zip`
-(~390 KB). Everything in it is local except two hosts, both deliberate and both
-named in the build script's allowlist so adding a third has to be a decision:
+(~389 KB). Three external hosts, all deliberate, all named in the build script's
+allowlist so adding a fourth has to be a decision:
 
 - `tiles.openfreemap.org` for the basemap.
 - `maclaine.se` for the feedback box. The endpoint sends `Access-Control-Allow-Origin: *`,
   so it works from inside itch's iframe; if it ever fails the game falls back to a
   mail link and the player loses nothing.
+- `static.cloudflareinsights.com` for Cloudflare Web Analytics. Cookieless,
+  aggregate page counts, same token as the rest of maclaine.se. On itch the
+  traffic reports under the `html-classic.itch.zone` hostname, so the two
+  audiences stay separable in the dashboard, which itch's own stats cannot do.
+  Disclosed in the About panel in both builds. Owner call, 2026-08-05: anonymous
+  usage counts are not a privacy contradiction.
 
-Nothing is uploaded, no accounts, no analytics, no third-party script. A save is
-one `localStorage` key.
+No accounts, no third-party script beyond that beacon. A save is one
+`localStorage` key, scoped per origin, so a player's itch progress and their
+maclaine.se progress are two separate railways. Uploading a new zip does not
+wipe saves: the origin is unchanged.
 
-## Upload settings
-
-New project on itch.io, then:
+## Live itch settings (verified against the published page)
 
 | Field | Value |
 |---|---|
 | Kind of project | HTML |
-| Upload | `dist/tunnelbana.zip`, tick **This file will be played in the browser** |
-| Embed size | 1280 × 800 |
+| Upload | `dist/tunnelbana.zip`, ticked **This file will be played in the browser** |
+| Embed | Embed in page, manually set size, **1280 x 800** |
+| Automatically start on page load | Off (a Run game button shows first) |
 | Fullscreen button | On |
+| Enable scrollbars | Off |
+| SharedArrayBuffer support | Off |
 | Mobile friendly | Off (it wants a mouse and a real screen) |
-| Frame options | Click to launch: off (it should just start) |
 | Genre | Simulation |
-| Tags | incremental, idle, management, transport, city-builder, stockholm, singleplayer, no-ads |
 
 itch serves the zip's `index.html` at the root of the iframe, which is why every
 path in the build is relative. Do not "optimise" one into an absolute path.
 
-## Store page copy
+## Store copy
 
-**Tagline**
+The published description is the short first-person version (about 190 words),
+written as Matthew rather than as marketing. Do not regenerate it from a
+template. Rules that produced it: no dashes as punctuation, first person, one
+wry aside allowed, a pointer to maclaine.se near the bottom with the per-site
+saves caveat, and a closing line asking where the player got bored.
 
-> Build Stockholm's underground, one tunnel at a time.
+Tagline: **Build Stockholm's underground, one tunnel at a time.**
 
-**Description**
+Two lines dropped from the published version, recorded here so the decision is
+not re-litigated by accident: the "free, no ads, collects nothing" line (which
+would now be inaccurate anyway, see the beacon above) and the fan-work
+disclaimer. The disclaimer still appears **in the game**, in the About panel.
 
-> An incremental game about building Stockholm's tunnelbana, from the first tunnel
-> of 1950 outward. You start with three stations and a bell. Ring it, and a train
-> goes out. People are already waiting.
->
-> The map is the progress bar. The real city sits under a dark veil and lights up
-> around every station you build, on real geography with real station names. Each
-> era is one real line's story: the green line south and west, the red line in
-> 1964, the blue line in 1975, and then Stockholm is yours to build freely.
->
-> It simulates a railway rather than a spreadsheet. Passengers pay per kilometre
-> and choose their route; trains bunch into convoys until you buy a timetable;
-> a platform that fills faster than trains arrive starts leaving people behind,
-> and it will tell you how many. Watching the trains run is half the point.
->
-> Finite and finishable, with an ending and no prestige reset. Idle-friendly:
-> hire drivers and the network keeps earning while the tab is closed. But it is
-> an incremental first, an idle game second.
->
-> Free, no ads, no accounts, nothing collected. Your save lives in your browser.
->
-> Unofficial fan work. Not affiliated with any transit operator or Region
-> Stockholm. Station names and geography are facts about the city; everything
-> else is a game.
+## Screenshots
 
-**Screenshots to attach** (regenerate with `node _dev/shoot.mjs`)
+Generated by `node _dev/shoot-store.mjs` at 1920x1080, which builds a real
+network through the sim first (4 lines, 51 stations, 20 trains, ~1.07M riders)
+rather than shooting the three-station opening board. Never hand-write game
+state for a screenshot: a shot of a state that cannot occur is a lie, and
+hand-built entities are how report 648 happened.
 
-1. `4-game` the network running, HUD and rail visible
-2. `5e-map` the veil lifting around the built line
-3. `5-panels` a station panel open with the shop beside it
-4. `6-moment` an era moment
-5. `2b-achievements` the achievements list
+Shots land at `/tmp/tb-store-*.png`: `0-title`, `1-network`, `2-close`,
+`3-station`, `4-era`, `5-achievements`.
+
+## incrementaldb.com
+
+Listing added via `/scrape-game` (paste the itch URL, it auto-fills, you review).
+It then sits in **Unconfirmed** until their council reviews it against the
+acceptance criteria on `/help`, which they say takes 1 day to a month or more.
+
+Ownership is proved by `incrementaldb.txt`, currently shipped to **both**
+surfaces and reachable at `https://www.maclaine.se/tunnelbana/incrementaldb.txt`
+and at `<itch build root>/incrementaldb.txt`. The itch one is the stronger proof
+(only the account holder can change what is inside the zip), but its build id
+changes on every upload, so read the URL off the page after uploading.
+
+**Removing it is a three-step undo**, noted at each site: delete the file, drop
+it from `SHIP_FILES` in `_dev/deploy-to-site.mjs`, drop it from `INCLUDE` in
+`_dev/build-itch.mjs`. Both pipelines are explicit allowlists and
+`deploy-to-site` deletes anything not on its list.
+
+Once confirmed, they support automated update feeds: a public JSON array,
+newest at index 0, each entry `version` / `title` / `content` (Markdown allowed),
+polled daily around midnight UTC. Natural home is
+`https://www.maclaine.se/tunnelbana/updates.json`, which would need its own
+`SHIP_FILES` entry. There is no changelog file in this repo yet, so those
+entries have to be authored.
 
 ## Before every upload
 
@@ -79,5 +106,10 @@ node _dev/probe-console.mjs  # no [EXCEPTION] lines
 node _dev/build-itch.mjs     # prints the external hosts it found
 ```
 
-The zip is a snapshot, not a deploy: maclaine.se updates itself on push, itch
-does not. Re-upload deliberately, and only from a build that passed the gates.
+`probe-console.mjs` takes an optional URL, so it can be pointed at the published
+build rather than localhost. That is how the itch-hosted copy of 0.8.2 was
+verified end to end:
+
+```
+node _dev/probe-console.mjs https://html-classic.itch.zone/html/<build id>/index.html
+```
