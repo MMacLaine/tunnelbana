@@ -28,6 +28,7 @@ const THEMES = {
     trainInk: '#08130c',
     trainDetail: 'rgba(11, 15, 20, 0.55)',
     veil: 'rgba(7, 10, 14, 0.78)',
+    glowAlpha: 0.09,
   },
   light: {
     bg: '#f4f6f8',
@@ -38,12 +39,14 @@ const THEMES = {
     ghost: '#97a2ae',
     amber: '#9a6b16',
     red: '#b23a30',
-    lineHi: 'rgba(90, 110, 130, 0.6)',
+    lineHi: 'rgba(52, 68, 86, 0.75)',
     plate: 'rgba(255, 255, 255, 0.72)',
     train1950: '#6f7f5e',
     trainInk: '#08130c',
     trainDetail: 'rgba(255, 255, 255, 0.4)',
-    veil: 'rgba(238, 243, 247, 0.78)',
+    // A grey scrim, not a white one: white on positron reads as nothing.
+    veil: 'rgba(96, 112, 128, 0.42)',
+    glowAlpha: 0.18,
   },
 };
 let COL = THEMES.dark;
@@ -293,8 +296,9 @@ function drawGlow(g) {
       const r = Math.max(24, stationRevealKm(s) * ppk);
       const p = project(s.geo);
       const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-      grad.addColorStop(0, hexA(L.color, 0.09));
-      grad.addColorStop(0.7, hexA(L.color, 0.05));
+      const ga = COL.glowAlpha || 0.09;
+      grad.addColorStop(0, hexA(L.color, ga));
+      grad.addColorStop(0.7, hexA(L.color, ga * 0.55));
       grad.addColorStop(1, hexA(L.color, 0));
       ctx.fillStyle = grad;
       ctx.beginPath();
