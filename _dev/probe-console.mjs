@@ -72,7 +72,11 @@ async function main() {
     });
     await rpc(ws, 'Page.enable');
     await rpc(ws, 'Runtime.enable');
-    await rpc(ws, 'Page.navigate', { url: `http://localhost:${HTTP_PORT}/` });
+    // A URL argument points the probe at production, which is where a bug that
+    // only appears with a real basemap or a real save will show itself.
+    const target_url = process.argv[2] || `http://localhost:${HTTP_PORT}/`;
+    console.log('probing', target_url);
+    await rpc(ws, 'Page.navigate', { url: target_url });
     await sleep(3500);
 
     console.log('menu hidden:', await evaluate(ws, 'document.getElementById("menu").hidden'));
