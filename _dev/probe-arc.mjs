@@ -186,7 +186,10 @@ let ladderRoom = 0, tierRoom = 0, tierBlocked = 0;
 for (let li = 0; li < g.lines.length; li++) {
   for (let i = 0; i < g.lines[li].stations.length; i++) {
     const st = g.lines[li].stations[i];
-    for (const k of ['ent', 'gates', 'shop']) ladderRoom += sim.upgMaxFor(st) - st[k];
+    // Room the player can buy INTO right now (tier and era both bind), which is
+    // the number that answers "is there anything left to spend on". The
+    // structural cap below is a different question and keeps upgMaxFor.
+    for (const k of ['ent', 'gates', 'shop']) ladderRoom += sim.upgCapFor(g, st) - st[k];
     if (st.tier < 3) {
       if (sim.canUpgradeStation(g, li, i, 'tier')) tierRoom++;
       else tierBlocked++;

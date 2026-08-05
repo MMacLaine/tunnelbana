@@ -117,6 +117,25 @@ export const BAL = {
   // (17 dead zones, 785k kr idle). Trust stays for eras, megaprojects and the
   // interchange powers of a hub. The loop is: build wide, tier up, then deepen.
   upgMaxByTier: [0, 3, 8, 8],
+  // Tier was not enough on its own. Owner playtest 2026-08-05, still inside the
+  // first era: "the station upgrades seem a little too cheap/powerful, perhaps
+  // it's better to only have 1 upgrade per era". He is right about the feel and
+  // about the cause: tier 1 allowed three levels immediately, so 900 kr of
+  // entrances and gates on a brand-new stop out-earned building the next stop,
+  // and the opening era could be solved by deepening instead of by extending.
+  // A SECOND cap, by era, fixes that without undoing the ladder: the effective
+  // cap is min(tier, era), so 1950 allows exactly one level of each axis and
+  // the eight-deep ladder arrives with the era that needs a sink for millions.
+  // Era-capped is also the more legible of the two ways to nerf this (the other
+  // being a price rise): the button states its own reason, and a locked level
+  // advertises the era gate rather than just feeling expensive.
+  // Measured, not guessed. [1,2,3,5,6,8] fixed the opening and broke the middle:
+  // probe-arc went from zero dead zones in the first hour to EIGHT, because the
+  // era cap kept binding long after tier had stopped being the interesting
+  // constraint (0 levels of room left at t=3600 with 68k kr idle). This ladder
+  // holds only where the complaint was, the opening era, and hands the depth
+  // back fast enough that tier is the binding cap again from 1952 on.
+  upgMaxByEra: [1, 3, 5, 8, 8, 8],
   offlineDiscount: 0.7,    // offline income earns this share of the measured online rate
   seedWaiting: 8,          // passengers on a platform when it opens
   // Building the network is the spine of a 20-hour arc, so it must cost real
@@ -1441,8 +1460,8 @@ export function tick(g, dt) {
     checkAchievements(g);
   }
 
-  // Political capital accrues from coverage.
-  g.pk += BAL.pkFullRatePerSec * coverage(g) * dt;
+  // Trust accrues from coverage, up to the ceiling this era allows.
+  g.pk = Math.min(g.pk + BAL.pkFullRatePerSec * coverage(g) * dt, pkCap(g));
 
   // Decay the 60 s rate windows (the offline estimate reads these).
   g.gross60 = Math.max(0, g.gross60 - g.gross60 * dt / 60);
@@ -1463,6 +1482,20 @@ export function tick(g, dt) {
 
 export function nextEra(g) {
   return g.era + 1 < ERAS.length ? ERAS[g.era + 1] : null;
+}
+
+// Trust stops accruing at exactly what the next era asks for (owner ask,
+// 2026-08-05). Trust is a GATE currency, not a stockpile: without a ceiling the
+// idle player banks decades of it, walks back to the tab and buys three hubs
+// and an era in one click, and the one resource the game says cannot be bought
+// turns out to be the one you get for free by leaving. A cap says "spend me".
+// The final era lifts it, like every other constraint there: hub 6 onward costs
+// more trust (1.7x each) than any era ever asked for, and the sandbox is where
+// that is supposed to be reachable. Nothing clamps a SAVE downward: a player who
+// banked trust before this rule keeps it and simply stops earning more.
+export function pkCap(g) {
+  const e = nextEra(g);
+  return e ? e.pk : Infinity;
 }
 
 export function canAdvanceEra(g) {
@@ -1585,8 +1618,27 @@ function levelOf(g, li, i, kind) {
   return lvl;
 }
 
+// The STRUCTURAL cap: how deep this station could ever go, given what it has
+// been built into. Permanent, so it is the right yardstick for "is this save
+// consistent" checks: a level bought in a later era must not read as stranded
+// after nothing has changed.
 export function upgMaxFor(st) {
   return BAL.upgMaxByTier[st.tier] ?? BAL.upgMax;
+}
+
+// The cap that applies RIGHT NOW: tier and era, whichever binds first. Every
+// purchase path goes through this; upgMaxFor alone would sell era-locked levels.
+export function upgCapFor(g, st) {
+  return Math.min(upgMaxFor(st), BAL.upgMaxByEra[g.era] ?? BAL.upgMax);
+}
+
+// Which of the two caps is holding this ladder back, so the button can say so
+// instead of just being grey. Returns 'era', 'tier' or null (nothing is).
+export function upgCapReason(g, st, lvl) {
+  if (lvl < upgCapFor(g, st)) return null;
+  const eraCap = BAL.upgMaxByEra[g.era] ?? BAL.upgMax;
+  if (eraCap <= upgMaxFor(st) && eraCap <= lvl && g.era + 1 < ERAS.length) return 'era';
+  return st.tier < 3 ? 'tier' : null;
 }
 
 export function upgradeCost(g, li, i, kind) {
@@ -1617,7 +1669,7 @@ export function canUpgradeStation(g, li, i, kind) {
   if (kind === 'tier') {
     if (st.tier >= 3) return false;
     if (st.tier === 2 && eraYear(g) < BAL.tier3Era) return false;
-  } else if (levelOf(g, li, i, kind) >= upgMaxFor(st)) {
+  } else if (levelOf(g, li, i, kind) >= upgCapFor(g, st)) {
     return false;
   }
   return g.money >= (cost.kr || 0) && g.pk >= (cost.pk || 0);
@@ -1844,7 +1896,7 @@ export function stationBulkCost(g, li, i, kind, n) {
 export function stationAffordableLevels(g, li, i, kind, want) {
   if (kind === 'tier') return canUpgradeStation(g, li, i, kind) ? 1 : 0;
   const st = g.lines[li].stations[i];
-  const room = upgMaxFor(st) - levelOf(g, li, i, kind);
+  const room = upgCapFor(g, st) - levelOf(g, li, i, kind);
   if (room <= 0) return 0;
   const can = geoMax(BAL.upgCostBase[kind], BAL.upgCostGrowth, st[kind], g.money);
   return Math.max(0, Math.min(room, can, want || room));
@@ -2023,7 +2075,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.8.1';
+export const VERSION = '0.8.2';
 
 export function serialize(g) {
   return JSON.stringify({

@@ -482,6 +482,39 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (!back.endingSeen) err('endingSeen must persist');
 }
 
+// --- The two ceilings added 2026-08-05, both owner asks. Each is a single
+// Math.min in a hot path, which is exactly the kind of thing a later balance
+// pass deletes by accident. ---
+{
+  const c = sim.newGame();
+  // Station depth is capped by era as well as by tier: 1950 sells exactly one
+  // level of each axis, on a Hållplats and on a Knutpunkt alike.
+  if (sim.upgCapFor(c, { tier: 1 }) !== 1) err('era 1950 must cap station ladders at 1');
+  if (sim.upgCapFor(c, { tier: 3 }) !== 1) err('the era cap must bind above the tier cap');
+  c.money = 1e9;
+  if (sim.upgradeStationN(c, 0, 0, 'ent', 8) !== 1) err('1950 must sell exactly one entrance level');
+  if (sim.canUpgradeStation(c, 0, 0, 'ent')) err('a second 1950 entrance level must be refused');
+  if (sim.upgCapReason(c, c.lines[0].stations[0], 1) !== 'era') err('the refusal must name the era');
+  // ...and the cap lifts with the era, never retroactively taking a level away.
+  c.totalDelivered = 1e6; c.pk = 99;
+  if (!sim.advanceEra(c)) err('era advance failed in the ceiling check');
+  if (sim.upgCapFor(c, { tier: 1 }) !== 3) err('1952 should allow three levels on a Hållplats');
+  if (c.lines[0].stations[0].ent !== 1) err('a bought level must survive the era change');
+
+  // Trust accrues to the next era's requirement and stops there.
+  const p = sim.newGame();
+  if (sim.pkCap(p) !== 5) err('trust ceiling in 1950 should be the 1952 requirement');
+  p.money = 1e9;
+  for (let k = p.lines[0].stations.length; k < 12; k++) sim.extendTo(p, 0, 'tail', ANCHORS[k].geo, k);
+  for (let t = 0; t < 4000; t += 1) { sim.tick(p, 1); p.events.length = 0; }
+  if (p.pk > sim.pkCap(p) + 1e-6) err('trust exceeded its ceiling: ' + p.pk);
+  if (!(p.pk > 4.9)) err('trust should reach the ceiling given coverage and time, got ' + p.pk);
+  // The sandbox lifts it, or hub 6 (114 trust) could never be bought at all.
+  const last = sim.hydrate(sim.serialize(p));
+  last.era = sim.ERAS.length - 1;
+  if (Number.isFinite(sim.pkCap(last))) err('the final era must lift the trust ceiling');
+}
+
 const ok = sim.stationCount(g) >= 7 && g.totalDelivered > 2000 && g.money >= 0 && up >= 5;
 console.log(ok ? 'SMOKE OK' : `SMOKE FAILED stations=${sim.stationCount(g)} delivered=${Math.round(g.totalDelivered)} upgrades=${up}`);
 process.exit(ok ? 0 : 1);

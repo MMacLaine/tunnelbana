@@ -216,6 +216,18 @@
 .tb-prose p { color: var(--tb-muted); font-size: var(--tb-fs-body);
   line-height: var(--tb-lh-loose); margin-top: 0.3rem; }
 
+/* Icon key (How to play). The glyph sits in a bordered box the same size the
+   shop card gives it, so the player is matching like for like. */
+.tb-key { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem; }
+.tb-key__row { display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.4rem 0.55rem; border: var(--tb-border) solid var(--tb-line); }
+.tb-key__icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px;
+  border: var(--tb-border) solid var(--tb-line); color: var(--tb-green); }
+.tb-key__icon svg { width: 18px; height: 18px; }
+.tb-key__cat { display: block; font-size: var(--tb-fs-caption); color: var(--tb-ink);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; }
+.tb-key__what { color: var(--tb-muted); font-size: var(--tb-fs-body); line-height: var(--tb-lh); }
+
 /* The line chip and its focus affordance in the lines panel. */
 .tb-chip { width: 10px; height: 10px; border-radius: var(--tb-radius-chip); flex: none; display: inline-block; }
 .tb-linkbtn { font-family: var(--tb-mono); font-size: var(--tb-fs-label); background: none;

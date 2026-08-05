@@ -125,16 +125,19 @@ const STR = {
   themeRow: 'Theme',
   numRow: 'Numbers',
   achEarned: 'ACHIEVEMENT',
+  achToastMore: 'CLICK TO SEE THEM ALL',
   migrated: 'Save updated for this version: stations now take deeper upgrades ' +
     '(a Station holds more than a Hållplats), retail is new, and the era targets moved. ' +
     'Nothing was lost.',
   bonusName: { fare: 'fares', demand: 'demand', transfer: 'transfers', dispatchInterval: 'dispatch' },
   about: 'about',
   trustFrom: 'trust grows with coverage',
+  trustCapped: 'at ceiling',
   numShort: 'Short (1.2M)',
   numFull: 'Full digits',
   buyRow: 'Buy',
   deeperNeedsTier: 'upgrade the station for more',
+  deeperNeedsEra: 'deeper from',
   themeDark: 'Dark',
   themeLight: 'Light',
   exportBtn: 'Export save',
@@ -398,6 +401,7 @@ function menuView(which) {
   $('help-view').hidden = which !== 'help';
   $('ach-view').hidden = which !== 'ach';
   if (which === 'ach') renderAchievements();
+  if (which === 'help') renderIconKey();
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
@@ -808,7 +812,10 @@ function stationUpgRow(kind) {
   const st = g.lines[selected.li].stations[selected.i];
   const btn = $('sp-' + kind);
   const lvl = st[kind];
-  const cap = sim.upgMaxFor(st);
+  // The cap the player is up against NOW (tier and era), not the structural
+  // one: a ladder reading 1/8 while refusing level 2 is a bug report waiting to
+  // be filed. Why it stops there goes on the button.
+  const cap = sim.upgCapFor(g, st);
   const room = cap - lvl;
   // Same contract as the shop: buy what is affordable up to the quantity, so a
   // x10 selection never disables a ladder the player could still climb.
@@ -821,7 +828,13 @@ function stationUpgRow(kind) {
     (room <= 0 ? '' : ' · ' + (n > 1 ? '×' + n + ' ' : '') + kr(cost) + ' kr');
   // A capped ladder says why, so "disabled" is information (pass 02, §03).
   btn.disabled = room <= 0 || g.money < cost;
-  if (room <= 0 && st.tier < 3) btn.textContent += ' · ' + STR.deeperNeedsTier;
+  const why = sim.upgCapReason(g, st, lvl);
+  if (why === 'era') {
+    const next = sim.nextEra(g);
+    btn.textContent += ' · ' + STR.deeperNeedsEra + (next ? ' ' + next.year : '');
+  } else if (why === 'tier') {
+    btn.textContent += ' · ' + STR.deeperNeedsTier;
+  }
 }
 
 function updateStationPanel() {
@@ -937,9 +950,20 @@ let achToastAt = 0;
 function showAchievement(name) {
   $('ach-toast-label').textContent = STR.achEarned;
   $('ach-toast-name').textContent = name;
+  $('ach-toast-more').textContent = STR.achToastMore;
   $('ach-toast').hidden = false;
   achToastAt = performance.now();
 }
+// The toast is the only place an aim is ever named in the game proper, so it
+// has to lead somewhere: clicking it opens the list, where the other seventeen
+// (and their hints) live. Owner ask 2026-08-05: "for some it might not be clear
+// how they find those achievements when it disappears".
+$('ach-toast').addEventListener('click', () => {
+  $('ach-toast').hidden = true;
+  achToastAt = 0;
+  showMenu('pause');
+  menuView('ach');
+});
 function bonusText(a) {
   const bits = [];
   if (a.mult) for (const k of Object.keys(a.mult)) {
@@ -996,6 +1020,46 @@ const ICONS = {};
 {
   const tpl = document.getElementById('icons');
   if (tpl) tpl.content.querySelectorAll('svg[data-i]').forEach((svg) => { ICONS[svg.getAttribute('data-i')] = svg; });
+}
+
+// The icon key for How to play (owner ask, 2026-08-05). Nine glyphs carry the
+// whole shop and none of them is captioned on the card, so a player reading a
+// grid of line drawings has to buy one to learn what it was. Built from the
+// same ICONS table the shop uses, and asserted against it below, so a tenth
+// icon cannot ship without a meaning written next to it.
+const ICON_KEY = {
+  train: ['Fleet', 'Rolling stock: another train, or more room inside one'],
+  staff: ['Staff', 'Drivers. Hired per train, and they dispatch it for you'],
+  time:  ['Timetable', 'Regular departures. Trains stop bunching into convoys'],
+  cap:   ['Capacity', 'How many people fit: in a train, or through a station'],
+  speed: ['Stock', 'Faster or quicker-accelerating trains, so a round trip is shorter'],
+  fare:  ['Fare', 'What each rider pays you'],
+  net:   ['Project', 'A new line, chartered outright'],
+  thru:  ['Through-running', 'One line worked end to end instead of as two halves'],
+  sig:   ['Signalling', 'Trains may follow each other more closely'],
+  art:   ['Comfort', 'A station people are glad to be in, which brings more of them'],
+  night: ['Service', 'The network runs when the city sleeps'],
+};
+function renderIconKey() {
+  const host = $('icon-key');
+  if (!host || host.childElementCount) return;   // built once
+  for (const [name, [cat, what]] of Object.entries(ICON_KEY)) {
+    const svg = ICONS[name];
+    if (!svg) continue;
+    const row = document.createElement('div');
+    row.className = 'tb-key__row';
+    const box = document.createElement('span');
+    box.className = 'tb-key__icon';
+    box.appendChild(svg.cloneNode(true));
+    const text = document.createElement('span');
+    text.innerHTML = '<b class="tb-key__cat"></b><span class="tb-key__what"></span>';
+    text.querySelector('.tb-key__cat').textContent = cat;
+    text.querySelector('.tb-key__what').textContent = what;
+    row.append(box, text);
+    host.appendChild(row);
+  }
+  const missing = Object.keys(ICONS).filter((k) => !ICON_KEY[k]);
+  if (missing.length) console.warn('icon key missing entries for: ' + missing.join(', '));
 }
 
 // Buy quantity, applied to every levelled purchase (catalog and station).
@@ -1187,9 +1251,17 @@ function updateUI() {
   $('stat-trains').textContent =
     sim.idleTrains(g).length + ' / ' + (g.trains.length - mb) +
     (mb ? ' (+' + mb + ' ' + STR.mothballedTag + ')' : '');
+  // Trust reads as a bar, not a number: x.x / cap, and when it is full the rate
+  // chip says WHY it stopped rather than advertising a rate that is no longer
+  // being credited. A silently pinned counter is the same legibility failure as
+  // the one the rate chip was added to fix.
   const pkPerMin = sim.pkRate(g) * 60;
-  $('pk').textContent = g.pk.toFixed(1) + ' ' + STR.trust;
-  $('pk-rate').textContent = pkPerMin > 0 ? '+' + pkPerMin.toFixed(1) + STR.perMin : '';
+  const pkCap = sim.pkCap(g);
+  const pkFull = g.pk >= pkCap - 1e-6;
+  $('pk').textContent = g.pk.toFixed(1) +
+    (Number.isFinite(pkCap) ? ' / ' + pkCap : '') + ' ' + STR.trust;
+  $('pk-rate').textContent = pkFull ? STR.trustCapped
+    : pkPerMin > 0 ? '+' + pkPerMin.toFixed(1) + STR.perMin : '';
   const phase = g.opened ? STR.phases[sim.dayPhase(g)] : STR.openingDay;
   $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage +
     (phase ? ' · ' + phase : '');
@@ -1242,7 +1314,9 @@ function frame(now) {
     if (e.type === 'ending') showEnding();
   }
   g.events.length = 0;
-  if (achToastAt && performance.now() - achToastAt > 4200) {
+  // 7 s, not the old 4.2: a toast you are meant to CLICK has to outlive the
+  // second it takes to notice it and move the mouse there.
+  if (achToastAt && performance.now() - achToastAt > 7000) {
     achToastAt = 0;
     $('ach-toast').hidden = true;
   }
