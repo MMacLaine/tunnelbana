@@ -66,6 +66,18 @@ for (const rel of existing) {
 }
 
 const version = (readFileSync(join(SRC, 'src/sim.js'), 'utf8').match(/VERSION = '([^']+)'/) || [])[1];
+// index.html cache-busts its module and stylesheets with ?v=<version>. If that
+// drifts from the version, a browser can pair a new page with a stale script,
+// which is precisely how v0.8.0 shipped a permanent loading screen.
+{
+  const html = readFileSync(join(SRC, 'index.html'), 'utf8');
+  const stale = [...html.matchAll(/\?v=([0-9.]+)/g)].map((m) => m[1]).filter((v) => v !== version);
+  if (stale.length) {
+    console.error(`VERSION SKEW: index.html cache-busts with ?v=${stale[0]} but the game is ${version}.`);
+    console.error('Update the ?v= queries in index.html (module + stylesheets) and re-run.');
+    process.exit(1);
+  }
+}
 console.log(`tunnelbana v${version} -> ${SITE}`);
 console.log(`  ${wanted.size} files · +${added.length} added · ~${updated.length} changed · -${removed.length} removed`);
 for (const r of [...added.slice(0, 5), ...updated.slice(0, 5)]) console.log('    ' + r);
