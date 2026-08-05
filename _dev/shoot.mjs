@@ -83,13 +83,24 @@ async function main() {
     });
     await rpc(ws, 'Page.navigate', { url: `http://localhost:${HTTP_PORT}/?theme=${THEME}` });
     await sleep(4000);
+    // The poses below reach into the game through its debug handle; if it is not
+    // there, every "posed" shot is silently just the natural game state, which
+    // is worse than no shot at all.
+    const handle = await evaluate(ws, 'typeof window.__tb');
+    console.log('debug handle:', handle);
+    if (handle !== 'object') console.log('WARNING: poses will not apply');
 
     // 1. The menu, which is the first thing anyone sees.
     await shot(ws, '1-menu');
     await evaluate(ws, `document.getElementById('menu-help').click()`);
     await sleep(400);
     await shot(ws, '2-help');
+    // Achievements page, with a couple already earned so both states show.
     await evaluate(ws, `document.getElementById('help-back').click();
+      document.getElementById('menu-ach').click()`);
+    await sleep(400);
+    await shot(ws, '2b-achievements');
+    await evaluate(ws, `document.getElementById('ach-back').click();
       document.getElementById('menu-settings').click()`);
     await sleep(400);
     await shot(ws, '3-settings');
@@ -121,6 +132,16 @@ async function main() {
     // The map itself, close, to check the game draws ABOVE the basemap's own
     // labels (owner: station names looked layered under the map).
     await shot(ws, '5e-map', { x: 420, y: 180, width: 420, height: 320, scale: 2 });
+
+    // Late-game numbers: the counter must hold a billion without overflowing,
+    // which is the whole reason notation exists.
+    await evaluate(ws, `(() => {
+      const t = window.__tb;
+      t.g.money = 1.234e9; t.g.pk = 128.5; t.g.totalDelivered = 4.56e7;
+      t.updateUI(); return 'ok';
+    })()`);
+    await sleep(400);
+    await shot(ws, '7-bignum', { x: 0, y: 0, width: 340, height: 210 });
 
     // 4. An era moment, the one deliberate full-screen surface.
     await evaluate(ws, `window.__tb && window.__tb.showMoment && window.__tb.showMoment(1952)`);
