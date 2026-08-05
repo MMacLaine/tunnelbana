@@ -9,7 +9,7 @@
      newer page (that shipped a dead Achievements screen and a 0.7 readout on a
      0.8 page). The handshake lives in the HTML because the HTML is the copy a
      browser revalidates. -->
-<meta name="tb-version" content="0.8.0">
+<meta name="tb-version" content="0.8.1">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="vendor/maplibre-gl.css" rel="stylesheet">
 <script src="vendor/maplibre-gl.js"></script>
@@ -99,6 +99,32 @@
     scrollbar-width: thin;
   }
   #hud-br { bottom: 0.5rem; right: 0.6rem; display: flex; align-items: flex-end; gap: 0.4rem; }
+
+  /* The rail slides away so the map can be the whole window. Transform, not
+     display: the panels keep their layout so nothing reflows on the way out,
+     and the handle rides with it. */
+  #rail-toggle {
+    position: fixed;
+    top: 1rem;
+    right: calc(300px + 1.6rem);
+    z-index: 6;
+    width: 1.6rem;
+    height: 1.6rem;
+    font-family: var(--tb-mono);
+    font-size: var(--tb-fs-md);
+    line-height: 1;
+    background: var(--tb-panel-t);
+    border: var(--tb-border) solid var(--tb-line);
+    color: var(--tb-muted);
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(var(--tb-blur));
+    backdrop-filter: blur(var(--tb-blur));
+    transition: right var(--tb-motion), color var(--tb-motion), border-color var(--tb-motion);
+  }
+  #rail-toggle:hover { color: var(--tb-ink); border-color: var(--tb-green); }
+  #hud-r { transition: transform 200ms var(--tb-ease, ease); }
+  body.rail-hidden #hud-r { transform: translateX(calc(100% + 1.2rem)); }
+  body.rail-hidden #rail-toggle { right: 0.6rem; }
 
   /* The brand mark, top left above the money. */
   .brand { display: flex; align-items: center; gap: 12px; }
@@ -268,6 +294,8 @@
     </div>
   </div>
 
+  <button id="rail-toggle" aria-label="Hide the upgrade rail" aria-expanded="true">›</button>
+
   <div class="hud tb-rail" id="hud-r">
     <div class="tb-panel">
       <div class="tb-panel__head"><span class="tb-panel__title" id="era-now">Era 1950</span></div>
@@ -317,6 +345,7 @@
         </div>
       </div>
     </div>
+    <button class="tb-btn tb-btn--inline tb-btn--onmap" id="menu-open"></button>
     <button class="tb-btn tb-btn--inline tb-btn--onmap" id="fb-open"></button>
     <button id="about-mark" aria-label="About and credits">&copy;</button>
   </div>
@@ -357,6 +386,7 @@
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-ach">Achievements</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-settings">Settings</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-about">About</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="menu-feedback">Send feedback</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-quit" hidden>Quit to menu</button>
       </div>
 

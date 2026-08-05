@@ -70,6 +70,9 @@ const STR = {
   ribbonCut: 'The line is open',
   stops: 'stops',
   fbOpen: 'Feedback',
+  menuBtn: 'Menu',
+  railHide: 'Hide the upgrade rail',
+  railShow: 'Show the upgrade rail',
   fbTitle: 'What broke, or what would you love?',
   fbHint: 'Goes straight to the person who made this.',
   fbSend: 'Submit',
@@ -437,6 +440,35 @@ $('about-mark').addEventListener('click', () => {
 // submitFeedback() is the swap point: route it at a form or endpoint later
 // without touching the UI.
 $('fb-open').textContent = STR.fbOpen;
+$('menu-open').textContent = STR.menuBtn;
+
+// Rail collapse, remembered between sessions: a second-monitor player who wants
+// the map may want it every time.
+const RAIL_KEY = 'tunnelbana_rail';
+function setRail(hidden) {
+  document.body.classList.toggle('rail-hidden', hidden);
+  const t = $('rail-toggle');
+  t.textContent = hidden ? '‹' : '›';
+  t.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+  t.setAttribute('aria-label', hidden ? STR.railShow : STR.railHide);
+  store.set(RAIL_KEY, hidden ? 'hidden' : 'shown');
+}
+$('rail-toggle').addEventListener('click', () => {
+  setRail(!document.body.classList.contains('rail-hidden'));
+});
+setRail(store.get(RAIL_KEY) === 'hidden');
+$('menu-open').addEventListener('click', () => {
+  if (menu.hidden) showMenu('pause');
+  else closeMenu();
+});
+// From the menu: close it and open the feedback box, so the player who paused
+// to look for it lands in the right place.
+$('menu-feedback').addEventListener('click', () => {
+  closeMenu();
+  $('fb-panel').hidden = false;
+  $('fb-note').textContent = STR.fbHint;
+  $('fb-text').focus();
+});
 $('fb-title').textContent = STR.fbTitle;
 $('fb-send').textContent = STR.fbSend;
 $('fb-text').placeholder = STR.fbPlaceholder;
