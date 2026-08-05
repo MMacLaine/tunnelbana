@@ -1,7 +1,7 @@
 // Build the itch.io zip: everything the game needs, all local except the tile
 // service. Run: node _dev/build-itch.mjs  -> dist/tunnelbana.zip
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, cpSync, statSync, readFileSync } from 'node:fs';
+import { mkdirSync, rmSync, cpSync, statSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -11,22 +11,42 @@ const ZIP = join(ROOT, 'dist', 'tunnelbana.zip');
 rmSync(join(ROOT, 'dist'), { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 
-const INCLUDE = ['index.html', 'tokens.css', 'favicon.svg', 'src', 'vendor', 'fonts', 'basemap'];
+const INCLUDE = ['index.html', 'tokens.css', 'tokens-ui.css', 'ui.css', 'favicon.svg',
+                 'src', 'vendor', 'fonts', 'basemap'];
 for (const item of INCLUDE) {
   cpSync(join(ROOT, item), join(STAGE, item), { recursive: true });
 }
 
-// Guard: the shipped page may reference exactly one external host (the tiles).
-const html = readFileSync(join(STAGE, 'index.html'), 'utf8');
-const externals = [...html.matchAll(/https?:\/\/([^/"'\s]+)/g)].map((m) => m[1]);
-const allowed = new Set(['openfreemap.org', 'www.openstreetmap.org', 'maplibre.org']); // credit links, not runtime deps
-const bad = externals.filter((h) => !allowed.has(h));
+// Guard: every staged file, not just the HTML, and the allowlist names the
+// runtime endpoints explicitly so adding one is a deliberate edit here.
+const RUNTIME = new Set(['tiles.openfreemap.org', 'maclaine.se']);
+const CREDIT = new Set(['openfreemap.org', 'www.openstreetmap.org', 'maplibre.org']);
+// Not network calls at all: XML namespaces and source comments. Named rather
+// than folded into the allowlist, so the distinction stays visible.
+const INERT = new Set(['www.w3.org', 'github.com']);
+function scan(dir, hits) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) { scan(p, hits); continue; }
+    if (!/\.(html|js|css|json|svg)$/i.test(name)) continue;
+    for (const m of readFileSync(p, 'utf8').matchAll(/https?:\/\/([^/"'\s)]+)/g)) {
+      if (!hits.has(m[1])) hits.set(m[1], []);
+      hits.get(m[1]).push(name);
+    }
+  }
+  return hits;
+}
+const hits = scan(STAGE, new Map());
+const bad = [...hits.keys()].filter((h) => !RUNTIME.has(h) && !CREDIT.has(h) && !INERT.has(h));
 if (bad.length) {
-  console.error('UNEXPECTED EXTERNAL HOSTS in index.html:', bad.join(', '));
+  console.error('UNEXPECTED EXTERNAL HOSTS:', bad.map((h) => h + ' (' + hits.get(h).join(', ') + ')').join('; '));
   process.exit(1);
 }
+const runtimeSeen = [...hits.keys()].filter((h) => RUNTIME.has(h));
 
 execFileSync('zip', ['-qr', ZIP, '.'], { cwd: STAGE });
 rmSync(STAGE, { recursive: true, force: true });
 const kb = Math.round(statSync(ZIP).size / 1024);
-console.log(`dist/tunnelbana.zip ready (${kb} KB). Only external endpoint: tiles.openfreemap.org (style source).`);
+// State what was actually found, rather than asserting it in prose.
+console.log(`dist/tunnelbana.zip ready (${kb} KB).`);
+console.log('runtime external hosts found: ' + (runtimeSeen.join(', ') || 'none'));

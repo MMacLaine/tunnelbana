@@ -170,6 +170,9 @@ for (const c of CASES) {
 
 // Per-station upgrades (slice 1) must also earn their keep. Applied to the
 // busiest platform (T-Centralen, index 0) in the regime where each binds.
+// 'st shop' is the commerce ladder: it pays flat rent, so it is the one station
+// axis that cannot be dead; it is graded to police its ~15% income budget,
+// not to prove it earns.
 const STATION_CASES = [
   // Gates pay only when arriving trains have ROOM (640: coupled to capacity).
   { id: 'st gates',  demand: 'high', base: { drivers: 1, capacity: 2 }, kind: 'gates' },
@@ -177,6 +180,7 @@ const STATION_CASES = [
   // speeds the platform caps bind between visits and extra catchment just
   // abandons (measured +0.02). 'low' with a real fleet is where ent converts.
   { id: 'st ent',    demand: 'low',  base: { drivers: 1, train: 4, timetable: 1 }, kind: 'ent' },
+  { id: 'st shop',   demand: 'low',  base: { drivers: 1, train: 4, timetable: 1 }, kind: 'shop' },
 ];
 
 function netRateStation(owned, demand, upgrade, surgeAt) {

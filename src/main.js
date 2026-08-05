@@ -20,8 +20,7 @@ const STR = {
   tierMax: 'Hub, fully built',
   tierDown: 'Downgrade tier (no refund)',
   tierEraGate: 'Hubs unlock in 1957',
-  entRow: 'Entrances',
-  gatesRow: 'Gates',
+  upgRow: { ent: 'Entrances', gates: 'Gates', shop: 'Retail' },
   panelDemand: 'Demand',
   panelWaiting: 'Waiting',
   panelCrowd: 'Crowding',
@@ -121,6 +120,15 @@ const STR = {
       'This is the end of the story, and the trains keep running: your city does not stop because the chapter does.',
   },
   themeRow: 'Theme',
+  numRow: 'Numbers',
+  achEarned: 'ACHIEVEMENT',
+  bonusName: { fare: 'fares', demand: 'demand', transfer: 'transfers', dispatchInterval: 'dispatch' },
+  about: 'about',
+  trustFrom: 'trust grows with coverage',
+  numShort: 'Short (1.2M)',
+  numFull: 'Full digits',
+  buyRow: 'Buy',
+  deeperNeedsTier: 'upgrade the station for more',
   themeDark: 'Dark',
   themeLight: 'Light',
   exportBtn: 'Export save',
@@ -134,7 +142,18 @@ const STR = {
   needsDrivers: 'Hire drivers first',
 };
 
-const savedRaw = localStorage.getItem(sim.SAVE_KEY);
+// itch serves the game from a sandboxed cross-origin iframe, where Safari and
+// Firefox privacy modes throw on storage access. A throw here would abort the
+// module and the player would get a black page, so every access is guarded and
+// falls back to memory (the session still plays; it just cannot persist).
+const memStore = new Map();
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return memStore.has(k) ? memStore.get(k) : null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { memStore.set(k, v); } },
+  del(k) { try { localStorage.removeItem(k); } catch { memStore.delete(k); } },
+};
+
+const savedRaw = store.get(sim.SAVE_KEY);
 let g = sim.hydrate(savedRaw);
 let offline = null;
 try {
@@ -146,9 +165,23 @@ try {
 let paused = true; // boot into the menu
 
 const $ = (id) => document.getElementById(id);
-const fmt = (n) => Math.floor(n).toLocaleString('sv-SE').replace(/\s/g, '\u2009');
+const NUMFMT_KEY = 'tunnelbana_numfmt';
+let numShort = store.get(NUMFMT_KEY) !== 'full';
+const SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi'];
+const grouped = (n) => Math.floor(n).toLocaleString('sv-SE').replace(/\s/g, '\u2009');
+function fmt(n) {
+  n = Math.floor(n);
+  if (!numShort || n < 1e5) return grouped(n);
+  if (!isFinite(n)) return '∞';
+  let v = n, i = 0;
+  // 999.5 not 1000: rounding to zero decimals at three digits otherwise prints
+  // "1000K" instead of rolling over to "1.00M".
+  while (v >= 999.5 && i < SUFFIX.length - 1) { v /= 1000; i++; }
+  return (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : v.toFixed(0)) + SUFFIX[i];
+}
 // Pass 02, section 02: the unit gets its own dimmer span so the value reads
 // as the value, and thousands group with a thin space, never a comma.
+const kr = (n) => grouped(n);
 const numHTML = (n, unit) => fmt(n) + '<span class="tb-num__unit">' + unit + '</span>';
 
 // --- Theme (light mode is a testing aid; dark is the designed theme) ---
@@ -156,11 +189,11 @@ const THEME_KEY = 'tunnelbana_theme';
 const NIGHT_STYLE = 'basemap/tunnelbana-night.json';
 const LIGHT_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 const urlTheme = new URLSearchParams(location.search).get('theme');
-let theme = (urlTheme || localStorage.getItem(THEME_KEY)) === 'light' ? 'light' : 'dark';
+let theme = (urlTheme || store.get(THEME_KEY)) === 'light' ? 'light' : 'dark';
 
 function applyTheme(next) {
   theme = next;
-  localStorage.setItem(THEME_KEY, theme);
+  store.set(THEME_KEY, theme);
   document.documentElement.dataset.theme = theme;
   render.setTheme(theme);
   if (map) {
@@ -187,6 +220,10 @@ render.init($('map'));
 let map = null;
 let basemapUp = false;
 function basemapFailed() {
+  // Hand projection back to the static fallback, or the game keeps asking a map
+  // that never loaded where things are.
+  map = null;
+  render.setProjector(null);
   render.setBasemap('off');
   $('map-status').hidden = false;
   $('map-status').textContent = STR.mapDown;
@@ -311,16 +348,19 @@ window.addEventListener('resize', () => render.resize());
 // --- Menu ---
 const menu = $('menu');
 function hasSave() {
-  return localStorage.getItem(sim.SAVE_KEY) !== null;
+  return store.get(sim.SAVE_KEY) !== null;
 }
 function menuView(which) {
   $('main-view').hidden = which !== 'main';
   $('settings-view').hidden = which !== 'settings';
   $('about-view').hidden = which !== 'about';
   $('help-view').hidden = which !== 'help';
+  $('ach-view').hidden = which !== 'ach';
+  if (which === 'ach') renderAchievements();
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
+    $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
     $('settings-export').textContent = STR.exportBtn;
     $('settings-import').textContent = STR.importBtn;
     $('import-text').hidden = true;
@@ -346,6 +386,8 @@ $('menu-settings').addEventListener('click', () => settingsView(true));
 $('menu-about').addEventListener('click', () => menuView('about'));
 $('about-back').addEventListener('click', () => menuView('main'));
 $('menu-help').addEventListener('click', () => menuView('help'));
+$('menu-ach').addEventListener('click', () => menuView('ach'));
+$('ach-back').addEventListener('click', () => menuView('main'));
 $('help-back').addEventListener('click', () => menuView('main'));
 $('about-mark').addEventListener('click', () => {
   if (menu.hidden) showMenu('pause');
@@ -409,7 +451,9 @@ function mailFallback(text, ctx) {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    return 'mail';
+    // The anchor click is frequently blocked in a sandboxed frame and there is
+    // no way to detect it, so claim only the copy, which did happen.
+    return copied ? 'copied' : 'mail';
   } catch {
     return copied ? 'copied' : false;
   }
@@ -427,6 +471,12 @@ $('settings-back').addEventListener('click', () => settingsView(false));
 $('menu-quit').addEventListener('click', () => {
   save();
   showMenu('start');
+});
+$('settings-numfmt').addEventListener('click', () => {
+  numShort = !numShort;
+  store.set(NUMFMT_KEY, numShort ? 'short' : 'full');
+  $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
+  updateUI();
 });
 $('settings-theme').addEventListener('click', () => {
   applyTheme(theme === 'light' ? 'dark' : 'light');
@@ -482,7 +532,7 @@ $('settings-reset').addEventListener('click', () => {
     btn.textContent = STR.resetConfirm;
     return;
   }
-  localStorage.removeItem(sim.SAVE_KEY);
+  store.del(sim.SAVE_KEY);
   g = sim.hydrate(null);
   updateUI();
   homeCamera();
@@ -492,7 +542,8 @@ $('settings-reset').addEventListener('click', () => {
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (menu.hidden) showMenu('pause');
-    else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden) menuView('main');
+    else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
+             !$('ach-view').hidden) menuView('main');
     else closeMenu();
   }
 });
@@ -660,6 +711,7 @@ window.addEventListener('pointercancel', () => {
 
 // Right-click a line end: demolish it.
 wrap.addEventListener('contextmenu', (e) => {
+  e.preventDefault();   // never surrender the right-click to the browser here
   if (paused) return;
   const p = canvasPos(e);
   const ref = render.nearEnd(g, p);
@@ -685,12 +737,21 @@ function selectStation(sel) {
 function stationUpgRow(kind) {
   const st = g.lines[selected.li].stations[selected.i];
   const btn = $('sp-' + kind);
-  const cost = sim.upgradeCost(g, selected.li, selected.i, kind);
   const lvl = st[kind];
-  btn.textContent = (kind === 'ent' ? STR.entRow : STR.gatesRow) +
-    ' ' + STR.lvl + ' ' + lvl + '/' + B.upgMax +
-    (lvl >= B.upgMax ? '' : ' · ' + fmt(cost.kr) + ' kr');
-  btn.disabled = !sim.canUpgradeStation(g, selected.li, selected.i, kind);
+  const cap = sim.upgMaxFor(st);
+  const room = cap - lvl;
+  // Same contract as the shop: buy what is affordable up to the quantity, so a
+  // x10 selection never disables a ladder the player could still climb.
+  const aff = sim.stationAffordableLevels(g, selected.li, selected.i, kind,
+    buyQty === Infinity ? 0 : buyQty);
+  const n = room <= 0 ? 0 : Math.max(1, Math.min(aff || 1, room));
+  const cost = sim.stationBulkCost(g, selected.li, selected.i, kind, n);
+  btn.textContent = STR.upgRow[kind] +
+    ' ' + STR.lvl + ' ' + lvl + '/' + cap +
+    (room <= 0 ? '' : ' · ' + (n > 1 ? '×' + n + ' ' : '') + kr(cost) + ' kr');
+  // A capped ladder says why, so "disabled" is information (pass 02, §03).
+  btn.disabled = room <= 0 || g.money < cost;
+  if (room <= 0 && st.tier < 3) btn.textContent += ' · ' + STR.deeperNeedsTier;
 }
 
 function updateStationPanel() {
@@ -731,6 +792,7 @@ function updateStationPanel() {
   }
   stationUpgRow('ent');
   stationUpgRow('gates');
+  stationUpgRow('shop');
   const db = $('sp-down');
   db.hidden = !sim.canDowngradeTier(g, selected.li, selected.i);
   db.textContent = STR.tierDown;
@@ -748,9 +810,11 @@ function updateStationPanel() {
   lb.hidden = left <= 0;
 }
 
-for (const kind of ['tier', 'ent', 'gates']) {
+for (const kind of ['tier', 'ent', 'gates', 'shop']) {
   $('sp-' + (kind === 'tier' ? 'tier-btn' : kind)).addEventListener('click', () => {
-    if (selected && sim.upgradeStation(g, selected.li, selected.i, kind)) updateUI();
+    if (!selected) return;
+    const n = kind === 'tier' ? 1 : (buyQty === Infinity ? 0 : buyQty);
+    if (sim.upgradeStationN(g, selected.li, selected.i, kind, n) > 0) updateUI();
   });
 }
 $('sp-close').addEventListener('click', () => selectStation(null));
@@ -798,6 +862,40 @@ function updateLineRows() {
   $('line-rows').innerHTML = rows.join('');
 }
 
+// --- Achievements: aims, stated plainly, with the bonus they carry ---
+let achToastAt = 0;
+function showAchievement(name) {
+  $('ach-toast-label').textContent = STR.achEarned;
+  $('ach-toast-name').textContent = name;
+  $('ach-toast').hidden = false;
+  achToastAt = performance.now();
+}
+function bonusText(a) {
+  const bits = [];
+  if (a.mult) for (const k of Object.keys(a.mult)) {
+    const pct = Math.round(Math.abs(1 - a.mult[k]) * 100);
+    bits.push((a.mult[k] > 1 ? '+' : '−') + pct + '% ' + (STR.bonusName[k] || k));
+  }
+  if (a.add) for (const k of Object.keys(a.add)) {
+    bits.push('+' + Math.round(a.add[k] * 100) + '% ' + (STR.bonusName[k] || k));
+  }
+  return bits.join(' · ');
+}
+
+function renderAchievements() {
+  const got = sim.ACHIEVEMENTS.filter((a) => g.achieved[a.id]).length;
+  $('ach-count').textContent = got + ' of ' + sim.ACHIEVEMENTS.length + ' earned';
+  $('ach-list').className = 'tb-ach';
+  $('ach-list').innerHTML = sim.ACHIEVEMENTS.map((a) => {
+    const has = !!g.achieved[a.id];
+    return '<div class="tb-ach__row' + (has ? ' tb-ach__row--got' : '') + '">' +
+      '<span class="tb-ach__name">' + a.name + '</span>' +
+      '<span class="tb-ach__hint">' + (has ? a.hint : a.hint) + '</span>' +
+      '<span class="tb-ach__bonus">' + bonusText(a) + '</span>' +
+      '</div>';
+  }).join('');
+}
+
 // --- Shop (pass 02, section 05) ---
 // Each card is icon + name + cost + description + a foot carrying either the
 // level pips or the reason it cannot be bought. The icon and the category come
@@ -830,6 +928,29 @@ const ICONS = {};
   if (tpl) tpl.content.querySelectorAll('svg[data-i]').forEach((svg) => { ICONS[svg.getAttribute('data-i')] = svg; });
 }
 
+// Buy quantity, applied to every levelled purchase (catalog and station).
+// Session state, not saved: it is a mode you hold, not a preference.
+let buyQty = 1;   // 1 | 10 | Infinity (MAX)
+
+function qtyLabel(n) { return n === Infinity ? 'MAX' : '×' + n; }
+
+function renderQty() {
+  const row = $('qty-row');
+  row.innerHTML = [1, 10, Infinity].map((n) =>
+    '<button class="tb-btn tb-btn--inline" data-qty="' + (n === Infinity ? 'max' : n) + '"' +
+    (buyQty === n ? ' aria-pressed="true"' : '') + '>' + qtyLabel(n) + '</button>').join('');
+}
+
+renderQty();
+
+$('qty-row').addEventListener('click', (e) => {
+  const q = e.target?.dataset?.qty;
+  if (!q) return;
+  buyQty = q === 'max' ? Infinity : Number(q);
+  renderQty();
+  updateUI();
+});
+
 const shopEl = $('shop');
 const cards = {};
 for (const item of sim.CATALOG) {
@@ -851,7 +972,9 @@ for (const item of sim.CATALOG) {
   card.querySelector('.tb-shop__desc').textContent = s.desc;
   card.querySelector('[data-slot=cat]').textContent = meta.cat;
   card.addEventListener('click', () => {
-    if (!paused && sim.buy(g, item.id)) updateUI();
+    if (paused) return;
+    // One transaction, however many levels: the closed forms make MAX cheap.
+    if (sim.buyN(g, item.id, buyQty === Infinity ? 0 : buyQty) > 0) updateUI();
   });
   shopEl.appendChild(card);
   cards[item.id] = card;
@@ -887,12 +1010,20 @@ function updateShop() {
     if (!visible) continue;
 
     const gated = item.needs && !g.owned[item.needs];
-    const cost = sim.shopCost(g, item.id);
+    // How many levels this click would buy, and what that costs. MAX asks the
+    // sim; a fixed quantity is capped by the room left, and is all-or-nothing
+    // (the standard incremental behaviour: buy ten or buy none).
+    const room = sim.maxFor(g, item) - owned;
+    const aff = sim.affordableLevels(g, item.id, buyQty === Infinity ? 0 : buyQty);
+    const wantN = Math.max(1, Math.min(aff || 1, room));
+    const nLevels = item.max === 1 ? 1 : wantN;
+    const cost = nLevels > 1 ? sim.bulkCost(g, item.id, nLevels) : sim.shopCost(g, item.id);
     const isPk = item.currency === 'pk';
     const unit = isPk ? ' ' + STR.trust : ' kr';
     const have = isPk ? g.pk : g.money;
     const short = Math.max(0, cost - have);
-    const affordable = open && !gated && !maxed && sim.canBuy(g, item.id);
+    const affordable = open && !gated && !maxed && sim.canBuy(g, item.id) &&
+      (isPk ? g.pk : g.money) >= cost;
 
     card.disabled = !affordable;
     card.dataset.state = soon ? 'locked'
@@ -902,7 +1033,7 @@ function updateShop() {
       : 'affordable';
 
     card.querySelector('.tb-shop__cost').textContent =
-      maxed ? STR.max : fmt(cost) + unit;
+      maxed ? STR.max : (nLevels > 1 ? '×' + nLevels + '  ' : '') + kr(cost) + unit;
 
     // The foot's left slot: the reason it cannot be bought, or the level owned.
     // Disabled must stay legible and name the shortfall, never fade out.
@@ -917,7 +1048,7 @@ function updateShop() {
       left.textContent = STR.needsDrivers;
     } else if (short > 0) {
       left.className = 'tb-shop__short';
-      left.textContent = STR.need + ' ' + fmt(short) + unit + ' ' + STR.more;
+      left.textContent = STR.need + ' ' + kr(short) + unit + ' ' + STR.more;
     } else if (item.id === 'train') {
       left.className = '';
       left.innerHTML = pipsHTML(owned + 1, sim.maxFor(g, item) + 1);
@@ -945,7 +1076,13 @@ function updateShop() {
     $('era-btn').innerHTML = STR.advance + ' ' + next.year +
       '<span class="tb-btn__why" style="color: var(--tb-politic)">' + next.pk + ' ' + STR.trust + '</span>';
     $('era-btn').disabled = !sim.canAdvanceEra(g);
-    $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' ' + STR.riders + ' · ' + next.pk + ' ' + STR.trust;
+    const needPk = Math.max(0, next.pk - g.pk);
+    const rate = sim.pkRate(g);
+    const eta = needPk > 0 && rate > 0 ? Math.ceil(needPk / rate / 60) : 0;
+    $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' ' + STR.riders +
+      ' · ' + next.pk + ' ' + STR.trust +
+      (eta > 0 ? ' (' + STR.about + ' ' + eta + ' min at this coverage)' : '') +
+      ' · ' + STR.trustFrom;
   } else {
     $('era-btn').hidden = true;
     $('era-needs').textContent = STR.arcDone;
@@ -958,13 +1095,18 @@ function updateUI() {
   const gross = sim.grossRate(g);
   const upkeep = sim.upkeepRate(g);
   const net = gross - upkeep;
-  $('rate-gross').textContent = '+' + gross.toFixed(1) + ' kr/s fares';
+  $('rate-gross').textContent = '+' + Math.max(0, gross - sim.commerceRate(g)).toFixed(1) + ' kr/s fares';
   $('rate-upkeep').textContent = '−' + upkeep.toFixed(1) + ' kr/s upkeep';
   const netEl = $('rate-net');
   netEl.textContent = (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(1) + ' kr/s';
   netEl.classList.toggle('tb-rate--down', net < 0);
   netEl.classList.toggle('tb-rate--up', net >= 0);
   $('stat-delivered').textContent = fmt(g.totalDelivered);
+  const rent = sim.commerceRate(g);
+  $('rate-rent').textContent = rent > 0 ? '+' + rent.toFixed(1) + ' kr/s rent' : '';
+  // grossRate() already contains rent, so the fares row must exclude it or the
+  // readout contradicts itself (review: rows summed to 429.8 against a net of
+  // 310.8, and a third of "fares" was actually rent).
   $('riders-label').textContent = STR.ridersCarried;
   $('money').title = STR.krTitle;
   // Riders per minute, from the sim's own 60 s window.
@@ -975,7 +1117,9 @@ function updateUI() {
   $('stat-trains').textContent =
     sim.idleTrains(g).length + ' / ' + (g.trains.length - mb) +
     (mb ? ' (+' + mb + ' ' + STR.mothballedTag + ')' : '');
+  const pkPerMin = sim.pkRate(g) * 60;
   $('pk').textContent = g.pk.toFixed(1) + ' ' + STR.trust;
+  $('pk-rate').textContent = pkPerMin > 0 ? '+' + pkPerMin.toFixed(1) + STR.perMin : '';
   const phase = g.opened ? STR.phases[sim.dayPhase(g)] : STR.openingDay;
   $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage +
     (phase ? ' · ' + phase : '');
@@ -1022,11 +1166,16 @@ function frame(now) {
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
+    if (e.type === 'achievement') showAchievement(e.name);
     if (e.type === 'open') render.addFloatGeo(e.geo, STR.ribbonCut);
     if (e.type === 'era') showMoment(e.year);
     if (e.type === 'ending') showEnding();
   }
   g.events.length = 0;
+  if (achToastAt && performance.now() - achToastAt > 4200) {
+    achToastAt = 0;
+    $('ach-toast').hidden = true;
+  }
   if (map && basemapUp) {
     map.triggerRepaint(); // drawing happens in the map's render event, never here
   } else {
@@ -1038,7 +1187,7 @@ function frame(now) {
 
 // --- Save ---
 function save() {
-  localStorage.setItem(sim.SAVE_KEY, sim.serialize(g));
+  store.set(sim.SAVE_KEY, sim.serialize(g));
 }
 setInterval(save, 5000);
 document.addEventListener('visibilitychange', () => {
@@ -1059,6 +1208,11 @@ if (offline) {
     ' kr, ' + fmt(offline.delivered) + ' ' + STR.riders + ' carried.';
   save();
 }
+// The module reached the end: everything is wired, so drop the loading veil.
+// (It first went in above the wrong showMenu and the game booted behind a
+// full-screen "Loading" overlay: caught by looking at a screenshot, not by the
+// console, which was clean.)
+document.getElementById('boot')?.remove();
 showMenu('start');
 updateUI();
 requestAnimationFrame(frame);
