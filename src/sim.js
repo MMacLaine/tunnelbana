@@ -2027,7 +2027,7 @@ export const VERSION = '0.8.0';
 
 export function serialize(g) {
   return JSON.stringify({
-    saveVersion: 7,
+    saveVersion: 8,
     savedAt: Date.now(),
     money: Math.round(g.money),
     pk: Math.round(g.pk * 100) / 100,
@@ -2098,6 +2098,14 @@ export function hydrate(raw) {
   if (s.achieved && typeof s.achieved === 'object') {
     for (const a of ACHIEVEMENTS) if (s.achieved[a.id]) g.achieved[a.id] = true;
   }
+  // Migration record: what the save was written by, so the game can explain
+  // itself once instead of looking broken. Nothing is destroyed by a migration
+  // (levels are clamped to the tier cap, never deleted), and achievements are
+  // re-derived on the next tick, so an old save immediately earns what it has
+  // already qualified for.
+  const from = Number(s.saveVersion) || 0;
+  g.migratedFrom = from < 8 ? from : 0;
+  if (g.migratedFrom) checkAchievements(g);
   g.gross60 = Math.max(0, Number(s.gross60) || 0);
   g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
   if (Array.isArray(s.srcW) && s.srcW.length === g.srcW.length) {
