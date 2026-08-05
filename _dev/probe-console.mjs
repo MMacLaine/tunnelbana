@@ -100,6 +100,34 @@ async function main() {
       })`);
       console.log(id + ':', r, '->', state);
     }
+
+    // The achievement toast has to LEAD somewhere (owner ask 2026-08-05). It is
+    // a button that opens the achievements list, and the only way to know it
+    // still does is to earn one and click it.
+    await evaluate(ws, `(() => {
+      document.getElementById('menu-resume').click();
+      const t = window.__tb;
+      if (t) t.g.events.push({ type: 'achievement', name: 'Probe' });
+      return !!t;
+    })()`);
+    await sleep(600);   // the toast is raised by the game loop's event drain
+    console.log('ach toast:', await evaluate(ws, `(() => {
+      const toast = document.getElementById('ach-toast');
+      if (toast.hidden) return 'toast did not show';
+      if (toast.tagName !== 'BUTTON') return 'toast is not a button: ' + toast.tagName;
+      toast.click();
+      return 'clicked -> menu=' + document.getElementById('menu').hidden +
+             ' achView=' + document.getElementById('ach-view').hidden +
+             ' rows=' + document.getElementById('ach-list').childElementCount +
+             ' toastHidden=' + toast.hidden;
+    })()`));
+    // The icon key: every glyph the shop uses must have a line explaining it.
+    console.log('icon key:', await evaluate(ws, `(() => {
+      document.getElementById('ach-back').click();
+      document.getElementById('menu-help').click();
+      const k = document.getElementById('icon-key');
+      return k ? k.childElementCount + ' rows' : 'MISSING';
+    })()`));
   } finally {
     chrome.kill();
     server.kill();
