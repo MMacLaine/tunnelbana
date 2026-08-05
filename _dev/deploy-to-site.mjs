@@ -54,10 +54,14 @@ const added = [], updated = [], removed = [];
 // The published copies carry cache-busting stamps that the sources do not, so
 // a byte comparison would report every HTML and JS file as changed on every
 // run (and make --check useless). Compare with the stamps normalised away.
+// The analytics beacon is injected below and exists only in the published copy,
+// so it is normalised away here for the same reason.
 function comparable(path, rel) {
   const buf = readFileSync(path);
   if (!/\.(html|js)$/.test(rel)) return buf;
-  return Buffer.from(buf.toString('utf8').replace(/\?v=[0-9a-z.]*/g, ''), 'utf8');
+  return Buffer.from(buf.toString('utf8')
+    .replace(/\?v=[0-9a-z.]*/g, '')
+    .replace(/<!-- Cloudflare Web Analytics -->[\s\S]*?<!-- End Cloudflare Web Analytics -->\n?/g, ''), 'utf8');
 }
 
 for (const [rel, src] of wanted) {
@@ -88,10 +92,26 @@ const version = (readFileSync(join(SRC, 'src/sim.js'), 'utf8').match(/VERSION = 
 const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'ui.css', 'tokens-ui.css', 'tokens.css']
   .map((f) => readFileSync(join(SRC, f))).join('\n');
 const stamp = createHash('sha256').update(hashSrc).digest('hex').slice(0, 10);
+// The Cloudflare Web Analytics beacon is injected HERE rather than living in
+// index.html, so it reaches the site copy and never the itch zip. Two reasons,
+// both load-bearing: build-itch.mjs gates on an external-host allowlist, and
+// the itch store copy says the game collects nothing about you. A beacon in the
+// shared source would quietly falsify both. Cookieless, aggregate page views,
+// same token as the rest of maclaine.se; the About panel says so in both builds.
+const BEACON = `<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "423774682f304c9bae794a5f348fe3ed"}'></script><!-- End Cloudflare Web Analytics -->`;
 if (!CHECK) {
   const htmlPath = join(SITE, 'index.html');
-  const html = readFileSync(htmlPath, 'utf8').replace(/\?v=[0-9a-z.]+/g, '?v=' + stamp);
+  let html = readFileSync(htmlPath, 'utf8').replace(/\?v=[0-9a-z.]+/g, '?v=' + stamp);
+  if (!html.includes('cloudflareinsights.com')) {
+    html = html.replace('</head>', BEACON + '\n</head>');
+  }
   writeFileSync(htmlPath, html);
+  // Assert what was written. An injection that silently matches nothing is the
+  // same failure mode as the unstamped-import bug below, found the hard way.
+  if (!readFileSync(htmlPath, 'utf8').includes('static.cloudflareinsights.com')) {
+    console.error('BEACON NOT INJECTED: no </head> found in the published index.html.');
+    process.exit(1);
+  }
 }
 // ...and the SAME stamp has to travel down the module graph. index.html busts
 // main.js, but main.js imports './sim.js' with no query at all, so a browser or
