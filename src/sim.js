@@ -2023,7 +2023,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.7.0';
+export const VERSION = '0.8.0';
 
 export function serialize(g) {
   return JSON.stringify({
