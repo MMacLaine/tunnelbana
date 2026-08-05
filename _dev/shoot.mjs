@@ -95,6 +95,15 @@ async function main() {
     await evaluate(ws, `document.getElementById('menu-help').click()`);
     await sleep(400);
     await shot(ws, '2-help');
+    // The icon key lives at the foot of How to play, so it needs the scroll.
+    await evaluate(ws, `(() => {
+      const el = document.getElementById('icon-key');
+      if (!el) return 'no key';
+      el.scrollIntoView({ block: 'end' });
+      return el.childElementCount + ' rows';
+    })()`).then((r) => console.log('icon key:', r));
+    await sleep(300);
+    await shot(ws, '2a-icon-key');
     // Achievements page, with a couple already earned so both states show.
     await evaluate(ws, `document.getElementById('help-back').click();
       document.getElementById('menu-ach').click()`);
