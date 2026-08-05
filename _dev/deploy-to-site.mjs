@@ -48,11 +48,20 @@ for (const d of SHIP_DIRS) {
 const existing = existsSync(SITE) ? new Set(walk(SITE)) : new Set();
 const added = [], updated = [], removed = [];
 
+// The published copies carry cache-busting stamps that the sources do not, so
+// a byte comparison would report every HTML and JS file as changed on every
+// run (and make --check useless). Compare with the stamps normalised away.
+function comparable(path, rel) {
+  const buf = readFileSync(path);
+  if (!/\.(html|js)$/.test(rel)) return buf;
+  return Buffer.from(buf.toString('utf8').replace(/\?v=[0-9a-z.]*/g, ''), 'utf8');
+}
+
 for (const [rel, src] of wanted) {
   const dst = join(SITE, rel);
   if (!existing.has(rel)) {
     added.push(rel);
-  } else if (readFileSync(src).compare(readFileSync(dst)) !== 0) {
+  } else if (comparable(src, rel).compare(comparable(dst, rel)) !== 0) {
     updated.push(rel);
   }
   if (!CHECK) {
@@ -76,10 +85,37 @@ const version = (readFileSync(join(SRC, 'src/sim.js'), 'utf8').match(/VERSION = 
 const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'ui.css', 'tokens-ui.css', 'tokens.css']
   .map((f) => readFileSync(join(SRC, f))).join('\n');
 const stamp = createHash('sha256').update(hashSrc).digest('hex').slice(0, 10);
-{
+if (!CHECK) {
   const htmlPath = join(SITE, 'index.html');
   const html = readFileSync(htmlPath, 'utf8').replace(/\?v=[0-9a-z.]+/g, '?v=' + stamp);
   writeFileSync(htmlPath, html);
+}
+// ...and the SAME stamp has to travel down the module graph. index.html busts
+// main.js, but main.js imports './sim.js' with no query at all, so a browser or
+// edge node holding a 4-hour-old sim.js pairs it with a brand-new main.js. That
+// is not theoretical: v0.8.2 shipped and the live page threw
+// "sim.pkCap is not a function" on load, a new main calling into an old sim.
+// Every relative import in a shipped module gets the stamp, so one changed byte
+// anywhere gives the whole graph new URLs. Third time this bug class has
+// bitten (version query, duplicate version, now the graph below the entry
+// point), hence the assertion below rather than just the fix.
+if (!CHECK) {
+  const IMPORT_RE = /(\bfrom\s+['"])(\.\.?\/[\w./-]+\.js)(['"])/g;
+  for (const rel of wanted.keys()) {
+    if (!rel.endsWith('.js') || !rel.startsWith('src/')) continue;
+    const p = join(SITE, rel);
+    const src = readFileSync(p, 'utf8');
+    const out = src.replace(IMPORT_RE, (_m, a, spec, z) => a + spec + '?v=' + stamp + z);
+    if (out !== src) writeFileSync(p, out);
+    // Re-read what was actually written and assert it: the rewrite above is a
+    // regex, and a regex that silently matches nothing is how this shipped.
+    const left = [...readFileSync(p, 'utf8').matchAll(/\bfrom\s+['"](\.\.?\/[^'"]+)['"]/g)]
+      .map((m) => m[1]).filter((spec) => !spec.includes('?v='));
+    if (left.length) {
+      console.error('UNSTAMPED IMPORT in ' + rel + ': ' + left.join(', '));
+      process.exit(1);
+    }
+  }
 }
 // index.html cache-busts its module and stylesheets with ?v=<version>. If that
 // drifts from the version, a browser can pair a new page with a stale script,
