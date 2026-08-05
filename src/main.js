@@ -69,10 +69,11 @@ const STR = {
   stops: 'stops',
   fbOpen: 'Feedback',
   fbTitle: 'What broke, or what would you love?',
-  fbHint: 'Goes to ' + FEEDBACK_TO_LABEL + ' by email.',
+  fbHint: 'Goes straight to the person who made this.',
   fbSend: 'Submit',
   fbPlaceholder: 'Write anything: bugs, ideas, confusion...',
-  fbThanks: 'Opening your email app (and copied, just in case).',
+  fbSent: 'Sent. Thank you, genuinely.',
+  fbThanks: 'Could not reach the server, so opening your email app instead.',
   fbCopied: 'Copied. Send it to ' + FEEDBACK_TO_LABEL + ' when you can.',
   fbManual: 'Could not send. Email ' + FEEDBACK_TO_LABEL + ' instead.',
   fbEmpty: 'Write something first.',
@@ -349,19 +350,33 @@ $('fb-open').addEventListener('click', () => {
 });
 $('fb-close').addEventListener('click', () => { $('fb-panel').hidden = true; });
 const FEEDBACK_TO = 'matthew@maclaine.se';
+// Own infrastructure, no third party: a Pages Function on maclaine.se stores
+// the note (functions/api/feedback.js in the site repo). One click, no mail
+// client, nothing leaves the owner's own Cloudflare account.
+const FEEDBACK_URL = 'https://maclaine.se/api/feedback';
 
-// The game is a static page (itch zip, no backend), so submitting opens the
-// player's mail client prefilled. The clipboard copy stays as the fallback for
-// anyone without one, or when an itch iframe blocks the handler: the note under
-// the button says so, because a submit button that silently does nothing is
-// worse than one that asks for a second step.
+// Falls back to the mail path if the endpoint is unreachable (offline, or an
+// itch build older than the deploy), because a submit button that silently
+// eats what someone bothered to type is the worst outcome available.
 async function submitFeedback(text) {
   const ctx = 'era ' + sim.eraYear(g) + ' · ' + sim.stationCount(g) + ' stations · ' +
     sim.CATALOG.filter((i) => g.owned[i.id]).length + ' upgrades';
+  try {
+    const res = await fetch(FEEDBACK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, ctx }),
+    });
+    if (res.ok) return 'sent';
+  } catch {}
+  return mailFallback(text, ctx);
+}
+
+function mailFallback(text, ctx) {
   const body = text + '\n\n---\nTunnelbana · ' + ctx;
   let copied = false;
   try {
-    await navigator.clipboard.writeText(body);
+    navigator.clipboard.writeText(body);
     copied = true;
   } catch {}
   try {
@@ -383,7 +398,8 @@ $('fb-send').addEventListener('click', async () => {
   const text = $('fb-text').value.trim();
   if (!text) { $('fb-note').textContent = STR.fbEmpty; return; }
   const how = await submitFeedback(text);
-  $('fb-note').textContent = how === 'mail' ? STR.fbThanks
+  $('fb-note').textContent = how === 'sent' ? STR.fbSent
+    : how === 'mail' ? STR.fbThanks
     : how === 'copied' ? STR.fbCopied : STR.fbManual;
   if (how) $('fb-text').value = '';
 });
