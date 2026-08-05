@@ -217,6 +217,13 @@
     #hud-tl .brand { display: none; }
   }
 </style>
+<!-- Cloudflare Web Analytics: cookieless, aggregate page counts, no personal
+     data and nothing cross-site. Same token as the rest of maclaine.se, and it
+     ships in the itch build too, where the traffic lands under the itch.zone
+     hostname so the two audiences stay distinguishable. The only third-party
+     script here; build-itch.mjs names the host in its allowlist, so adding a
+     second one has to be a deliberate edit rather than a drift. -->
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "423774682f304c9bae794a5f348fe3ed"}'></script>
 </head>
 <body>
   <div id="boot">Loading Stockholm…</div>
@@ -519,7 +526,7 @@
         <div class="tb-setting"><span>Typeface</span><span class="tb-setting__v">IBM Plex Mono (SIL OFL)</span></div>
         <div class="tb-setting"><span>Visual system</span><span class="tb-setting__v">Tunnelbana pass 02</span></div>
         <div class="tb-setting"><span>A game by</span><span class="tb-setting__v">Matthew MacLaine</span></div>
-        <div class="tb-setting"><span>Analytics</span><span class="tb-setting__v">page counts on maclaine.se only, cookieless</span></div>
+        <div class="tb-setting"><span>Analytics</span><span class="tb-setting__v">anonymous page counts, cookieless</span></div>
         <button class="tb-btn tb-btn--std tb-btn--block" id="about-back" style="margin-top: 1rem">Back</button>
       </div>
 

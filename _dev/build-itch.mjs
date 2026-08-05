@@ -22,7 +22,8 @@ for (const item of INCLUDE) {
 
 // Guard: every staged file, not just the HTML, and the allowlist names the
 // runtime endpoints explicitly so adding one is a deliberate edit here.
-const RUNTIME = new Set(['tiles.openfreemap.org', 'maclaine.se']);
+const RUNTIME = new Set(['tiles.openfreemap.org', 'maclaine.se',
+                         'static.cloudflareinsights.com']);
 const CREDIT = new Set(['openfreemap.org', 'www.openstreetmap.org', 'maplibre.org']);
 // Not network calls at all: XML namespaces and source comments. Named rather
 // than folded into the allowlist, so the distinction stays visible.
