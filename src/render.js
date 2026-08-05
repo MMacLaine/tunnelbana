@@ -6,7 +6,7 @@
 import { ANCHORS, CORRIDORS, LINE, WATER } from './data.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
-  endStation, waitingAt, trainPos, anchorRevealed, corridorBegun,
+  endStation, waitingAt, trainPos, anchorRevealed, teaseVisible,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -308,7 +308,7 @@ function drawGlow(g) {
 // next, drawn until the corridor's first anchor is built.
 function drawTease(g) {
   for (const c of CORRIDORS) {
-    if (!c.tease || corridorBegun(g, c)) continue;
+    if (!teaseVisible(g, c)) continue;
     const from = project(c.tease.from);
     const to = project(c.tease.to);
     ctx.beginPath();

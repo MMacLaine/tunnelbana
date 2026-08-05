@@ -12,11 +12,9 @@ const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
   noIdle: 'All trains are out',
-  hints: 'Fares pay ' + B.farePerKm + ' kr per passenger-kilometre, collected as passengers board ' +
-    '(space rings the bell too). Drag either end of the line anywhere on the map: dashed rings are ' +
-    'real stations with full demand, anywhere else earns what the label says. Right-click a line end ' +
-    'to demolish it (' + B.demolishCost + ' kr). Trust grows with how much of the ' +
-    'region you serve, and buys the big projects. Esc for the menu.',
+  // A short line, now that How to play carries the manual.
+  hints: 'Drag a line end to build. Space rings the bell. Right-click an end to demolish. ' +
+    'Esc for the menu; How to play explains the rest.',
   tiers: ['', 'Stop', 'Station', 'Hub'],
   tierUp: ['', 'Upgrade to Station', 'Upgrade to Hub', ''],
   tierMax: 'Hub, fully built',
@@ -64,6 +62,11 @@ const STR = {
   ridersCarried: 'riders carried',
   perMin: '/min',
   everyS: 'every ',
+  bellAuto: 'Automatic · every',
+  unlocksIn: 'Unlocks in',
+  need: 'Need',
+  more: 'more',
+  ownedLower: 'owned',
   openingDay: 'OPENING DAY',
   ribbonCut: 'The line is open',
   stops: 'stops',
@@ -143,8 +146,10 @@ try {
 let paused = true; // boot into the menu
 
 const $ = (id) => document.getElementById(id);
-// sv-SE groups with NBSP; the design system wants a plain thin gap (1 240 kr).
-const fmt = (n) => Math.floor(n).toLocaleString('sv-SE').replace(/ /g, ' ');
+const fmt = (n) => Math.floor(n).toLocaleString('sv-SE').replace(/\s/g, '\u2009');
+// Pass 02, section 02: the unit gets its own dimmer span so the value reads
+// as the value, and thousands group with a thin space, never a comma.
+const numHTML = (n, unit) => fmt(n) + '<span class="tb-num__unit">' + unit + '</span>';
 
 // --- Theme (light mode is a testing aid; dark is the designed theme) ---
 const THEME_KEY = 'tunnelbana_theme';
@@ -166,6 +171,7 @@ function applyTheme(next) {
     map.once('idle', () => {
       try {
         if (!map.getLayer('tb-game')) map.addLayer(gameLayer());
+        topGameLayer();
       } catch {}
       render.setBasemap('on');
     });
@@ -212,7 +218,11 @@ if (window.maplibregl) {
     // different vsyncs by the compositor (the "stations swim while panning"
     // bug, observed on real GPUs and invisible in software rendering); one
     // canvas makes the skew impossible by construction.
-    map.on('load', () => map.addLayer(gameLayer()));
+    map.on('load', () => { map.addLayer(gameLayer()); topGameLayer(); });
+    // Any later change to the style's layer list (sprites, deferred sources,
+    // a theme swap) can leave the game underneath. Re-top it whenever the
+    // stack changes: cheap, idempotent, and it cannot be forgotten.
+    map.on('styledata', topGameLayer);
     setTimeout(() => { if (!basemapUp) basemapFailed(); }, 8000);
   } catch {
     map = null; // no WebGL: the static fallback projector still renders the game
@@ -220,6 +230,15 @@ if (window.maplibregl) {
   }
 } else {
   basemapFailed();
+}
+
+// Keep the game above every basemap layer, including the label layers that
+// ship with the light basemap (the authored night style has none by design).
+function topGameLayer() {
+  if (!map || !map.getLayer || !map.getLayer('tb-game')) return;
+  const layers = map.getStyle && map.getStyle().layers;
+  if (layers && layers[layers.length - 1] && layers[layers.length - 1].id === 'tb-game') return;
+  try { map.moveLayer('tb-game'); } catch {}
 }
 
 // MapLibre custom layer: draws the game canvas as a full-viewport textured quad
@@ -506,13 +525,13 @@ $('era-btn').addEventListener('click', () => {
 
 // --- Bell ---
 const bell = $('bell');
-bell.querySelector('.bell-title').textContent = STR.dispatch;
+bell.querySelector('.tb-bell__t').textContent = STR.dispatch;
 function ringBell() {
   if (paused) return;
   if (sim.dispatch(g)) {
-    bell.classList.remove('rang');
+    bell.classList.remove('is-rung');
     void bell.offsetWidth; // restart the animation
-    bell.classList.add('rang');
+    bell.classList.add('is-rung');
   }
 }
 bell.addEventListener('click', ringBell);
@@ -684,15 +703,19 @@ function updateStationPanel() {
   const waiting = Math.floor(sim.waitingAt(g, selected.li, selected.i));
   const crowd = Math.round(100 * waiting / (sim.stationCap(g) * st.mult));
   const upk = (B.stationUpkeep[st.tier] + B.upgradeUpkeep * (st.ent + st.gates)).toFixed(2);
-  $('sp-stats').textContent =
-    STR.panelDemand + ' ' + st.mult.toFixed(2) + 'x · ' +
-    STR.panelWaiting + ' ' + waiting + ' · ' +
-    STR.panelCrowd + ' ' + crowd + '% · ' +
-    STR.panelUpkeep + ' ' + upk + ' kr/s';
+  // One row per fact (pass 02, section 04: label left, value right).
+  const row = (k, v, cls) =>
+    '<div class="tb-row">' + k + '<span class="tb-row__v' + (cls ? ' ' + cls : '') + '">' + v + '</span></div>';
+  $('sp-stats').innerHTML =
+    row(STR.panelDemand, st.mult.toFixed(2) + '×') +
+    row(STR.panelWaiting, waiting) +
+    row(STR.panelCrowd, crowd + '%', crowd >= 60 ? 'tb-row__v--down' : '') +
+    row(STR.panelUpkeep, upk + ' kr/s');
   // Where this platform's crowd wants to go (read from the OD weights).
   const dirs = sim.odWeights(g, selected.li, selected.i);
-  $('sp-dest').textContent = dirs.length
-    ? STR.panelTop + ': ' + dirs.map((d) => d.name + ' ' + Math.round(d.share * 100) + '%').join(' · ')
+  $('sp-dest').innerHTML = dirs.length
+    ? STR.panelTop + '<span class="tb-row__v">' +
+      dirs.map((d) => d.name + ' ' + Math.round(d.share * 100) + '%').join(' · ') + '</span>'
     : '';
   const tierBtn = $('sp-tier-btn');
   if (st.tier >= 3) {
@@ -764,29 +787,69 @@ function updateLineRows() {
   for (let li = 0; li < g.lines.length; li++) {
     const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
     rows.push(
-      '<div class="line-row"><span class="chip" style="background:' + g.lines[li].color + '"></span>' +
-      '<button class="line-name" data-focus="' + li + '">' + g.lines[li].name + '</button> · ' +
-      g.lines[li].stations.length + ' ' + STR.stops + ' · ' + active + ' 🚆 · ' +
-      (active ? STR.everyS + Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + ' ' +
-      (g.lines.length > 1 ? '<button class="mini-btn" data-li="' + li + '">' + STR.addTrain + '</button>' : '') +
+      '<div class="tb-row"><span class="tb-chip" style="background:' + g.lines[li].color + '"></span>' +
+      '<button class="tb-linkbtn" data-focus="' + li + '">' + g.lines[li].name + '</button>' +
+      '<span class="tb-row__v">' + g.lines[li].stations.length + ' ' + STR.stops + ' · ' +
+      active + ' 🚆 · ' + (active ? Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + '</span>' +
+      (g.lines.length > 1 ? '<button class="tb-btn tb-btn--inline" data-li="' + li + '">' + STR.addTrain + '</button>' : '') +
       '</div>'
     );
   }
   $('line-rows').innerHTML = rows.join('');
 }
 
-// --- Shop ---
+// --- Shop (pass 02, section 05) ---
+// Each card is icon + name + cost + description + a foot carrying either the
+// level pips or the reason it cannot be bought. The icon and the category come
+// from this table: the sim's catalog is economics and should not carry art.
+const SHOP_META = {
+  train:       { icon: 'train', cat: 'Fleet' },
+  drivers:     { icon: 'staff', cat: 'Staff' },
+  timetable:   { icon: 'time',  cat: 'Timetable' },
+  capacity:    { icon: 'cap',   cat: 'Capacity' },
+  bogies:      { icon: 'speed', cat: 'Stock' },
+  turnstiles:  { icon: 'fare',  cat: 'Fare' },
+  westline:    { icon: 'net',   cat: 'Project' },
+  redline:     { icon: 'net',   cat: 'Project' },
+  blueline:    { icon: 'net',   cat: 'Project' },
+  entrances:   { icon: 'cap',   cat: 'Catchment' },
+  through:     { icon: 'thru',  cat: 'Project' },
+  stock1957:   { icon: 'speed', cat: 'Stock' },
+  atc:         { icon: 'sig',   cat: 'Signalling' },
+  c4stock:     { icon: 'speed', cat: 'Stock' },
+  c14stock:    { icon: 'speed', cat: 'Stock' },
+  zonefare:    { icon: 'fare',  cat: 'Fare' },
+  artstation:  { icon: 'art',   cat: 'Comfort' },
+  cbtc:        { icon: 'sig',   cat: 'Signalling' },
+  nightservice:{ icon: 'night', cat: 'Service' },
+};
+
+const ICONS = {};
+{
+  const tpl = document.getElementById('icons');
+  if (tpl) tpl.content.querySelectorAll('svg[data-i]').forEach((svg) => { ICONS[svg.getAttribute('data-i')] = svg; });
+}
+
 const shopEl = $('shop');
 const cards = {};
 for (const item of sim.CATALOG) {
   const s = STR.shop[item.id];
+  const meta = SHOP_META[item.id] || { icon: 'net', cat: '' };
   const card = document.createElement('button');
-  card.className = 'shop-card';
+  card.className = 'tb-shop';
   card.innerHTML =
-    '<span class="shop-top"><span class="shop-name"></span><span class="shop-cost"></span></span>' +
-    '<span class="shop-desc"></span><span class="shop-owned"></span>';
-  card.querySelector('.shop-name').textContent = s.name;
-  card.querySelector('.shop-desc').textContent = s.desc;
+    '<div class="tb-shop__top">' +
+      '<span class="tb-shop__icon"></span>' +
+      '<span class="tb-shop__name"></span>' +
+      '<span class="tb-shop__cost"></span>' +
+    '</div>' +
+    '<span class="tb-shop__desc"></span>' +
+    '<div class="tb-shop__foot"><span data-slot="left"></span><span data-slot="cat"></span></div>';
+  const icon = ICONS[meta.icon];
+  if (icon) card.querySelector('.tb-shop__icon').appendChild(icon.cloneNode(true));
+  card.querySelector('.tb-shop__name').textContent = s.name;
+  card.querySelector('.tb-shop__desc').textContent = s.desc;
+  card.querySelector('[data-slot=cat]').textContent = meta.cat;
   card.addEventListener('click', () => {
     if (!paused && sim.buy(g, item.id)) updateUI();
   });
@@ -794,34 +857,93 @@ for (const item of sim.CATALOG) {
   cards[item.id] = card;
 }
 
+// Level pips: how much of this upgrade you own, at a glance.
+function pipsHTML(owned, max) {
+  // One pip for a single-level item too: filled or not is the clearest
+  // statement of "you own this" (mockup, section 05).
+  if (max < 1) return '';
+  let out = '<span class="tb-pips">';
+  for (let i = 0; i < max; i++) out += '<i class="tb-pip' + (i < owned ? ' tb-pip--on' : '') + '"></i>';
+  return out + '</span>';
+}
+
 function updateShop() {
+  const nextEra = sim.nextEra(g);
   for (const item of sim.CATALOG) {
     const card = cards[item.id];
     const owned = g.owned[item.id];
     const maxed = owned >= sim.maxFor(g, item);
-    // A maxed upgrade leaves the shop entirely (owner ask, 2026-08-04): the
-    // space belongs to what can still be bought. Exception: 'train' reads
-    // maxed only while the fleet cap binds, so it stays as the cap readout.
-    const visible = sim.eraVisible(g, item) && (!maxed || item.id === 'train');
+    const open = sim.eraVisible(g, item);
+    // An era-locked item shows as a PROMISE rather than being hidden (pass 02,
+    // section 05: "a dashed promise with its year"), but only for the era the
+    // player is working toward. Showing all five eras at once would be a wall
+    // of text, not an invitation.
+    const soon = !open && nextEra && item.era === nextEra.year;
+    // A maxed upgrade still leaves the shop (owner ask): the space belongs to
+    // what can be bought. 'train' reads maxed only while the fleet cap binds,
+    // so it stays as the cap readout.
+    const visible = (open && (!maxed || item.id === 'train')) || soon;
     card.style.display = visible ? '' : 'none';
     if (!visible) continue;
+
     const gated = item.needs && !g.owned[item.needs];
-    card.disabled = maxed || gated || !sim.canBuy(g, item.id);
-    const unit = item.currency === 'pk' ? ' ' + STR.trust : ' kr';
-    card.querySelector('.shop-cost').textContent =
-      maxed ? STR.max : fmt(sim.shopCost(g, item.id)) + unit;
-    const ownedEl = card.querySelector('.shop-owned');
-    if (gated) ownedEl.textContent = STR.needsDrivers;
-    else if (item.max === 1) ownedEl.textContent = owned ? '✓' : '';
-    else if (item.id === 'train') ownedEl.textContent = STR.owned + ': ' + (owned + 1);
-    else ownedEl.textContent = owned ? STR.level + ' ' + owned : '';
+    const cost = sim.shopCost(g, item.id);
+    const isPk = item.currency === 'pk';
+    const unit = isPk ? ' ' + STR.trust : ' kr';
+    const have = isPk ? g.pk : g.money;
+    const short = Math.max(0, cost - have);
+    const affordable = open && !gated && !maxed && sim.canBuy(g, item.id);
+
+    card.disabled = !affordable;
+    card.dataset.state = soon ? 'locked'
+      : maxed ? 'maxed'
+      : !affordable ? 'unaffordable'
+      : isPk ? 'project'
+      : 'affordable';
+
+    card.querySelector('.tb-shop__cost').textContent =
+      maxed ? STR.max : fmt(cost) + unit;
+
+    // The foot's left slot: the reason it cannot be bought, or the level owned.
+    // Disabled must stay legible and name the shortfall, never fade out.
+    // Queried by a stable hook, never by the class we overwrite below: doing
+    // that made the slot unfindable on the second update (browser probe).
+    const left = card.querySelector('[data-slot=left]');
+    if (soon) {
+      left.className = 'tb-shop__gate';
+      left.textContent = STR.unlocksIn + ' ' + item.era + (item.needs ? ' · ' + STR.needsDrivers.toLowerCase() : '');
+    } else if (gated) {
+      left.className = 'tb-shop__gate';
+      left.textContent = STR.needsDrivers;
+    } else if (short > 0) {
+      left.className = 'tb-shop__short';
+      left.textContent = STR.need + ' ' + fmt(short) + unit + ' ' + STR.more;
+    } else if (item.id === 'train') {
+      left.className = '';
+      left.innerHTML = pipsHTML(owned + 1, sim.maxFor(g, item) + 1);
+    } else {
+      left.className = '';
+      left.innerHTML = pipsHTML(owned, sim.maxFor(g, item));
+    }
+
+    // The foot's right slot: level count where it means something, else the
+    // category, so every card ends on something true.
+    const catEl = card.querySelector('[data-slot=cat]');
+    const meta = SHOP_META[item.id] || { cat: '' };
+    const max = sim.maxFor(g, item);
+    catEl.textContent = item.id === 'train'
+      ? (owned + 1) + ' ' + STR.ownedLower + ' · ' + meta.cat
+      : owned + ' / ' + max + ' · ' + meta.cat;
   }
   // Era panel
   const next = sim.nextEra(g);
   $('era-now').textContent = STR.eraNow + ' ' + sim.eraYear(g);
   if (next) {
     $('era-btn').hidden = false;
-    $('era-btn').textContent = STR.advance + ' ' + next.year + ' (' + next.pk + ' ' + STR.trust + ')';
+    // The button spends its right edge on the cost, like every other gated
+    // control in the system (section 03).
+    $('era-btn').innerHTML = STR.advance + ' ' + next.year +
+      '<span class="tb-btn__why" style="color: var(--tb-politic)">' + next.pk + ' ' + STR.trust + '</span>';
     $('era-btn').disabled = !sim.canAdvanceEra(g);
     $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' ' + STR.riders + ' · ' + next.pk + ' ' + STR.trust;
   } else {
@@ -832,7 +954,7 @@ function updateShop() {
 
 // --- Stats ---
 function updateUI() {
-  $('money').textContent = fmt(g.money) + ' kr';
+  $('money').innerHTML = numHTML(g.money, ' kr');
   const gross = sim.grossRate(g);
   const upkeep = sim.upkeepRate(g);
   const net = gross - upkeep;
@@ -840,7 +962,8 @@ function updateUI() {
   $('rate-upkeep').textContent = '−' + upkeep.toFixed(1) + ' kr/s upkeep';
   const netEl = $('rate-net');
   netEl.textContent = (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(1) + ' kr/s';
-  netEl.classList.toggle('neg', net < 0);
+  netEl.classList.toggle('tb-rate--down', net < 0);
+  netEl.classList.toggle('tb-rate--up', net >= 0);
   $('stat-delivered').textContent = fmt(g.totalDelivered);
   $('riders-label').textContent = STR.ridersCarried;
   $('money').title = STR.krTitle;
@@ -858,8 +981,15 @@ function updateUI() {
     (phase ? ' · ' + phase : '');
   $('btn-mothball').disabled = sim.idleTrains(g).length === 0 || g.trains.length - mb <= 1;
   $('btn-reactivate').disabled = mb === 0;
-  bell.querySelector('.bell-sub').textContent =
-    sim.idleTrains(g).length ? STR.dispatchSub : STR.noIdle;
+  // The bell states the service it runs: manual, automatic with its cadence,
+  // or nothing idle to send (pass 02, section 03).
+  const idleN = sim.idleTrains(g).length;
+  const auto = !!g.owned.drivers;
+  $('bell-sub').textContent = !idleN ? STR.noIdle
+    : auto ? STR.bellAuto + ' ' + Math.round(sim.lineHeadwayS(g, 0)) + ' s'
+    : STR.dispatchSub;
+  bell.classList.toggle('tb-bell--auto', auto);
+  bell.disabled = !idleN;
   if (selected) updateStationPanel();
   updateLineRows();
   updateShop();
@@ -941,4 +1071,7 @@ window.__tb = {
   get g() { return g; },
   get basemapUp() { return basemapUp; },
   closeMenu,
+  selectStation,
+  updateUI,
+  showMoment,
 };

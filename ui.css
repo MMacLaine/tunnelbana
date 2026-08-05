@@ -1,0 +1,215 @@
+/* Tunnelbana UI · pass 02 component layer.
+   PORTED VERBATIM from the design team's deliverable (the <style> block behind
+   the "this is the deliverable" banner in tunnelbana-assets-pass01/Tunnelbana
+   UI System.html). Every rule resolves only to tokens.css + tokens-ui.css
+   names, which is why it could be lifted wholesale.
+
+   Do not hand-edit to fix a value: change the token, or ask for a new pass.
+   Game-specific additions live at the bottom under ADOPTION, clearly marked,
+   so the ported system stays diffable against the mockup. */
+
+/* --- Panel: one anatomy for every floating surface --- */
+.tb-panel { background: var(--tb-panel-t); border: var(--tb-border) solid var(--tb-line);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  color: var(--tb-ink); border-radius: var(--tb-radius-panel); }
+.tb-panel--solid { background: var(--tb-panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.tb-panel--accent { border-left: 3px solid var(--tb-green); }
+.tb-panel__head { display: flex; align-items: baseline; gap: .5rem; padding: .55rem .85rem;
+  border-bottom: var(--tb-border) solid var(--tb-line); }
+.tb-panel__title { font: var(--tb-weight-semi) var(--tb-fs-caption)/1 var(--tb-mono);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; color: var(--tb-muted); }
+.tb-panel__tag { font-size: var(--tb-fs-caption); color: var(--tb-ghost); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; }
+.tb-panel__close { margin-left: auto; background: none; border: 0; color: var(--tb-muted);
+  font: 400 var(--tb-fs-md)/1 var(--tb-mono); cursor: pointer; padding: 0 .1rem; }
+.tb-panel__close:hover { color: var(--tb-ink); }
+.tb-panel__body { padding: var(--tb-pad-panel); display: flex; flex-direction: column; gap: var(--tb-gap-row); }
+.tb-panel__foot { padding: .55rem .85rem; border-top: var(--tb-border) solid var(--tb-line);
+  display: flex; gap: .4rem; flex-wrap: wrap; }
+.tb-divider { height: var(--tb-border); background: var(--tb-line); border: 0; margin: .1rem 0; }
+
+.tb-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  font: 400 var(--tb-fs-label)/1.3 var(--tb-mono); color: var(--tb-muted); }
+.tb-row__v { color: var(--tb-ink); font-variant-numeric: tabular-nums; }
+.tb-row__v--up { color: var(--tb-green); } .tb-row__v--down { color: var(--tb-red); }
+
+/* --- Button family: one base, three weights, every state --- */
+.tb-btn { font: var(--tb-weight-semi) var(--tb-fs-md)/1 var(--tb-mono);
+  background: transparent; color: var(--tb-ink);
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-panel);
+  padding: var(--tb-btn-pad-std); cursor: pointer; text-align: left;
+  display: inline-flex; align-items: center; gap: .55rem;
+  transition: border-color var(--tb-motion), background var(--tb-motion), color var(--tb-motion); }
+.tb-btn:hover { border-color: var(--tb-green); background: var(--tb-hover-green); }
+.tb-btn:active { background: var(--tb-hover-green-strong); }
+.tb-btn:focus-visible { outline: none; box-shadow: var(--tb-focus); }
+.tb-btn[disabled], .tb-btn[aria-disabled="true"] { cursor: default; color: var(--tb-disabled-ink);
+  border-color: var(--tb-disabled-border); background: transparent; }
+.tb-btn[disabled]:hover, .tb-btn[aria-disabled="true"]:hover { border-color: var(--tb-disabled-border);
+  background: transparent; }
+.tb-btn__why { color: var(--tb-ghost); font-weight: 400; font-size: var(--tb-fs-caption); margin-left: auto; }
+
+.tb-btn--primary { border-width: var(--tb-border-cta); border-color: var(--tb-green);
+  font-size: var(--tb-fs-lg); letter-spacing: var(--tb-track-mid); padding: var(--tb-btn-pad-primary); }
+.tb-btn--primary[disabled] { border-color: var(--tb-disabled-border); }
+.tb-btn--std { font-weight: 400; }
+.tb-btn--inline { font-weight: 400; font-size: var(--tb-fs-caption); letter-spacing: .08em;
+  padding: var(--tb-btn-pad-inline); color: var(--tb-muted); }
+.tb-btn--inline:hover { color: var(--tb-ink); }
+.tb-btn--block { display: flex; width: 100%; }
+.tb-btn--danger:hover { border-color: var(--tb-red); color: var(--tb-red); background: var(--tb-hover-danger); }
+.tb-btn--project { border-color: var(--tb-politic); }
+.tb-btn--project:hover { border-color: var(--tb-politic); background: var(--tb-hover-politic); }
+.tb-btn--relic { opacity: var(--tb-disabled-dim); }
+
+/* --- Numbers: the readout system --- */
+.tb-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  letter-spacing: var(--tb-track-tight); color: var(--tb-num-value); }
+.tb-num--counter { font-size: var(--tb-fs-counter); font-weight: var(--tb-weight-semi); line-height: var(--tb-lh-tight); }
+.tb-num__unit { color: var(--tb-num-unit); font-weight: 400; font-size: 0.62em; margin-left: .28em; }
+.tb-num--trust { color: var(--tb-num-trust); }
+.tb-rate { font-size: var(--tb-fs-caption); font-variant-numeric: tabular-nums; color: var(--tb-muted); }
+.tb-rate--up { color: var(--tb-num-up); } .tb-rate--down { color: var(--tb-num-down); }
+.tb-readout { display: flex; flex-direction: column; gap: .3rem; }
+.tb-readout__rates { display: flex; gap: .8rem; }
+
+/* --- Shop card: panel + button, one anatomy x every state --- */
+.tb-shop { font: 400 var(--tb-fs-body)/1 var(--tb-mono); color: var(--tb-ink);
+  background: var(--tb-panel-t); border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-panel);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  padding: .6rem .7rem; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: .34rem; width: 100%;
+  transition: border-color var(--tb-motion), background var(--tb-motion); }
+.tb-shop:hover { border-color: var(--tb-green); background: var(--tb-hover-green); }
+.tb-shop:focus-visible { outline: none; box-shadow: var(--tb-focus); }
+.tb-shop__top { display: flex; align-items: center; gap: .5rem; }
+.tb-shop__icon { flex: none; color: var(--tb-ink); display: grid; place-items: center; }
+.tb-shop__name { font-size: var(--tb-fs-title); font-weight: var(--tb-weight-semi); flex: 1; }
+.tb-shop__cost { font-size: var(--tb-fs-title); color: var(--tb-amber); font-variant-numeric: tabular-nums; }
+.tb-shop__desc { font-size: var(--tb-fs-body); color: var(--tb-muted); line-height: var(--tb-lh); }
+.tb-shop__foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  font-size: var(--tb-fs-caption); color: var(--tb-ghost); }
+.tb-pips { display: flex; gap: 3px; }
+.tb-pip { width: 15px; height: 3px; background: var(--tb-line); border-radius: 1px; }
+.tb-pip--on { background: var(--tb-green-dim); }
+
+/* State: unaffordable — visible, structured, reason named; NOT faded out */
+.tb-shop[data-state="unaffordable"] { cursor: default; }
+.tb-shop[data-state="unaffordable"]:hover { border-color: var(--tb-line); background: var(--tb-panel-t); }
+.tb-shop[data-state="unaffordable"] .tb-shop__cost { color: var(--tb-amber-dim); }
+.tb-shop[data-state="unaffordable"] .tb-shop__name { color: var(--tb-muted); }
+.tb-shop[data-state="unaffordable"] .tb-shop__icon { color: var(--tb-muted); }
+.tb-shop[data-state="unaffordable"] .tb-shop__short { color: var(--tb-amber-dim); }
+
+/* State: locked (era gate) — a promise, not a dead row */
+.tb-shop[data-state="locked"] { cursor: default; border-style: dashed; }
+.tb-shop[data-state="locked"]:hover { border-color: var(--tb-line); background: var(--tb-panel-t); }
+.tb-shop[data-state="locked"] .tb-shop__name,
+.tb-shop[data-state="locked"] .tb-shop__cost,
+.tb-shop[data-state="locked"] .tb-shop__desc,
+.tb-shop[data-state="locked"] .tb-shop__icon { color: var(--tb-ghost); }
+.tb-shop[data-state="locked"] .tb-shop__gate { color: var(--tb-politic); }
+
+/* State: project (trust) — politic keyline, its own accent */
+.tb-shop[data-state="project"] { border-color: var(--tb-politic); }
+.tb-shop[data-state="project"]:hover { background: var(--tb-hover-politic); }
+.tb-shop[data-state="project"] .tb-shop__cost { color: var(--tb-politic); }
+.tb-shop[data-state="project"] .tb-shop__icon { color: var(--tb-politic); }
+
+/* State: maxed relic (the game removes these; shown for completeness) */
+.tb-shop[data-state="maxed"] { cursor: default; opacity: var(--tb-disabled-dim); }
+.tb-shop[data-state="maxed"]:hover { border-color: var(--tb-line); background: var(--tb-panel-t); }
+
+/* --- The bell: the primary CTA, its own component --- */
+.tb-bell { font: var(--tb-weight-semi) var(--tb-fs-lg)/1 var(--tb-mono); color: var(--tb-ink);
+  background: var(--tb-panel-t); border: var(--tb-border-cta) solid var(--tb-green); border-radius: var(--tb-radius-panel);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  padding: var(--tb-btn-pad-primary); cursor: pointer; text-align: left;
+  display: inline-flex; align-items: center; gap: 12px; transition: background var(--tb-motion); }
+.tb-bell:hover { background: var(--tb-hover-green); }
+.tb-bell:active, .tb-bell.is-rung { background: var(--tb-hover-green-strong); }
+.tb-bell__disc { width: 26px; height: 26px; border: var(--tb-border-cta) solid var(--tb-green);
+  border-radius: var(--tb-radius-pill); flex: none; display: grid; place-items: center; color: var(--tb-green); }
+.tb-bell__t { display: block; letter-spacing: var(--tb-track-mid); }
+.tb-bell__s { display: block; color: var(--tb-muted); font-size: var(--tb-fs-caption); font-weight: 400; margin-top: .25rem; }
+.tb-bell[disabled] { border-color: var(--tb-line); color: var(--tb-muted); cursor: default; }
+.tb-bell[disabled] .tb-bell__disc { border-color: var(--tb-ghost); color: var(--tb-ghost); }
+.tb-bell--auto { border-style: dashed; }
+
+/* --- Menu: the cover --- */
+.tb-menu { position: relative; display: flex; align-items: center; overflow: hidden;
+  background: var(--tb-void); }
+.tb-menu__veil { position: absolute; inset: 0; background: var(--tb-veil); }
+.tb-menu__inner { position: relative; padding: clamp(1.5rem, 7%, 4rem); width: min(380px, 82%);
+  display: flex; flex-direction: column; gap: .55rem; }
+.tb-menu__mark { display: flex; align-items: center; gap: 14px; margin-bottom: .4rem; }
+.tb-menu__word { font: var(--tb-weight-semi) var(--tb-fs-hero)/1 var(--tb-mono); letter-spacing: var(--tb-track-wide);
+  color: var(--tb-ink); }
+.tb-menu__sub { color: var(--tb-muted); font-size: var(--tb-fs-body); margin-bottom: .8rem; line-height: var(--tb-lh); }
+.tb-menu__note { color: var(--tb-ghost); font-size: var(--tb-fs-caption); line-height: var(--tb-lh-loose); margin-top: .8rem; }
+.tb-menu__legal { color: var(--tb-line-hi); font-size: var(--tb-fs-micro); line-height: var(--tb-lh); margin-top: .4rem; }
+
+/* ============================================================================
+   ADOPTION  ·  dev-side additions, not part of the delivered layer
+   Only what the game needs and the mockup could not know: layout for the real
+   HUD corners, and the full-screen scale of the menu/moment surfaces.
+   ========================================================================== */
+
+/* The shop foot's two slots. The delivered layer styles their COLOUR per state
+   (__short amber-dim, __gate politic) but the slots themselves are dev-side. */
+.tb-shop__foot > [data-slot] { display: inline-flex; align-items: center; gap: 4px; }
+.tb-shop__foot > [data-slot="cat"] { text-align: right; }
+
+/* A button floating directly on the map, outside any panel, needs its own
+   surface or it reads as a label rather than a control (owner, 2026-08-05:
+   the transparent Feedback button did not look pressable). */
+.tb-btn--onmap { background: var(--tb-panel-t);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur)); }
+
+/* The rail of stacked panels down the right of the screen. */
+.tb-rail { display: flex; flex-direction: column; gap: var(--tb-gap-panel); }
+
+/* Menu and moments are the panel system at full-screen scale (section 06). */
+.tb-menu--full { position: fixed; inset: 0; z-index: 20; background: transparent; }
+.tb-menu--full .tb-menu__veil { background: var(--tb-veil); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+.tb-menu__inner--wide { width: min(560px, 88%); max-height: calc(100vh - 4rem); overflow-y: auto; }
+.tb-menu__title { font: var(--tb-weight-semi) 1.1rem/1 var(--tb-mono);
+  letter-spacing: 0.28em; color: var(--tb-ink); margin-bottom: 0.2rem; }
+
+/* Each menu view is its own column on the same rhythm: the inner's gap applies
+   to the views, so without this the buttons inside sat flush against each other
+   (caught in the first screenshot pass). */
+.tb-menu__view { display: flex; flex-direction: column; gap: 0.55rem; }
+
+/* A settings/credits row: label left, control right, hairline under. */
+.tb-setting { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.55rem 0; border-bottom: var(--tb-border) solid var(--tb-line);
+  font-size: var(--tb-fs-label); color: var(--tb-muted); }
+.tb-setting__v { color: var(--tb-ink); }
+.tb-setting a { color: var(--tb-amber); text-decoration: none; border-bottom: 1px solid var(--tb-amber-dim); }
+.tb-setting a:hover { color: var(--tb-ink); border-bottom-color: var(--tb-ink); }
+
+/* Long-form prose blocks (How to play). */
+.tb-prose { margin-top: 0.9rem; }
+.tb-prose h3 { font: var(--tb-weight-semi) var(--tb-fs-caption)/1 var(--tb-mono);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; color: var(--tb-green); }
+.tb-prose p { color: var(--tb-muted); font-size: var(--tb-fs-body);
+  line-height: var(--tb-lh-loose); margin-top: 0.3rem; }
+
+/* The line chip and its focus affordance in the lines panel. */
+.tb-chip { width: 10px; height: 10px; border-radius: var(--tb-radius-chip); flex: none; display: inline-block; }
+.tb-linkbtn { font-family: var(--tb-mono); font-size: var(--tb-fs-label); background: none;
+  border: 0; border-bottom: 1px dotted var(--tb-line); color: var(--tb-ink); padding: 0; cursor: pointer; }
+.tb-linkbtn:hover { color: var(--tb-green); border-bottom-color: var(--tb-green); }
+
+/* Era moment / ending: a deliberate full-screen moment, left-aligned on the
+   same axis as the menu (pass 01, unchanged, now in panel language). */
+.tb-moment { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center;
+  background: rgba(5, 8, 12, 0.85); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+:root[data-theme="light"] .tb-moment { background: rgba(238, 241, 244, 0.9); }
+.tb-moment__panel { margin-left: clamp(1.5rem, 10vw, 9rem); border-left: 3px solid var(--tb-green);
+  padding: var(--tb-pad-panel-lg); max-width: 420px; }
+.tb-moment__panel h2 { font: var(--tb-weight-semi) var(--tb-fs-counter)/1.1 var(--tb-mono);
+  letter-spacing: var(--tb-track-mid); }
+.tb-moment__panel p { color: var(--tb-muted); font-size: var(--tb-fs-md);
+  line-height: var(--tb-lh-loose); margin: 0.8rem 0 1.2rem; }

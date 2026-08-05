@@ -485,6 +485,18 @@ export function corridorBegun(g, c) {
   return false;
 }
 
+// A corridor's dashed promise is worth drawing only when it is the story the
+// player is in or the one immediately next. Drawing every unbegun corridor at
+// once put "mot Hjulsta · 1975" on the map in 1950, three eras early, on top of
+// the 1952 promise it was already showing (screenshot pass, 2026-08-05).
+export function teaseVisible(g, c) {
+  if (!c.tease || corridorBegun(g, c)) return false;
+  const now = eraYear(g);
+  if (now >= c.opensIn) return true;
+  const next = nextEra(g);
+  return !!next && next.year === c.opensIn;
+}
+
 export function anchorRevealed(g, i) {
   const used = usedAnchorsAll(g);
   if (used.has(i)) return true;

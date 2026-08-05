@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,7 +7,12 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="vendor/maplibre-gl.css" rel="stylesheet">
 <script src="vendor/maplibre-gl.js"></script>
+<!-- The design system, in adoption order (pass 02, section 08): colour and
+     glyph tokens, then the interface tokens, then the component layer. Every
+     class in the markup below comes from ui.css; this file owns only layout. -->
 <link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="tokens-ui.css">
+<link rel="stylesheet" href="ui.css">
 <style>
   @font-face {
     font-family: "IBM Plex Mono";
@@ -21,52 +26,40 @@
     font-weight: 600;
     font-display: swap;
   }
-  /* Light mode: a testing aid (owner ask), derived pragmatically; dark is the
-     designed theme. */
+  /* Light theme surfaces. The aspect colours live in tokens-ui.css; these are
+     the pass-01 surface names re-pointed, per section 08's mechanism. */
   :root[data-theme="light"] {
     --tb-bg: #f4f6f8;
     --tb-panel: #ffffff;
     --tb-panel-t: rgba(255, 255, 255, 0.9);
     --tb-line: #d4dbe3;
+    --tb-line-hi: #b9c3ce;
     --tb-ink: #17202a;
     --tb-muted: #5a6673;
     --tb-ghost: #97a2ae;
     --tb-green: #1e7a4b;
+    --tb-green-dim: #2f9a63;
     --tb-amber: #9a6b16;
+    --tb-amber-dim: #b08a3e;
     --tb-red: #b23a30;
     --tb-politic: #6b5aa8;
+    --tb-veil: rgba(238, 243, 247, 0.78);
+    --tb-plate: rgba(255, 255, 255, 0.72);
   }
-  /* Full-screen overlays (menu, era moments) hard-coded a dark backdrop, so
-     light mode drew dark text on it, unreadable (owner screenshot,
-     2026-08-04). The backdrop follows the theme. */
-  :root[data-theme="light"] #moment { background: rgba(238, 241, 244, 0.9); }
-  :root[data-theme="light"] #menu { background: rgba(238, 241, 244, 0.82); }
-  /* Legacy names mapped onto the pass-01 design tokens (tokens.css). */
-  :root {
-    --bg: var(--tb-bg);
-    --panel: var(--tb-panel);
-    --panel-t: var(--tb-panel-t);
-    --line: var(--tb-line);
-    --ink: var(--tb-ink);
-    --muted: var(--tb-muted);
-    --green: var(--tb-green);
-    --amber: var(--tb-amber);
-    --red: var(--tb-red);
-    --mono: var(--tb-mono);
-  }
+
   * { box-sizing: border-box; margin: 0; }
-  /* The board lesson: any display: on a class beats the hidden attribute
-     (the empty station panel shipped visible this way). Restated globally so
-     no future panel can repeat it. */
+  /* The board lesson: any display: on a class beats the hidden attribute (the
+     empty station panel shipped visible that way). Restated globally so no
+     future panel can repeat it. */
   [hidden] { display: none !important; }
   html, body { height: 100%; overflow: hidden; }
   body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--mono);
+    background: var(--tb-bg);
+    color: var(--tb-ink);
+    font: 400 var(--tb-fs-label)/var(--tb-lh) var(--tb-mono);
   }
 
-  /* The map IS the window */
+  /* --- The map IS the window --- */
   #map-wrap { position: fixed; inset: 0; touch-action: none; }
   #basemap { position: absolute; inset: 0; }
   #map { position: absolute; inset: 0; pointer-events: none; }
@@ -75,303 +68,82 @@
     position: absolute;
     left: 0.6rem;
     bottom: 1.6rem;
-    color: var(--muted);
-    font-size: 0.66rem;
-    background: var(--panel-t);
+    color: var(--tb-muted);
+    font-size: var(--tb-fs-caption);
+    background: var(--tb-panel-t);
     padding: 0.25rem 0.5rem;
     z-index: 2;
   }
 
-  /* HUD overlays */
+  /* --- HUD corners. Layout only: every surface inside is a .tb-panel. --- */
   .hud { position: fixed; z-index: 5; }
-  .hud-panel {
-    background: var(--panel-t);
-    border: 1px solid var(--line);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-
-  #hud-tl { top: 1rem; left: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .brand h1 { font-size: 0.85rem; letter-spacing: 0.32em; font-weight: 600; }
-  .brand .sub { color: var(--muted); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
-  .money-block { padding: 0.7rem 0.9rem; min-width: 240px; }
-  #money { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.02em; }
-  .rates { display: flex; gap: 0.8rem; margin-top: 0.35rem; font-size: 0.66rem; color: var(--muted); }
-  #rate-net { color: var(--green); }
-  #rate-net.neg { color: var(--red); }
-  .pk-line { margin-top: 0.4rem; font-size: 0.68rem; color: var(--tb-politic); }
-  .train-btns { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
-  .mini-btn {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.08em;
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    padding: 0.3rem 0.5rem;
-    cursor: pointer;
-  }
-  .mini-btn:hover:not(:disabled) { border-color: var(--green); color: var(--ink); }
-  .mini-btn:disabled { opacity: 0.4; cursor: default; }
-  .station-panel {
-    padding: 0.7rem 0.85rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    width: 300px;
-  }
-  .sp-head { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.82rem; }
-  .sp-head span { color: var(--muted); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; }
-  #sp-close {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-  #sp-close:hover { color: var(--ink); }
-  .sp-line { font-size: 0.64rem; color: var(--muted); line-height: 1.5; }
-  .sp-left { color: var(--red); font-weight: 600; }
-  .line-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.66rem; color: var(--muted); padding: 0.15rem 0; }
-  .chip { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
-  .line-row .mini-btn { margin-left: auto; padding: 0.1rem 0.45rem; }
-  .line-name {
-    font-family: var(--mono);
-    font-size: 0.66rem;
-    background: none;
-    border: none;
-    border-bottom: 1px dotted var(--line);
-    color: var(--ink);
-    padding: 0;
-    cursor: pointer;
-  }
-  .line-name:hover { color: var(--green); border-bottom-color: var(--green); }
-  .era-panel { padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
-  #era-now { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; }
-  .era-needs { font-size: 0.62rem; color: var(--muted); line-height: 1.5; }
-  #era-btn { border-color: var(--tb-politic); color: var(--ink); }
-  #era-btn:hover:not(:disabled) { border-color: var(--tb-politic); background: rgba(155, 140, 201, 0.12); }
-  #moment {
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    background: rgba(5, 8, 12, 0.85);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-  }
-  #moment[hidden] { display: none; }
-  .moment-panel {
-    margin-left: clamp(1.5rem, 10vw, 9rem);
-    border-left: 3px solid var(--green);
-    padding: 1.5rem 2rem;
-    max-width: 420px;
-  }
-  .moment-panel h2 { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.12em; }
-  .moment-panel p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin: 0.8rem 0 1.2rem; }
-
-  #hud-bl { bottom: 1.4rem; left: 1rem; display: flex; flex-direction: column; gap: 0.5rem; max-width: 320px; }
-  #bell {
-    font-family: var(--mono);
-    background: var(--panel-t);
-    border: 2px solid var(--green);
-    color: var(--ink);
-    padding: 0.85rem 1rem;
-    cursor: pointer;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    transition: background 0.15s ease;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-  #bell .disc {
-    width: 26px;
-    height: 26px;
-    border: 2px solid var(--green);
-    border-radius: 50%;
-    flex: none;
-    display: grid;
-    place-items: center;
-  }
-  #bell .disc svg { display: block; }
-  #bell:hover { background: rgba(47, 168, 96, 0.16); }
-  #bell.rang { animation: ring 0.25s ease; }
-  @keyframes ring {
-    0% { background: rgba(47, 168, 96, 0.45); }
-    100% { background: rgba(47, 168, 96, 0); }
-  }
-  .bell-title { display: block; font-size: 1rem; letter-spacing: 0.25em; font-weight: 600; }
-  .bell-sub { display: block; color: var(--muted); font-size: 0.68rem; margin-top: 0.25rem; }
-  .hints { color: var(--muted); font-size: 0.64rem; line-height: 1.5; padding: 0.45rem 0.6rem; }
-
+  #hud-tl { top: 1rem; left: 1rem; display: flex; flex-direction: column; gap: var(--tb-gap-panel); }
+  #hud-bl { bottom: 1.4rem; left: 1rem; display: flex; flex-direction: column; gap: var(--tb-gap-panel); max-width: 320px; }
   #hud-r {
     top: 1rem;
     right: 1rem;
     width: 300px;
-    max-height: calc(100vh - 2rem);
+    /* 1rem top inset + clearance for the bottom-right controls, so the last
+       upgrade card ends above them instead of sliding underneath. */
+    max-height: calc(100vh - 4.75rem);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--tb-gap-panel);
     scrollbar-width: thin;
   }
-  .shop-card {
-    font-family: var(--mono);
-    background: var(--panel-t);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    padding: 0.6rem 0.75rem;
-    cursor: pointer;
-    text-align: left;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    transition: border-color 0.15s ease;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-  .shop-card:hover:not(:disabled) { border-color: var(--green); }
-  .shop-card:disabled { opacity: 0.45; cursor: default; }
-  .shop-top { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600; }
-  .shop-cost { color: var(--amber); font-weight: 400; }
-  .shop-desc { color: var(--muted); font-size: 0.66rem; line-height: 1.45; }
-  .shop-owned { color: var(--green); font-size: 0.64rem; min-height: 0.9em; }
-  .stats {
-    font-size: 0.68rem;
-    color: var(--muted);
-    display: flex;
-    flex-direction: column;
-    gap: 0.28rem;
-    padding: 0.6rem 0.75rem;
-  }
-  .stats span { color: var(--ink); }
-  .riders-line { font-size: 0.66rem; color: var(--muted); margin-top: 0.15rem; }
-  .riders-line b { color: var(--ink); font-size: 0.72rem; }
-  #riders-rate { color: var(--faint, var(--muted)); }
-
   #hud-br { bottom: 0.5rem; right: 0.6rem; display: flex; align-items: flex-end; gap: 0.4rem; }
-  #fb-panel {
-    position: absolute;
-    bottom: 2.4rem;
-    right: 0;
-    width: 280px;
-    background: var(--panel-t);
-    border: 1px solid var(--line);
-    padding: 0.7rem 0.8rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    font-family: var(--mono);
+
+  /* The brand mark, top left above the money. */
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand h1 { font: var(--tb-weight-semi) var(--tb-fs-title)/1 var(--tb-mono); letter-spacing: var(--tb-track-wide); }
+  .brand .sub {
+    color: var(--tb-muted);
+    font-size: var(--tb-fs-micro);
+    letter-spacing: var(--tb-track-caps);
+    text-transform: uppercase;
+    margin-top: 3px;
   }
-  .fb-head { display: flex; align-items: baseline; font-size: 0.78rem; }
-  #fb-close { margin-left: auto; background: none; border: none; color: var(--muted); font-family: var(--mono); cursor: pointer; }
-  #fb-close:hover { color: var(--ink); }
+
+  /* The feedback panel hangs above its corner button. */
+  #fb-panel { position: absolute; bottom: 2.4rem; right: 0; width: 280px; }
   #fb-text {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    background: var(--bg);
-    color: var(--ink);
-    border: 1px solid var(--line);
+    font-family: var(--tb-mono);
+    font-size: var(--tb-fs-body);
+    background: var(--tb-bg);
+    color: var(--tb-ink);
+    border: var(--tb-border) solid var(--tb-line);
     padding: 0.4rem;
     resize: vertical;
+    width: 100%;
   }
-  .fb-row { display: flex; align-items: center; gap: 0.5rem; }
-  #fb-note { font-size: 0.62rem; color: var(--muted); }
   #about-mark {
-    font-family: var(--mono);
-    font-size: 0.72rem;
+    font-family: var(--tb-mono);
+    font-size: var(--tb-fs-caption);
     width: 1.5rem;
     height: 1.5rem;
-    background: var(--panel-t);
-    border: 1px solid var(--line);
-    color: var(--muted);
+    background: var(--tb-panel-t);
+    border: var(--tb-border) solid var(--tb-line);
+    color: var(--tb-muted);
     cursor: pointer;
-    border-radius: 50%;
+    border-radius: var(--tb-radius-pill);
   }
-  #about-mark:hover { color: var(--ink); border-color: var(--green); }
-  #about-view a { color: inherit; }
-  #about-view .setting-row span:last-child { color: var(--ink); }
+  #about-mark:hover { color: var(--tb-ink); border-color: var(--tb-green); }
 
-  /* Menu */
-  #menu {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    background: rgba(5, 8, 12, 0.74);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-  }
-  #menu[hidden] { display: none; }
-  .menu-panel {
-    margin-left: clamp(1.5rem, 8vw, 7rem);
-    background: var(--panel);
-    border: 1px solid var(--line);
-    padding: 2rem 2.2rem;
-    width: min(360px, calc(100vw - 3rem));
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    /* A long page (How to play) must scroll rather than run off the window. */
-    max-height: calc(100vh - 4rem);
-    overflow-y: auto;
-  }
-  /* The help page reads better a little wider; the start menu stays narrow. */
-  .menu-panel:has(#help-view:not([hidden])) { width: min(520px, calc(100vw - 3rem)); }
-  .menu-panel h1 { font-size: 1.5rem; letter-spacing: 0.35em; font-weight: 600; }
-  .menu-panel .sub { color: var(--muted); font-size: 0.72rem; margin-bottom: 1rem; }
-  .menu-btn {
-    font-family: var(--mono);
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--ink);
-    padding: 0.7rem 0.9rem;
-    font-size: 0.85rem;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color 0.15s ease;
-  }
-  .menu-btn:hover { border-color: var(--green); }
-  .menu-btn.primary { border-color: var(--green); font-weight: 600; }
-  .menu-btn.danger:hover { border-color: var(--red); color: var(--red); }
-  .menu-note { color: var(--muted); font-size: 0.62rem; line-height: 1.6; margin-top: 1rem; }
-  #settings-view[hidden], #main-view[hidden] { display: none; }
-  .help-sec { margin-top: 0.9rem; }
-  .help-sec h2 {
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--green);
-    font-weight: 600;
-  }
-  .help-sec p {
-    color: var(--muted);
-    font-size: 0.68rem;
-    line-height: 1.65;
-    margin-top: 0.3rem;
-  }
-  .setting-row {
-    display: flex;
-    justify-content: space-between;
-    color: var(--muted);
-    font-size: 0.74rem;
-    padding: 0.55rem 0.1rem;
-    border-bottom: 1px solid var(--line);
+  /* Import textarea in settings. */
+  #import-text {
+    font-family: var(--tb-mono);
+    font-size: var(--tb-fs-caption);
+    background: var(--tb-bg);
+    color: var(--tb-ink);
+    border: var(--tb-border) solid var(--tb-line);
+    min-height: 70px;
+    padding: 0.4rem;
   }
 
-  @media (max-width: 760px) {
-    #hud-r { width: 236px; }
-    .money-block { min-width: 200px; }
-    #money { font-size: 1.3rem; }
+  @media (max-width: 900px) {
+    #hud-r { width: 240px; }
+    #hud-tl .brand { display: none; }
   }
 </style>
 </head>
@@ -385,222 +157,265 @@
   <div class="hud" id="hud-tl">
     <div class="brand">
       <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
-        <path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="#e6edf4" stroke-width="5"></path>
-        <path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="#35a86b" stroke-width="4.4"></path>
-        <path d="M5 41h38" stroke="#e6edf4" stroke-width="3"></path>
+        <path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="currentColor" stroke-width="5"></path>
+        <path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="var(--tb-green)" stroke-width="4.4"></path>
+        <path d="M5 41h38" stroke="currentColor" stroke-width="3"></path>
       </svg>
       <div>
         <h1>TUNNELBANA</h1>
         <p class="sub">Build Stockholm · <span data-version></span></p>
       </div>
     </div>
-    <div class="money-block hud-panel">
-      <div id="money">0 kr</div>
-      <div class="rates">
-        <span id="rate-gross">+0.0 kr/s fares</span>
-        <span id="rate-upkeep">−0.0 kr/s upkeep</span>
-        <span id="rate-net">+0.0 kr/s</span>
+    <div class="tb-panel">
+      <div class="tb-panel__body">
+        <div class="tb-readout">
+          <span class="tb-num tb-num--counter" id="money">0<span class="tb-num__unit">kr</span></span>
+          <div class="tb-readout__rates">
+            <span class="tb-rate tb-rate--up" id="rate-gross">+0.0 kr/s fares</span>
+            <span class="tb-rate tb-rate--down" id="rate-upkeep">−0.0 kr/s upkeep</span>
+            <span class="tb-rate" id="rate-net">+0.0 kr/s</span>
+          </div>
+        </div>
+        <hr class="tb-divider">
+        <div class="tb-row"><span class="tb-num tb-num--trust" id="pk">0.0 trust</span><span id="pk-cov">0% coverage</span></div>
+        <div class="tb-row"><span><b class="tb-row__v" id="stat-delivered">0</b> <span id="riders-label">riders carried</span></span><span id="riders-rate"></span></div>
       </div>
-      <div class="pk-line"><span id="pk">0.0 trust</span> · <span id="pk-cov">0% coverage</span></div>
-      <div class="riders-line"><b id="stat-delivered">0</b> <span id="riders-label">riders carried</span> <span id="riders-rate"></span></div>
     </div>
   </div>
 
   <div class="hud" id="hud-bl">
-    <div class="hud-panel station-panel" id="station-panel" hidden>
-      <div class="sp-head">
-        <b id="sp-name"></b>
-        <span id="sp-tier"></span>
-        <button id="sp-close" aria-label="Close">×</button>
+    <div class="tb-panel" id="station-panel" hidden>
+      <div class="tb-panel__head">
+        <span class="tb-panel__title" id="sp-name"></span>
+        <span class="tb-panel__tag" id="sp-tier"></span>
+        <button class="tb-panel__close" id="sp-close" aria-label="Close">×</button>
       </div>
-      <div class="sp-line" id="sp-stats"></div>
-      <div class="sp-line" id="sp-dest"></div>
-      <div class="sp-line sp-left" id="sp-left" hidden></div>
-      <button class="mini-btn" id="sp-tier-btn"></button>
-      <div class="train-btns">
-        <button class="mini-btn" id="sp-ent"></button>
-        <button class="mini-btn" id="sp-gates"></button>
+      <div class="tb-panel__body" id="sp-body">
+        <div id="sp-stats"></div>
+        <div class="tb-row" id="sp-dest"></div>
+        <div class="tb-row" id="sp-left" hidden style="color: var(--tb-red)"></div>
       </div>
-      <button class="mini-btn" id="sp-down" hidden></button>
-      <button class="mini-btn" id="sp-found" hidden></button>
+      <div class="tb-panel__foot">
+        <button class="tb-btn tb-btn--inline tb-btn--block" id="sp-tier-btn"></button>
+        <button class="tb-btn tb-btn--inline" id="sp-ent"></button>
+        <button class="tb-btn tb-btn--inline" id="sp-gates"></button>
+        <button class="tb-btn tb-btn--inline tb-btn--danger" id="sp-down" hidden></button>
+        <button class="tb-btn tb-btn--inline tb-btn--project tb-btn--block" id="sp-found" hidden></button>
+      </div>
     </div>
-    <button id="bell">
-      <span class="disc">
+    <button class="tb-bell" id="bell">
+      <span class="tb-bell__disc">
         <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
-          <path d="M5 3l6 5-6 5" fill="none" stroke="#35a86b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M5 3l6 5-6 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
         </svg>
       </span>
       <span>
-        <span class="bell-title">AVGÅNG</span>
-        <span class="bell-sub">Dispatch a train</span>
+        <span class="tb-bell__t">AVGÅNG</span>
+        <span class="tb-bell__s" id="bell-sub">Dispatch a train</span>
       </span>
     </button>
-    <p class="hints hud-panel" id="hints"></p>
+    <div class="tb-panel" id="hints-panel">
+      <div class="tb-panel__body"><p id="hints" style="color: var(--tb-muted); font-size: var(--tb-fs-caption); line-height: var(--tb-lh)"></p></div>
+    </div>
   </div>
 
-  <div class="hud" id="hud-r">
-    <div class="era-panel hud-panel">
-      <div id="era-now">Era 1950</div>
-      <button class="mini-btn" id="era-btn" hidden></button>
-      <div id="era-needs" class="era-needs"></div>
+  <div class="hud tb-rail" id="hud-r">
+    <div class="tb-panel">
+      <div class="tb-panel__head"><span class="tb-panel__title" id="era-now">Era 1950</span></div>
+      <div class="tb-panel__body">
+        <button class="tb-btn tb-btn--inline tb-btn--project tb-btn--block" id="era-btn" hidden></button>
+        <div class="tb-row" id="era-needs" style="color: var(--tb-ghost)"></div>
+      </div>
     </div>
-    <div id="shop" style="display:contents"></div>
-    <div class="stats hud-panel">
-      <div>Stations: <span id="stat-stations">3</span></div>
-      <div>City demand: <span id="stat-demand">×1.00</span></div>
-      <div>Trains idle / active: <span id="stat-trains">1 / 1</span></div>
-      <div id="line-rows"></div>
-      <div class="train-btns">
-        <button class="mini-btn" id="btn-mothball"></button>
-        <button class="mini-btn" id="btn-reactivate"></button>
+
+    <div id="shop" style="display: contents"></div>
+
+    <div class="tb-panel">
+      <div class="tb-panel__head"><span class="tb-panel__title">Network</span></div>
+      <div class="tb-panel__body">
+        <div class="tb-row">Stations <span class="tb-row__v" id="stat-stations">3</span></div>
+        <div class="tb-row">City demand <span class="tb-row__v" id="stat-demand">×1.00</span></div>
+        <div class="tb-row">Trains idle / active <span class="tb-row__v" id="stat-trains">1 / 1</span></div>
+        <hr class="tb-divider">
+        <div id="line-rows"></div>
+      </div>
+      <div class="tb-panel__foot">
+        <button class="tb-btn tb-btn--inline" id="btn-mothball"></button>
+        <button class="tb-btn tb-btn--inline" id="btn-reactivate"></button>
       </div>
     </div>
   </div>
 
   <div class="hud" id="hud-br">
-    <div id="fb-panel" hidden>
-      <div class="fb-head"><b id="fb-title"></b><button id="fb-close" aria-label="Close">×</button></div>
-      <textarea id="fb-text" rows="5" spellcheck="false"></textarea>
-      <div class="fb-row">
-        <button class="mini-btn" id="fb-send"></button>
-        <span id="fb-note"></span>
+    <div class="tb-panel" id="fb-panel" hidden>
+      <div class="tb-panel__head">
+        <span class="tb-panel__title" id="fb-title"></span>
+        <button class="tb-panel__close" id="fb-close" aria-label="Close">×</button>
+      </div>
+      <div class="tb-panel__body">
+        <textarea id="fb-text" rows="5" spellcheck="false"></textarea>
+        <div class="tb-row">
+          <button class="tb-btn tb-btn--inline" id="fb-send"></button>
+          <span id="fb-note" style="font-size: var(--tb-fs-caption); color: var(--tb-ghost)"></span>
+        </div>
       </div>
     </div>
-    <button class="mini-btn" id="fb-open"></button>
+    <button class="tb-btn tb-btn--inline tb-btn--onmap" id="fb-open"></button>
     <button id="about-mark" aria-label="About and credits">&copy;</button>
   </div>
 
-  <div id="moment" hidden>
-    <div class="moment-panel">
+  <div class="tb-moment" id="moment" hidden>
+    <div class="tb-moment__panel">
       <h2 id="moment-title"></h2>
       <p id="moment-blurb"></p>
-      <button class="menu-btn primary" id="moment-close">Continue</button>
+      <button class="tb-btn tb-btn--primary" id="moment-close">Continue</button>
     </div>
   </div>
 
-  <div id="menu">
-    <div class="menu-panel">
-      <div id="main-view">
-        <h1>TUNNELBANA</h1>
-        <p class="sub">Build Stockholm, out from T-Centralen. <span data-version></span></p>
-        <p class="menu-note" id="offline-note" hidden style="color: var(--amber); margin-top: 0;"></p>
-        <button class="menu-btn primary" id="menu-resume">Start</button>
-        <button class="menu-btn" id="menu-settings">Settings</button>
-        <button class="menu-btn" id="menu-help">How to play</button>
-        <button class="menu-btn" id="menu-about">About</button>
-        <button class="menu-btn" id="menu-quit" hidden>Quit to menu</button>
-        <p class="menu-note">
-          An incremental game about building Stockholm's rail transit, starting from the
-          1950 tunnelbana. Unofficial fan work, not affiliated with any transit operator
-          or Region Stockholm. Everything you see is subject to change.
-        </p>
+  <!-- The menu is the panel system at full-screen scale (pass 02, section 06):
+       same left axis as the era moments, same button family as the game. -->
+  <div class="tb-menu tb-menu--full" id="menu">
+    <div class="tb-menu__veil"></div>
+    <div class="tb-menu__inner tb-menu__inner--wide">
+      <div class="tb-menu__view" id="main-view">
+        <div class="tb-menu__mark">
+          <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true">
+            <path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="var(--tb-ink)" stroke-width="5"></path>
+            <path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="var(--tb-green)" stroke-width="4.4"></path>
+            <path d="M5 41h38" stroke="var(--tb-ink)" stroke-width="3"></path>
+          </svg>
+          <span class="tb-menu__word">TUNNELBANA</span>
+        </div>
+        <div class="tb-menu__sub">Build Stockholm, out from T-Centralen. <span data-version></span></div>
+        <p class="tb-menu__note" id="offline-note" hidden style="color: var(--tb-amber); margin-top: 0"></p>
+        <button class="tb-btn tb-btn--primary tb-btn--block" id="menu-resume">Start</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="menu-help">How to play</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="menu-settings">Settings</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="menu-about">About</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="menu-quit" hidden>Quit to menu</button>
       </div>
-      <div id="help-view" hidden>
-        <h1>HOW TO PLAY</h1>
-        <p class="sub">Everything the game never says out loud</p>
 
-        <div class="help-sec">
-          <h2>The goal</h2>
-          <p>Build Stockholm's tunnelbana from the first 1950 tunnel to the whole
-          network. Each era is one real line's story: the green line south and west,
-          the red line in 1964, the blue line in 1975, and then the city is yours to
-          build freely. The game is finite and has an ending, and your trains keep
-          running after it.</p>
+      <div class="tb-menu__view" id="help-view" hidden>
+        <div class="tb-menu__title">HOW TO PLAY</div>
+        <div class="tb-menu__sub">Everything the game never says out loud</div>
+
+        <div class="tb-prose">
+          <h3>The goal</h3>
+          <p>Build Stockholm's tunnelbana from the first 1950 tunnel to the whole network.
+          Each era is one real line's story: the green line south and west, the red line in
+          1964, the blue line in 1975, and then the city is yours to build freely. The game
+          is finite and has an ending, and your trains keep running after it.</p>
         </div>
 
-        <div class="help-sec">
-          <h2>Money</h2>
-          <p>Fares are in kronor (kr), the Swedish currency. Passengers pay per
-          kilometre they ride, the moment they board. Every
-          train and every station costs upkeep each second, so a network you cannot
-          fill is a network that drains you. Nothing is billed until your first
-          departure: the line is not open yet.</p>
+        <div class="tb-prose">
+          <h3>Money</h3>
+          <p>Fares are in kronor (kr), the Swedish currency. Passengers pay per kilometre
+          they ride, the moment they board. Every train and every station costs upkeep each
+          second, so a network you cannot fill is a network that drains you. Nothing is
+          billed until your first departure: the line is not open yet.</p>
         </div>
 
-        <div class="help-sec">
-          <h2>Trust</h2>
-          <p>The city's patience with you, earned slowly by covering more of the
-          region with useful service. It cannot be bought. Trust pays for the things
-          money alone cannot: chartering a new line, upgrading a station into a
-          Knutpunkt, and advancing to the next era.</p>
+        <div class="tb-prose">
+          <h3>Trust</h3>
+          <p>The city's patience with you, earned slowly by covering more of the region with
+          useful service. It cannot be bought. Trust pays for the things money alone cannot:
+          chartering a new line, upgrading a station into a Hub, and advancing to the next
+          era.</p>
         </div>
 
-        <div class="help-sec">
-          <h2>Riders carried</h2>
-          <p>Every passenger you have ever delivered to their destination. This is
-          the number the eras ask for: reach the target, spend the trust, and the
-          city moves into its next decade.</p>
+        <div class="tb-prose">
+          <h3>Riders carried</h3>
+          <p>Every passenger you have ever delivered to their destination. This is the number
+          the eras ask for: reach the target, spend the trust, and the city moves into its
+          next decade.</p>
         </div>
 
-        <div class="help-sec">
-          <h2>Building</h2>
-          <p>Drag either end of a line anywhere on the map. Dashed rings are real
-          stations, with the real name and the full demand of their neighbourhood;
-          anywhere else works too and earns whatever the label says. Only the next
-          station along a corridor is ever staked out, so you find the line as you
-          build it. Right-click a line end to demolish it.</p>
-          <p>Cost grows along the line you are extending, so a long line gets
-          expensive; a new line starts cheap again.</p>
+        <div class="tb-prose">
+          <h3>Building</h3>
+          <p>Drag either end of a line anywhere on the map. Dashed rings are real stations,
+          with the real name and the full demand of their neighbourhood; anywhere else works
+          too and earns whatever the label says. Only the next station along a corridor is
+          ever staked out, so you find the line as you build it. Right-click a line end to
+          demolish it.</p>
+          <p>Cost grows along the line you are extending, so a long line gets expensive; a
+          new line starts cheap again.</p>
         </div>
 
-        <div class="help-sec">
-          <h2>Running trains</h2>
-          <p>Ring AVGÅNG (or press space) to send a train out. Hiring drivers
-          automates it. Each line shows how often it sends a train: more trains,
-          faster stock and a tighter timetable all shorten that number, and a
-          timetable also stops trains bunching into convoys.</p>
+        <div class="tb-prose">
+          <h3>Running trains</h3>
+          <p>Ring AVGÅNG (or press space) to send a train out. Hiring drivers automates it.
+          Each line shows how often it sends a train: more trains, faster stock and a tighter
+          timetable all shorten that number, and a timetable also stops trains bunching into
+          convoys.</p>
         </div>
 
-        <div class="help-sec">
-          <h2>Stations</h2>
+        <div class="tb-prose">
+          <h3>Stations</h3>
           <p>Click any station to see what it is doing: how crowded it is, where its
-          passengers are heading, how many gave up waiting. Upgrade it there.
-          Entrances widen its catchment, gates load trains faster, and a higher tier
-          is what lets lines meet: two lines can share a Station, and a Hub can
-          found an entirely new line.</p>
+          passengers are heading, how many gave up waiting. Upgrade it there. Entrances widen
+          its catchment, gates load trains faster, and a higher tier is what lets lines meet:
+          two lines can share a Station, and a Hub can found an entirely new line.</p>
         </div>
 
-        <div class="help-sec">
-          <h2>Away from the game</h2>
-          <p>With drivers hired, the network keeps earning while you are gone, at a
-          fraction of what it makes with you watching. It is safe to close the tab;
-          progress saves itself.</p>
+        <div class="tb-prose">
+          <h3>Away from the game</h3>
+          <p>With drivers hired, the network keeps earning while you are gone, at a fraction
+          of what it makes with you watching. It is safe to close the tab; progress saves
+          itself.</p>
         </div>
 
-        <button class="menu-btn" id="help-back" style="margin-top:1rem">Back</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="help-back" style="margin-top: 1rem">Back</button>
       </div>
-      <div id="about-view" hidden>
-        <h1>ABOUT</h1>
-        <p class="sub">Tunnelbana · Build Stockholm · <span data-version></span></p>
-        <p class="menu-note" style="margin-top:0">
-          An incremental game about building Stockholm's rail transit, from the first
-          tunnel of 1950 outward. Unofficial fan work: not affiliated with any transit
-          operator or Region Stockholm. Station names and geography are facts of the
-          city; everything else is a game.
+
+      <div class="tb-menu__view" id="about-view" hidden>
+        <div class="tb-menu__title">ABOUT</div>
+        <div class="tb-menu__sub">Tunnelbana · Build Stockholm · <span data-version></span></div>
+        <p class="tb-menu__note" style="margin-top: 0">
+          An incremental game about building Stockholm's rail transit, from the first tunnel
+          of 1950 outward. Unofficial fan work: not affiliated with any transit operator or
+          Region Stockholm. Station names and geography are facts of the city; everything
+          else is a game. Everything you see is subject to change.
         </p>
-        <div class="setting-row"><span>Map data</span><span>&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</span></div>
-        <div class="setting-row"><span>Map tiles</span><span><a href="https://openfreemap.org">OpenFreeMap</a></span></div>
-        <div class="setting-row"><span>Map engine</span><span><a href="https://maplibre.org">MapLibre GL JS</a> (BSD-3)</span></div>
-        <div class="setting-row"><span>Typeface</span><span>IBM Plex Mono (SIL OFL)</span></div>
-        <div class="setting-row"><span>Visual system</span><span>Tunnelbana pass 01</span></div>
-        <div class="setting-row"><span>A game by</span><span>Matthew MacLaine</span></div>
-        <button class="menu-btn" id="about-back" style="margin-top:1rem">Back</button>
+        <div class="tb-setting"><span>Map data</span><span class="tb-setting__v">&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</span></div>
+        <div class="tb-setting"><span>Map tiles</span><span class="tb-setting__v"><a href="https://openfreemap.org">OpenFreeMap</a></span></div>
+        <div class="tb-setting"><span>Map engine</span><span class="tb-setting__v"><a href="https://maplibre.org">MapLibre GL JS</a> (BSD-3)</span></div>
+        <div class="tb-setting"><span>Typeface</span><span class="tb-setting__v">IBM Plex Mono (SIL OFL)</span></div>
+        <div class="tb-setting"><span>Visual system</span><span class="tb-setting__v">Tunnelbana pass 02</span></div>
+        <div class="tb-setting"><span>A game by</span><span class="tb-setting__v">Matthew MacLaine</span></div>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="about-back" style="margin-top: 1rem">Back</button>
       </div>
-      <div id="settings-view" hidden>
-        <h1>SETTINGS</h1>
-        <p class="sub">Placeholders mostly, for now.</p>
-        <div class="setting-row"><span>Theme</span><button class="mini-btn" id="settings-theme">Dark</button></div>
-        <div class="setting-row"><span>Sound</span><span>coming later</span></div>
-        <div class="setting-row"><span>Language</span><span>English</span></div>
-        <div class="setting-row"><span>Save</span><span>automatic, local</span></div>
-        <button class="menu-btn" id="settings-export" style="margin-top:1rem">Export save</button>
-        <button class="menu-btn" id="settings-import">Import save</button>
-        <textarea id="import-text" hidden spellcheck="false" style="font-family:var(--mono);font-size:0.6rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);min-height:70px;padding:0.4rem"></textarea>
-        <button class="menu-btn danger" id="settings-reset">Reset progress</button>
-        <button class="menu-btn" id="settings-back">Back</button>
+
+      <div class="tb-menu__view" id="settings-view" hidden>
+        <div class="tb-menu__title">SETTINGS</div>
+        <div class="tb-menu__sub">Placeholders mostly, for now.</div>
+        <div class="tb-setting"><span>Theme</span><button class="tb-btn tb-btn--inline" id="settings-theme">Dark</button></div>
+        <div class="tb-setting"><span>Sound</span><span class="tb-setting__v" style="color: var(--tb-ghost)">coming later</span></div>
+        <div class="tb-setting"><span>Language</span><span class="tb-setting__v">English</span></div>
+        <div class="tb-setting"><span>Save</span><span class="tb-setting__v" style="color: var(--tb-muted)">automatic, local</span></div>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="settings-export" style="margin-top: 0.7rem">Export save</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="settings-import">Import save</button>
+        <textarea id="import-text" hidden spellcheck="false"></textarea>
+        <button class="tb-btn tb-btn--std tb-btn--danger tb-btn--block" id="settings-reset">Reset progress</button>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="settings-back">Back</button>
       </div>
     </div>
   </div>
+
+  <!-- Shop icons: the pass-01 upgrade grammar (24 box, 2px stroke,
+       currentColor), so a card colours its own icon by state. -->
+  <template id="icons">
+    <svg data-i="cap" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="15" width="14" height="3" rx="0.5"></rect><rect x="5" y="10" width="10" height="3" rx="0.5"></rect><rect x="5" y="5" width="6" height="3" rx="0.5"></rect></svg>
+    <svg data-i="train" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="3"></rect><path d="M4 12h16"></path><circle cx="8.5" cy="20" r="1.3" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="20" r="1.3" fill="currentColor" stroke="none"></circle></svg>
+    <svg data-i="staff" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20a7 7 0 0 1 14 0"></path></svg>
+    <svg data-i="time" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="4.5" width="17" height="16" rx="1"></rect><path d="M3.5 9.5h17M9 9.5v11"></path><rect x="4.5" y="10.5" width="3.5" height="3" fill="currentColor" stroke="none"></rect></svg>
+    <svg data-i="fare" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"></circle><path d="M9 9v6M15 9l-4 3 4 3"></path></svg>
+    <svg data-i="speed" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l4 4-4 4M11 8l4 4-4 4M18 8l3 4-3 4"></path></svg>
+    <svg data-i="net" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l6 6 6-6M12 12v6"></path><circle cx="6" cy="5" r="2" fill="currentColor" stroke="none"></circle><circle cx="18" cy="5" r="2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="20" r="2" fill="currentColor" stroke="none"></circle></svg>
+    <svg data-i="thru" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h13a4 4 0 0 1 0 8H8"></path><path d="M11 14l-3 3 3 3"></path></svg>
+    <svg data-i="art" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"></rect><path d="M4 15l4-4 4 4 3-3 5 5"></path><circle cx="9" cy="9" r="1.4" fill="currentColor" stroke="none"></circle></svg>
+    <svg data-i="sig" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2.5" width="8" height="19" rx="4"></rect><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" opacity="0.4"></circle><circle cx="12" cy="16.5" r="1.5" fill="currentColor" stroke="none" opacity="0.4"></circle></svg>
+    <svg data-i="night" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+  </template>
 
   <script type="module" src="src/main.js"></script>
 </body>
