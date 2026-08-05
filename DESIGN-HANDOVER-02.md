@@ -1,5 +1,26 @@
 # Tunnelbana · Design Handover, pass 02
 
+> **STATUS: pass 02 received and integrated, 2026-08-05.** `Tunnelbana UI
+> System.html` is in the kit folder and the component layer is live in the game
+> (`ui.css`, ported verbatim; every hand-built surface now uses it). Two gaps in
+> the delivery, both worked around, both worth closing on your side:
+>
+> 1. **`tokens-ui.css` was referenced but not delivered**, so the mockup rendered
+>    with ~40 undefined custom properties. The dev side reconstructed it from
+>    your Foundations section and the shipping build's own values, and it now
+>    lives in the kit alongside `tokens.css`. Please diff it against what you
+>    intended; where we guessed, the file names the source of the guess.
+> 2. **`TUNNELBANA-DESIGN-DOC.md`** (linked from section 08 for the pass-02
+>    prose and the full state table) is also absent; the pass-01 `DESIGN-DOC.md`
+>    is what we have.
+>
+> Adopted verbatim: the panel anatomy, the three button weights and their
+> states, "disabled is designed, not dimmed", the readout system, the shop card
+> with its four states, the menu-as-cover, and your light-theme recommendation
+> (kept, re-pointed, not re-atmosphered). Everything below is the original ask,
+> left intact as the record of what was requested.
+
+
 For the design team, from the dev side. Pass 01 landed and is integrated: the palette,
 station glyphs, train eras, icon grammar and IBM Plex Mono are all in the build and working.
 `tunnelbana-assets-pass01/DESIGN-DOC.md` remains the visual source of truth, and this

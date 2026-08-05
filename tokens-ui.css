@@ -1,0 +1,105 @@
+/* Tunnelbana UI tokens · pass 02, the interface layer.
+   Companion to tokens.css (colour, glyphs, space). Every name here is one the
+   pass-02 component layer in `Tunnelbana UI System.html` resolves to.
+
+   DERIVED, NOT INVENTED. The handoff arrived without this file, so the dev side
+   reconstructed it. Its own Foundations section states the intent exactly: "the
+   values are the ones the current build already reaches for by hand, so
+   adopting them changes nothing on screen and everything about the next edit."
+   So each value below is read off the shipping interface (index.html before
+   pass 02) or off an explicit density rule in section 01, and the source is
+   named. Design team: correct anything here freely. This is notation of your
+   system, not design. */
+
+:root {
+  /* --- Type scale, named by role (section 01) ---------------------------- */
+  --tb-fs-hero: 1.5rem;      /* menu wordmark TUNNELBANA (was .menu-panel h1) */
+  --tb-fs-counter: 1.6rem;   /* the money readout (was #money) */
+  --tb-fs-lg: 1rem;          /* AVGÅNG, the primary CTA (was .bell-title) */
+  --tb-fs-md: 0.8rem;        /* menu buttons (was .menu-btn) */
+  --tb-fs-title: 0.78rem;    /* shop name, station name (was .shop-top) */
+  --tb-fs-body: 0.68rem;     /* descriptions, help prose (was .shop-desc) */
+  --tb-fs-label: 0.66rem;    /* rows, rates, line rows (was .rates/.line-row) */
+  --tb-fs-caption: 0.62rem;  /* uppercase eyebrows (was .era-needs) */
+  --tb-fs-micro: 0.58rem;    /* legal, credits (one step under .brand .sub) */
+
+  /* --- Tracking. Section 01 names the pairs: hero .30em, CTA .10em, caps
+         .16em. Tight is for tabular numbers, where tracking hurts. --------- */
+  --tb-track-wide: 0.30em;
+  --tb-track-mid: 0.10em;
+  --tb-track-caps: 0.16em;
+  --tb-track-tight: 0.01em;
+
+  /* --- Line height ------------------------------------------------------- */
+  --tb-lh: 1.5;              /* body copy */
+  --tb-lh-loose: 1.7;        /* long-form: help page, era blurbs */
+  --tb-lh-tight: 1.05;       /* display numbers, so a counter never reflows */
+
+  /* --- Weight (the kit ships 400 and 600 only) --------------------------- */
+  --tb-weight-semi: 600;
+
+  /* --- Density (section 01 states these verbatim) ------------------------ */
+  --tb-pad-panel: 0.7rem 0.85rem;
+  --tb-pad-panel-lg: 1.5rem 2rem;      /* moments and menu */
+  --tb-gap-panel: 0.5rem;              /* between stacked panels */
+  --tb-gap-row: 0.45rem;               /* within a panel */
+  --tb-btn-pad-std: 0.5rem 0.7rem;
+  --tb-btn-pad-primary: 0.85rem 1rem;  /* the bell (was #bell) */
+  --tb-btn-pad-inline: 0.3rem 0.5rem;  /* controls inside panels (was .mini-btn) */
+
+  /* --- Shape. "0 panels · 2px chips and pips · pill for the bell disc" ---- */
+  --tb-radius-panel: 0;
+  --tb-radius-chip: 2px;
+  --tb-radius-pill: 999px;
+
+  /* --- Stroke. "1px every hairline; 2px reserved for the primary CTA" ----- */
+  --tb-border: 1px;
+  --tb-border-cta: 2px;
+
+  /* --- Motion. "150ms ease on border / background / colour" -------------- */
+  --tb-motion: 150ms ease;
+
+  /* --- Surface ----------------------------------------------------------- */
+  --tb-blur: 6px;
+
+  /* --- Interaction tints, at the alpha the shipping build used ----------- */
+  --tb-hover-green: rgba(53, 168, 107, 0.10);
+  --tb-hover-green-strong: rgba(53, 168, 107, 0.20);
+  --tb-hover-danger: rgba(200, 84, 74, 0.12);
+  --tb-hover-politic: rgba(155, 140, 201, 0.12);
+  --tb-focus: 0 0 0 2px rgba(53, 168, 107, 0.55);
+
+  /* --- Disabled. The mockup's ruling, and a real change from the build: an
+         unaffordable card must stay READABLE with its reason named, not be
+         dimmed into mush. So disabled recolours; the blanket opacity survives
+         only for a retired relic. ----------------------------------------- */
+  --tb-disabled-ink: #5a6673;    /* = ghost */
+  --tb-disabled-border: #16202d; /* = raised, one step under the hairline */
+  --tb-disabled-dim: 0.45;
+
+  /* --- Numbers, coloured by meaning (section 02) ------------------------- */
+  --tb-num-value: #e6edf4;   /* = ink */
+  --tb-num-unit: #8996a5;    /* = muted; the unit sits under the value */
+  --tb-num-up: #35a86b;
+  --tb-num-down: #c8544a;
+  --tb-num-trust: #9b8cc9;
+}
+
+/* Light theme. Section 08 recommends keeping it and states the mechanism:
+   every component token is theme-independent, so light is the surface and
+   aspect names re-pointed, with the aspect colours darkened for contrast on
+   white and their meanings kept. */
+:root[data-theme="light"] {
+  --tb-hover-green: rgba(30, 122, 75, 0.10);
+  --tb-hover-green-strong: rgba(30, 122, 75, 0.18);
+  --tb-hover-danger: rgba(178, 58, 48, 0.10);
+  --tb-hover-politic: rgba(107, 90, 168, 0.12);
+  --tb-focus: 0 0 0 2px rgba(30, 122, 75, 0.5);
+  --tb-disabled-ink: #97a2ae;
+  --tb-disabled-border: #e2e7ec;
+  --tb-num-value: #17202a;
+  --tb-num-unit: #5a6673;
+  --tb-num-up: #1e7a4b;
+  --tb-num-down: #b23a30;
+  --tb-num-trust: #6b5aa8;
+}

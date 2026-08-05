@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tunnelbana · UI System, pass 02</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="tokens-ui.css">
+<style>
+/* ============================================================================
+   PORTABLE COMPONENT LAYER  ·  this is the deliverable
+   Every rule below resolves only to tokens.css + tokens-ui.css names. Port it
+   wholesale, or lift a block; nothing here hard-codes a colour or a size.
+   ========================================================================== */
+
+/* --- Panel: one anatomy for every floating surface --- */
+.tb-panel { background: var(--tb-panel-t); border: var(--tb-border) solid var(--tb-line);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  color: var(--tb-ink); border-radius: var(--tb-radius-panel); }
+.tb-panel--solid { background: var(--tb-panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.tb-panel--accent { border-left: 3px solid var(--tb-green); }
+.tb-panel__head { display: flex; align-items: baseline; gap: .5rem; padding: .55rem .85rem;
+  border-bottom: var(--tb-border) solid var(--tb-line); }
+.tb-panel__title { font: var(--tb-weight-semi) var(--tb-fs-caption)/1 var(--tb-mono);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; color: var(--tb-muted); }
+.tb-panel__tag { font-size: var(--tb-fs-caption); color: var(--tb-ghost); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; }
+.tb-panel__close { margin-left: auto; background: none; border: 0; color: var(--tb-muted);
+  font: 400 var(--tb-fs-md)/1 var(--tb-mono); cursor: pointer; padding: 0 .1rem; }
+.tb-panel__close:hover { color: var(--tb-ink); }
+.tb-panel__body { padding: var(--tb-pad-panel); display: flex; flex-direction: column; gap: var(--tb-gap-row); }
+.tb-panel__foot { padding: .55rem .85rem; border-top: var(--tb-border) solid var(--tb-line);
+  display: flex; gap: .4rem; flex-wrap: wrap; }
+.tb-divider { height: var(--tb-border); background: var(--tb-line); border: 0; margin: .1rem 0; }
+
+.tb-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  font: 400 var(--tb-fs-label)/1.3 var(--tb-mono); color: var(--tb-muted); }
+.tb-row__v { color: var(--tb-ink); font-variant-numeric: tabular-nums; }
+.tb-row__v--up { color: var(--tb-green); } .tb-row__v--down { color: var(--tb-red); }
+
+/* --- Button family: one base, three weights, every state --- */
+.tb-btn { font: var(--tb-weight-semi) var(--tb-fs-md)/1 var(--tb-mono);
+  background: transparent; color: var(--tb-ink);
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-panel);
+  padding: var(--tb-btn-pad-std); cursor: pointer; text-align: left;
+  display: inline-flex; align-items: center; gap: .55rem;
+  transition: border-color var(--tb-motion), background var(--tb-motion), color var(--tb-motion); }
+.tb-btn:hover { border-color: var(--tb-green); background: var(--tb-hover-green); }
+.tb-btn:active { background: var(--tb-hover-green-strong); }
+.tb-btn:focus-visible { outline: none; box-shadow: var(--tb-focus); }
+.tb-btn[disabled], .tb-btn[aria-disabled="true"] { cursor: default; color: var(--tb-disabled-ink);
+  border-color: var(--tb-disabled-border); background: transparent; }
+.tb-btn[disabled]:hover, .tb-btn[aria-disabled="true"]:hover { border-color: var(--tb-disabled-border);
+  background: transparent; }
+.tb-btn__why { color: var(--tb-ghost); font-weight: 400; font-size: var(--tb-fs-caption); margin-left: auto; }
+
+.tb-btn--primary { border-width: var(--tb-border-cta); border-color: var(--tb-green);
+  font-size: var(--tb-fs-lg); letter-spacing: var(--tb-track-mid); padding: var(--tb-btn-pad-primary); }
+.tb-btn--primary[disabled] { border-color: var(--tb-disabled-border); }
+.tb-btn--std { font-weight: 400; }
+.tb-btn--inline { font-weight: 400; font-size: var(--tb-fs-caption); letter-spacing: .08em;
+  padding: var(--tb-btn-pad-inline); color: var(--tb-muted); }
+.tb-btn--inline:hover { color: var(--tb-ink); }
+.tb-btn--block { display: flex; width: 100%; }
+.tb-btn--danger:hover { border-color: var(--tb-red); color: var(--tb-red); background: var(--tb-hover-danger); }
+.tb-btn--project { border-color: var(--tb-politic); }
+.tb-btn--project:hover { border-color: var(--tb-politic); background: var(--tb-hover-politic); }
+.tb-btn--relic { opacity: var(--tb-disabled-dim); }
+
+/* --- Numbers: the readout system --- */
+.tb-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  letter-spacing: var(--tb-track-tight); color: var(--tb-num-value); }
+.tb-num--counter { font-size: var(--tb-fs-counter); font-weight: var(--tb-weight-semi); line-height: var(--tb-lh-tight); }
+.tb-num__unit { color: var(--tb-num-unit); font-weight: 400; font-size: 0.62em; margin-left: .28em; }
+.tb-num--trust { color: var(--tb-num-trust); }
+.tb-rate { font-size: var(--tb-fs-caption); font-variant-numeric: tabular-nums; color: var(--tb-muted); }
+.tb-rate--up { color: var(--tb-num-up); } .tb-rate--down { color: var(--tb-num-down); }
+.tb-readout { display: flex; flex-direction: column; gap: .3rem; }
+.tb-readout__rates { display: flex; gap: .8rem; }
+
+/* --- Shop card: panel + button, one anatomy x every state --- */
+.tb-shop { font: 400 var(--tb-fs-body)/1 var(--tb-mono); color: var(--tb-ink);
+  background: var(--tb-panel-t); border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-panel);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  padding: .6rem .7rem; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: .34rem; width: 100%;
+  transition: border-color var(--tb-motion), background var(--tb-motion); }
+.tb-shop:hover { border-color: var(--tb-green); background: var(--tb-hover-green); }
+.tb-shop:focus-visible { outline: none; box-shadow: var(--tb-focus); }
+.tb-shop__top { display: flex; align-items: center; gap: .5rem; }
+.tb-shop__icon { flex: none; color: var(--tb-ink); display: grid; place-items: center; }
+.tb-shop__name { font-size: var(--tb-fs-title); font-weight: var(--tb-weight-semi); flex: 1; }
+.tb-shop__cost { font-size: var(--tb-fs-title); color: var(--tb-amber); font-variant-numeric: tabular-nums; }
+.tb-shop__desc { font-size: var(--tb-fs-body); color: var(--tb-muted); line-height: var(--tb-lh); }
+.tb-shop__foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  font-size: var(--tb-fs-caption); color: var(--tb-ghost); }
+.tb-pips { display: flex; gap: 3px; }
+.tb-pip { width: 15px; height: 3px; background: var(--tb-line); border-radius: 1px; }
+.tb-pip--on { background: var(--tb-green-dim); }
+
+/* State: unaffordable — visible, structured, reason named; NOT faded out */
+.tb-shop[data-state="unaffordable"] { cursor: default; }
+.tb-shop[data-state="unaffordable"]:hover { border-color: var(--tb-line); background: var(--tb-panel-t); }
+.tb-shop[data-state="unaffordable"] .tb-shop__cost { color: var(--tb-amber-dim); }
+.tb-shop[data-state="unaffordable"] .tb-shop__name { color: var(--tb-muted); }
+.tb-shop[data-state="unaffordable"] .tb-shop__icon { color: var(--tb-muted); }
+.tb-shop[data-state="unaffordable"] .tb-shop__short { color: var(--tb-amber-dim); }
+
+/* State: locked (era gate) — a promise, not a dead row */
+.tb-shop[data-state="locked"] { cursor: default; border-style: dashed; }
+.tb-shop[data-state="locked"]:hover { border-color: var(--tb-line); background: var(--tb-panel-t); }
+.tb-shop[data-state="locked"] .tb-shop__name,
+.tb-shop[data-state="locked"] .tb-shop__cost,
+.tb-shop[data-state="locked"] .tb-shop__desc,
+.tb-shop[data-state="locked"] .tb-shop__icon { color: var(--tb-ghost); }
+.tb-shop[data-state="locked"] .tb-shop__gate { color: var(--tb-politic); }
+
+/* State: project (trust) — politic keyline, its own accent */
+.tb-shop[data-state="project"] { border-color: var(--tb-politic); }
+.tb-shop[data-state="project"]:hover { background: var(--tb-hover-politic); }
+.tb-shop[data-state="project"] .tb-shop__cost { color: var(--tb-politic); }
+.tb-shop[data-state="project"] .tb-shop__icon { color: var(--tb-politic); }
+
+/* State: maxed relic (the game removes these; shown for completeness) */
+.tb-shop[data-state="maxed"] { cursor: default; opacity: var(--tb-disabled-dim); }
+.tb-shop[data-state="maxed"]:hover { border-color: var(--tb-line); background: var(--tb-panel-t); }
+
+/* --- The bell: the primary CTA, its own component --- */
+.tb-bell { font: var(--tb-weight-semi) var(--tb-fs-lg)/1 var(--tb-mono); color: var(--tb-ink);
+  background: var(--tb-panel-t); border: var(--tb-border-cta) solid var(--tb-green); border-radius: var(--tb-radius-panel);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  padding: var(--tb-btn-pad-primary); cursor: pointer; text-align: left;
+  display: inline-flex; align-items: center; gap: 12px; transition: background var(--tb-motion); }
+.tb-bell:hover { background: var(--tb-hover-green); }
+.tb-bell:active, .tb-bell.is-rung { background: var(--tb-hover-green-strong); }
+.tb-bell__disc { width: 26px; height: 26px; border: var(--tb-border-cta) solid var(--tb-green);
+  border-radius: var(--tb-radius-pill); flex: none; display: grid; place-items: center; color: var(--tb-green); }
+.tb-bell__t { display: block; letter-spacing: var(--tb-track-mid); }
+.tb-bell__s { display: block; color: var(--tb-muted); font-size: var(--tb-fs-caption); font-weight: 400; margin-top: .25rem; }
+.tb-bell[disabled] { border-color: var(--tb-line); color: var(--tb-muted); cursor: default; }
+.tb-bell[disabled] .tb-bell__disc { border-color: var(--tb-ghost); color: var(--tb-ghost); }
+.tb-bell--auto { border-style: dashed; }
+
+/* --- Menu: the cover --- */
+.tb-menu { position: relative; display: flex; align-items: center; overflow: hidden;
+  background: var(--tb-void); }
+.tb-menu__veil { position: absolute; inset: 0; background: var(--tb-veil); }
+.tb-menu__inner { position: relative; padding: clamp(1.5rem, 7%, 4rem); width: min(380px, 82%);
+  display: flex; flex-direction: column; gap: .55rem; }
+.tb-menu__mark { display: flex; align-items: center; gap: 14px; margin-bottom: .4rem; }
+.tb-menu__word { font: var(--tb-weight-semi) var(--tb-fs-hero)/1 var(--tb-mono); letter-spacing: var(--tb-track-wide);
+  color: var(--tb-ink); }
+.tb-menu__sub { color: var(--tb-muted); font-size: var(--tb-fs-body); margin-bottom: .8rem; line-height: var(--tb-lh); }
+.tb-menu__note { color: var(--tb-ghost); font-size: var(--tb-fs-caption); line-height: var(--tb-lh-loose); margin-top: .8rem; }
+.tb-menu__legal { color: var(--tb-line-hi); font-size: var(--tb-fs-micro); line-height: var(--tb-lh); margin-top: .4rem; }
+
+/* ============================================================================
+   PAGE CHROME  ·  not part of the deliverable, just the spec sheet itself
+   ========================================================================== */
+* { box-sizing: border-box; }
+html { background: var(--tb-void); }
+body { margin: 0; background: var(--tb-void); color: var(--tb-ink);
+  font: 400 13px/1.5 var(--tb-mono); -webkit-font-smoothing: antialiased; }
+a { color: var(--tb-amber); text-decoration: none; border-bottom: 1px solid var(--tb-amber-dim); }
+a:hover { color: var(--tb-ink); border-bottom-color: var(--tb-ink); }
+::selection { background: var(--tb-amber); color: var(--tb-void); }
+h1, h2, h3, p { margin: 0; }
+
+.top { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--tb-void) 92%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--tb-line); }
+.top__in { max-width: 1280px; margin: 0 auto; padding: 12px 40px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.top__brand { font-weight: 600; font-size: 12px; letter-spacing: .34em; }
+.top__meta { font-size: 10px; letter-spacing: .14em; color: var(--tb-ghost); text-transform: uppercase; }
+.top__nav { display: flex; gap: 13px; flex-wrap: wrap; margin-left: auto; }
+.top__nav a { color: var(--tb-muted); border: 0; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.top__nav a:hover { color: var(--tb-ink); }
+.themepick { display: flex; border: 1px solid var(--tb-line); }
+.themepick button { font: 600 10px/1 var(--tb-mono); letter-spacing: .1em; text-transform: uppercase;
+  background: none; border: 0; color: var(--tb-muted); padding: 7px 11px; cursor: pointer; }
+.themepick button[aria-pressed="true"] { background: var(--tb-amber); color: var(--tb-void); }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 40px; }
+.hero { padding: 60px 0 44px; border-bottom: 1px solid var(--tb-line); }
+.hero__eyebrow { font-size: 10px; letter-spacing: .2em; color: var(--tb-amber); text-transform: uppercase; margin-bottom: 18px; }
+.hero h1 { font-size: 30px; font-weight: 600; line-height: 1.28; max-width: 24ch; letter-spacing: .01em; }
+.hero p { color: var(--tb-muted); line-height: 1.75; max-width: 66ch; margin-top: 16px; text-wrap: pretty; font-size: 12px; }
+
+.sec { padding: 54px 0 8px; }
+.sec__head { display: flex; align-items: baseline; gap: 14px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--tb-line); margin-bottom: 20px; }
+.sec__num { font-weight: 600; font-size: 11px; color: var(--tb-amber); letter-spacing: .18em; }
+.sec__head h2 { font-size: 15px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.sec__head .sec__note { font-size: 11px; color: var(--tb-ghost); }
+.lead { color: var(--tb-muted); font-size: 12px; line-height: 1.7; max-width: 72ch; margin-bottom: 24px; text-wrap: pretty; }
+
+.subcap { font-size: 9px; letter-spacing: .16em; color: var(--tb-ghost); text-transform: uppercase; margin: 0 0 12px; }
+.grid { display: grid; gap: 14px; }
+.demo { background: var(--tb-panel); border: 1px solid var(--tb-line); padding: 20px; }
+.demo--map { background:
+  linear-gradient(0deg, rgba(7,10,14,.55), rgba(7,10,14,.55)),
+  repeating-linear-gradient(0deg, transparent 0 43px, rgba(44,61,80,.35) 43px 44px),
+  repeating-linear-gradient(90deg, transparent 0 63px, rgba(44,61,80,.35) 63px 64px),
+  var(--tb-bg); }
+.tag { display: inline-flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 10px;
+  letter-spacing: .06em; color: var(--tb-muted); text-transform: uppercase; }
+.pillnote { font-size: 11px; color: var(--tb-ghost); line-height: 1.7; max-width: 78ch; margin: 16px 0 0; text-wrap: pretty; }
+
+.spec-type { display: flex; flex-direction: column; gap: 14px; }
+.spec-type__row { display: flex; align-items: baseline; gap: 18px; }
+.spec-type__k { font-size: 9px; color: var(--tb-ghost); width: 150px; flex: none; line-height: 1.4; }
+.spacing-strip { display: flex; align-items: flex-end; gap: 10px; }
+.spacing-strip > div { text-align: center; }
+.spacing-strip .bar { background: var(--tb-amber); width: 100%; }
+.spacing-strip .lab { font-size: 9px; color: var(--tb-ghost); margin-top: 6px; }
+
+.matrix { display: grid; grid-template-columns: 130px repeat(5, 1fr); gap: 12px; align-items: center; }
+.matrix__h { font-size: 9px; letter-spacing: .12em; color: var(--tb-ghost); text-transform: uppercase; }
+.matrix__rk { font-size: 10px; color: var(--tb-muted); }
+
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.rail { width: 300px; display: flex; flex-direction: column; gap: var(--tb-gap-panel); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 11px; color: var(--tb-muted); margin-top: 16px; }
+.legend b { color: var(--tb-ink); font-weight: 400; }
+.decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+.dbox { border: 1px solid var(--tb-line); }
+.dbox--flag { border-color: var(--tb-amber-dim); }
+.dbox__row { padding: 13px 15px; border-bottom: 1px solid var(--tb-line); }
+.dbox__row:last-child { border-bottom: 0; }
+.dbox__row h4 { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.dbox--flag .dbox__row h4 { color: var(--tb-amber); }
+.dbox__row p { font-size: 10px; color: var(--tb-muted); line-height: 1.6; }
+.foot { margin-top: 22px; font-size: 10px; color: var(--tb-line-hi); line-height: 1.7; padding-bottom: 120px; }
+
+@media (max-width: 720px) {
+  .wrap, .top__in { padding-left: 20px; padding-right: 20px; }
+  .matrix { grid-template-columns: 90px repeat(5, 1fr); }
+  .two { grid-template-columns: 1fr; }
+}
+
+/* Theme flips must be INSTANT, never animated: a var()-driven border/background
+   transition stalls when the custom property changes (Chromium), and an
+   animated theme swap is wrong UX regardless. The toggle adds this class for
+   one frame so the 150ms hover transitions survive but the flip does not
+   animate. Port this pattern with the component layer. */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after { transition: none !important; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="top__in">
+    <span class="top__brand">TUNNELBANA</span>
+    <span class="top__meta">UI system · pass 02</span>
+    <nav class="top__nav">
+      <a href="#s1">01 Foundations</a>
+      <a href="#s2">02 Numbers</a>
+      <a href="#s3">03 Buttons</a>
+      <a href="#s4">04 Panels</a>
+      <a href="#s5">05 Shop</a>
+      <a href="#s6">06 Menu</a>
+      <a href="#s7">07 In situ</a>
+      <a href="#s8">08 Dev</a>
+    </nav>
+    <div class="themepick" role="group" aria-label="Theme">
+      <button data-theme-set="dark" aria-pressed="true">Dark</button>
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero__eyebrow">Design response · pass 02</div>
+    <h1>The map was authored. The chrome was typed. This makes the chrome a system.</h1>
+    <p>Pass 01 gave the game colour, glyphs and a typeface. Pass 02 gives it a component vocabulary: one button family, one panel anatomy, one number treatment, a type and spacing scale, and a menu that reads like a cover instead of a form. Every rule on this page resolves only to named tokens in <a href="tokens-ui.css">tokens-ui.css</a> (which extends pass 01's <a href="tokens.css">tokens.css</a>), states are CSS rather than images, and the whole page re-themes live so you can judge light for yourself. The owner's note — <span style="color:var(--tb-ink)">"the buttons are clearly not planned out, they look pasted on"</span> — is section 03.</p>
+  </div>
+
+  <!-- 01 FOUNDATIONS ------------------------------------------------------->
+  <section class="sec" id="s1">
+    <div class="sec__head"><span class="sec__num">01</span><h2>Foundations</h2><span class="sec__note">type scale and spacing, named by role</span></div>
+    <p class="lead">Pass 01 fixed colour and the glyphs; the chrome kept guessing at sizes. Here is the scale, named by the job rather than the pixel, so the next panel anyone builds is right by default. The values are the ones the current build already reaches for by hand, so adopting them changes nothing on screen and everything about the next edit.</p>
+    <div class="two">
+      <div>
+        <p class="subcap">Type scale · IBM Plex Mono, 400 / 600</p>
+        <div class="demo spec-type">
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-hero · 600 · .30em</span><span style="font:600 var(--tb-fs-hero)/1 var(--tb-mono);letter-spacing:var(--tb-track-wide)">TUNNELBANA</span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-counter · 600 · tnum</span><span class="tb-num tb-num--counter">1 240<span class="tb-num__unit">kr</span></span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-lg · 600 · .10em</span><span style="font:600 var(--tb-fs-lg)/1 var(--tb-mono);letter-spacing:var(--tb-track-mid)">AVGÅNG</span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-md · 400</span><span style="font-size:var(--tb-fs-md)">How to play</span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-title · 600</span><span style="font:600 var(--tb-fs-title)/1 var(--tb-mono)">Longer trains</span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-body · 400</span><span style="font-size:var(--tb-fs-body);color:var(--tb-muted)">Two more cars per train.</span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-label · 400</span><span style="font-size:var(--tb-fs-label)">Skogskyrkogården</span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-caption · .16em caps</span><span style="font-size:var(--tb-fs-caption);letter-spacing:var(--tb-track-caps);text-transform:uppercase;color:var(--tb-muted)">Passengers head for</span></div>
+          <div class="spec-type__row"><span class="spec-type__k">--tb-fs-micro · 400</span><span style="font-size:var(--tb-fs-micro);color:var(--tb-ghost)">Unofficial fan work.</span></div>
+        </div>
+      </div>
+      <div>
+        <p class="subcap">Spacing · one scale, 4 to 64</p>
+        <div class="demo">
+          <div class="spacing-strip">
+            <div style="flex:none"><div class="bar" style="height:4px;width:4px"></div><div class="lab">1<br>4</div></div>
+            <div style="flex:none"><div class="bar" style="height:8px;width:8px"></div><div class="lab">2<br>8</div></div>
+            <div style="flex:none"><div class="bar" style="height:12px;width:12px"></div><div class="lab">3<br>12</div></div>
+            <div style="flex:none"><div class="bar" style="height:16px;width:16px"></div><div class="lab">4<br>16</div></div>
+            <div style="flex:none"><div class="bar" style="height:24px;width:24px"></div><div class="lab">5<br>24</div></div>
+            <div style="flex:none"><div class="bar" style="height:40px;width:40px"></div><div class="lab">6<br>40</div></div>
+            <div style="flex:none"><div class="bar" style="height:64px;width:64px"></div><div class="lab">7<br>64</div></div>
+          </div>
+        </div>
+        <p class="subcap" style="margin-top:24px">Density rules</p>
+        <div class="demo" style="display:flex;flex-direction:column;gap:10px;font-size:11px;color:var(--tb-muted);line-height:1.6">
+          <div style="display:flex;gap:12px"><span style="color:var(--tb-ink);width:96px;flex:none">panel pad</span><span>--tb-pad-panel (.7rem .85rem); moments and menu use --tb-pad-panel-lg</span></div>
+          <div style="display:flex;gap:12px"><span style="color:var(--tb-ink);width:96px;flex:none">rail gap</span><span>--tb-gap-panel (.5rem) between stacked panels; --tb-gap-row (.45rem) within</span></div>
+          <div style="display:flex;gap:12px"><span style="color:var(--tb-ink);width:96px;flex:none">radius</span><span>0 panels · 2px chips and pips · pill for the bell disc and line dots</span></div>
+          <div style="display:flex;gap:12px"><span style="color:var(--tb-ink);width:96px;flex:none">border</span><span>1px every hairline; 2px is reserved for the primary CTA alone</span></div>
+          <div style="display:flex;gap:12px"><span style="color:var(--tb-ink);width:96px;flex:none">motion</span><span>150ms ease on border / background / colour, nothing longer in chrome</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 NUMBERS ----------------------------------------------------------->
+  <section class="sec" id="s2">
+    <div class="sec__head"><span class="sec__num">02</span><h2>Numbers</h2><span class="sec__note">the thing the player actually watches</span></div>
+    <p class="lead">An incremental game is a game about a number going up, and ours were set in body text. The readout gives them a display treatment: tabular figures so digits never jitter as they tick, a thin space between thousands (never a comma), the unit dimmer than the value, and a fixed-width box so the panel does not resize when 300 becomes 3 000 000. Colour stays fixed to meaning — amber is money, green rises, red falls, politic is trust.</p>
+    <div class="two">
+      <div>
+        <p class="subcap">Magnitude ladder · one box, four orders of magnitude</p>
+        <div class="demo" style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:baseline;gap:16px"><span class="tb-num tb-num--counter" style="min-width:8ch;text-align:right">300<span class="tb-num__unit">kr</span></span><span style="font-size:10px;color:var(--tb-ghost)">opening minute</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px"><span class="tb-num tb-num--counter" style="min-width:8ch;text-align:right">12 400<span class="tb-num__unit">kr</span></span><span style="font-size:10px;color:var(--tb-ghost)">first line running</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px"><span class="tb-num tb-num--counter" style="min-width:8ch;text-align:right">480 000<span class="tb-num__unit">kr</span></span><span style="font-size:10px;color:var(--tb-ghost)">red line era</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px"><span class="tb-num tb-num--counter" style="min-width:8ch;text-align:right">3 000 000<span class="tb-num__unit">kr</span></span><span style="font-size:10px;color:var(--tb-ghost)">late game, still fits</span></div>
+          <hr class="tb-divider">
+          <div style="display:flex;align-items:baseline;gap:16px"><span class="tb-num tb-num--counter" id="live-money" style="min-width:8ch;text-align:right">1 240<span class="tb-num__unit">kr</span></span><span style="font-size:10px;color:var(--tb-green)">live, ticking up</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px"><span class="tb-num" style="font-size:1.1rem;font-weight:600;min-width:8ch;text-align:right">3.0<span class="tb-num__unit">M kr</span></span><span style="font-size:10px;color:var(--tb-ghost)">abbreviated, for the tightest corners</span></div>
+        </div>
+        <p class="pillnote">The player watches digits rise, so the default is the full grouped figure — the abbreviated <b style="color:var(--tb-ink)">3.0M</b> form exists only for spaces too narrow for seven digits (a drag label, a mobile HUD). One formatter, one flag.</p>
+      </div>
+      <div>
+        <p class="subcap">The other readouts</p>
+        <div class="rail" style="width:auto;max-width:300px">
+          <div class="tb-panel"><div class="tb-panel__body">
+            <div class="tb-readout">
+              <span class="tb-num tb-num--counter">1 240<span class="tb-num__unit">kr</span></span>
+              <div class="tb-readout__rates">
+                <span class="tb-rate">+5.1 fares</span>
+                <span class="tb-rate">−1.7 upkeep</span>
+                <span class="tb-rate tb-rate--up">+3.4 kr/s</span>
+              </div>
+              <div style="font-size:var(--tb-fs-caption)"><span class="tb-num tb-num--trust">2.4</span> <span style="color:var(--tb-muted)">trust · 38% coverage</span></div>
+              <div style="font-size:var(--tb-fs-body);color:var(--tb-muted)"><b class="tb-num" style="color:var(--tb-ink);font-size:var(--tb-fs-title)">184 906</b> riders carried <span style="color:var(--tb-ghost)">· 2 190/min</span></div>
+            </div>
+          </div></div>
+          <div class="tb-panel"><div class="tb-panel__body">
+            <div class="tb-readout">
+              <span class="tb-num tb-num--counter">0<span class="tb-num__unit">kr</span></span>
+              <div class="tb-readout__rates"><span class="tb-rate tb-rate--down">−0.0 kr/s · not open yet</span></div>
+              <div style="font-size:var(--tb-fs-caption);letter-spacing:var(--tb-track-caps);text-transform:uppercase;color:var(--tb-amber)">Opening day</div>
+            </div>
+          </div></div>
+        </div>
+        <p class="pillnote">Net rate carries the whole health signal: green when the network earns, red the instant upkeep wins, so the losing state needs no separate alarm. Trust is the only politic-coloured number in the HUD, which is how the player learns that colour means "the slow currency" before the shop ever explains it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 BUTTONS ----------------------------------------------------------->
+  <section class="sec" id="s3">
+    <div class="sec__head"><span class="sec__num">03</span><h2>Buttons</h2><span class="sec__note">the top ask · one family, three weights, every state</span></div>
+    <p class="lead">The buttons read as pasted on because each was written on a different day with a different border and padding. This is one family. Three weights carry the whole game: the primary call to action (the bell), the standard menu button, and the inline control that lives inside a panel. Every weight resolves the same five states from the same tokens, so hover is one colour everywhere and disabled is a designed state rather than an opacity fade.</p>
+
+    <p class="subcap">The matrix · weight down, state across</p>
+    <div class="demo">
+      <div class="matrix">
+        <span></span>
+        <span class="matrix__h">Rest</span><span class="matrix__h">Hover</span><span class="matrix__h">Active</span><span class="matrix__h">Disabled</span><span class="matrix__h">Dangerous</span>
+
+        <span class="matrix__rk">Primary · CTA</span>
+        <button class="tb-btn tb-btn--primary">Start</button>
+        <button class="tb-btn tb-btn--primary" style="border-color:var(--tb-green);background:var(--tb-hover-green)">Start</button>
+        <button class="tb-btn tb-btn--primary" style="background:var(--tb-hover-green-strong)">Start</button>
+        <button class="tb-btn tb-btn--primary" disabled>Start</button>
+        <button class="tb-btn tb-btn--primary" style="border-color:var(--tb-red);color:var(--tb-red);background:var(--tb-hover-danger)">Reset</button>
+
+        <span class="matrix__rk">Standard · menu</span>
+        <button class="tb-btn tb-btn--std">Settings</button>
+        <button class="tb-btn tb-btn--std" style="border-color:var(--tb-green);background:var(--tb-hover-green)">Settings</button>
+        <button class="tb-btn tb-btn--std" style="background:var(--tb-hover-green-strong);border-color:var(--tb-green)">Settings</button>
+        <button class="tb-btn tb-btn--std" disabled>Settings</button>
+        <button class="tb-btn tb-btn--std tb-btn--danger" style="border-color:var(--tb-red);color:var(--tb-red);background:var(--tb-hover-danger)">Reset progress</button>
+
+        <span class="matrix__rk">Inline · in panel</span>
+        <button class="tb-btn tb-btn--inline">+ train</button>
+        <button class="tb-btn tb-btn--inline" style="border-color:var(--tb-green);color:var(--tb-ink)">+ train</button>
+        <button class="tb-btn tb-btn--inline" style="background:var(--tb-hover-green-strong);border-color:var(--tb-green);color:var(--tb-ink)">+ train</button>
+        <button class="tb-btn tb-btn--inline" disabled>+ train</button>
+        <button class="tb-btn tb-btn--inline tb-btn--danger" style="border-color:var(--tb-red);color:var(--tb-red)">Demolish</button>
+      </div>
+    </div>
+
+    <div class="two" style="margin-top:26px">
+      <div>
+        <p class="subcap">Live · hover, press and focus these</p>
+        <div class="demo" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <button class="tb-bell" id="live-bell">
+            <span class="tb-bell__disc"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M5 3l6 5-6 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+            <span><span class="tb-bell__t">AVGÅNG</span><span class="tb-bell__s" id="live-bell-sub">1 train ready, 12 waiting</span></span>
+          </button>
+          <button class="tb-btn tb-btn--std tb-btn--block">How to play</button>
+          <div style="display:flex;gap:8px">
+            <button class="tb-btn tb-btn--inline">Mothball idle train</button>
+            <button class="tb-btn tb-btn--inline">Reactivate</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="subcap">Disabled is designed, not dimmed</p>
+        <div class="demo" style="display:flex;flex-direction:column;gap:10px">
+          <button class="tb-btn tb-btn--std tb-btn--block" disabled>Upgrade to Hub <span class="tb-btn__why">Hubs unlock in 1957</span></button>
+          <button class="tb-btn tb-btn--std tb-btn--block" disabled>Tighter timetable <span class="tb-btn__why">needs drivers</span></button>
+          <button class="tb-bell" disabled style="width:100%">
+            <span class="tb-bell__disc"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M5 3l6 5-6 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+            <span><span class="tb-bell__t">AVGÅNG</span><span class="tb-bell__s">All trains are out</span></span>
+          </button>
+          <button class="tb-bell tb-bell--auto" style="width:100%">
+            <span class="tb-bell__disc"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M5 3l6 5-6 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+            <span><span class="tb-bell__t">AVGÅNG</span><span class="tb-bell__s">Automatic · every 6 s</span></span>
+          </button>
+        </div>
+        <p class="pillnote">A disabled button keeps its border crisp and spends its right edge on the reason. "Unlocks in 1957" is information; a 45%-opacity ghost is just a bug the player has to squint at. Only a genuinely inert relic (a maxed upgrade the game is about to remove) uses the dim.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 PANELS ------------------------------------------------------------>
+  <section class="sec" id="s4">
+    <div class="sec__head"><span class="sec__num">04</span><h2>Panels</h2><span class="sec__note">one anatomy for every floating surface</span></div>
+    <p class="lead">Every surface that floats over the map is the same object: a glass panel with an optional head, a body on the spacing scale, an optional divider and foot. The HUD money block, the station panel, the shop, the era panel and the feedback box stop being five hand-built boxes and become one component with content poured in. Head is a caption-caps title in muted; body rows are label-left, value-right; the whole thing sits in a corner and never covers the map.</p>
+
+    <div class="two">
+      <div>
+        <p class="subcap">Anatomy</p>
+        <div class="demo demo--map">
+          <div class="tb-panel" style="max-width:280px">
+            <div class="tb-panel__head"><span class="tb-panel__title">Station</span><span class="tb-panel__tag">tier 2</span><button class="tb-panel__close" aria-label="Close">×</button></div>
+            <div class="tb-panel__body">
+              <div class="tb-row"><span>head · caption caps, muted</span></div>
+              <div class="tb-row">Demand <span class="tb-row__v">1.84×</span></div>
+              <div class="tb-row">Waiting <span class="tb-row__v">64</span></div>
+              <div class="tb-row">Crowding <span class="tb-row__v tb-row__v--down">78%</span></div>
+              <hr class="tb-divider">
+              <div class="tb-row" style="color:var(--tb-ghost)">divider · then the actions</div>
+            </div>
+            <div class="tb-panel__foot">
+              <button class="tb-btn tb-btn--inline">Entrances lvl 1</button>
+              <button class="tb-btn tb-btn--inline">Gates lvl 0</button>
+            </div>
+          </div>
+        </div>
+        <p class="pillnote">The blurred panel sits on a mock map here to prove the one rule that governs all of them: chrome lives in a corner, the map stays whole behind it. Nothing on this page ever goes full-bleed except a deliberate moment.</p>
+      </div>
+      <div>
+        <p class="subcap">The five surfaces, all built from it</p>
+        <div class="rail" style="width:auto">
+          <div class="tb-panel"><div class="tb-panel__head"><span class="tb-panel__title">Skanstull</span><span class="tb-panel__tag">Station</span><button class="tb-panel__close">×</button></div>
+            <div class="tb-panel__body">
+              <div class="tb-row">Demand <span class="tb-row__v">1.84×</span></div>
+              <div class="tb-row">Waiting <span class="tb-row__v">64 · crowded</span></div>
+              <div class="tb-row" style="color:var(--tb-red)">7 gave up waiting</div>
+              <div class="tb-row" style="color:var(--tb-muted)">Passengers head for <span class="tb-row__v" style="color:var(--tb-muted)">T-Centralen, Slussen</span></div>
+            </div>
+            <div class="tb-panel__foot">
+              <button class="tb-btn tb-btn--inline">Upgrade to Hub · 6 000 kr</button>
+            </div>
+          </div>
+          <div class="tb-panel"><div class="tb-panel__head"><span class="tb-panel__title">Era · 1957</span></div>
+            <div class="tb-panel__body">
+              <div class="tb-row" style="color:var(--tb-muted)">Genom staden</div>
+              <button class="tb-btn tb-btn--inline tb-btn--project tb-btn--block">Advance to 1964 <span class="tb-btn__why" style="color:var(--tb-politic)">25 trust</span></button>
+              <div class="tb-row" style="color:var(--tb-ghost)">Needs 700 000 riders carried</div>
+            </div>
+          </div>
+          <div class="tb-panel"><div class="tb-panel__head"><span class="tb-panel__title">Feedback</span><button class="tb-panel__close">×</button></div>
+            <div class="tb-panel__body">
+              <div style="font-size:var(--tb-fs-body);color:var(--tb-muted)">What broke, or what would you love?</div>
+              <div style="border:1px solid var(--tb-line);height:52px;background:var(--tb-bg)"></div>
+              <div class="tb-panel__foot" style="padding:0;border:0"><button class="tb-btn tb-btn--inline">Submit</button><span style="font-size:var(--tb-fs-caption);color:var(--tb-ghost);align-self:center">straight to the maker</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 SHOP -------------------------------------------------------------->
+  <section class="sec" id="s5">
+    <div class="sec__head"><span class="sec__num">05</span><h2>Shop cards</h2><span class="sec__note">where the player spends their reading time</span></div>
+    <p class="lead">Nineteen of these stack in the right rail, so the card carries most of the game's reading. It is the panel and button vocabulary in one object: an era-neutral icon, the name, the cost in amber, a description, and a pip row for level owned. The states are the whole design — affordable invites a click, unaffordable stays legible and names the shortfall, an era-locked card is a dashed promise with its year, and a trust project wears the politic keyline. None of them fades to 45% and hopes.</p>
+
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+      <button class="tb-shop" data-state="affordable">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGCAP</span>
+          <span class="tb-shop__name">Longer trains</span>
+          <span class="tb-shop__cost">800 kr</span>
+        </div>
+        <span class="tb-shop__desc">+60 passengers per train.</span>
+        <div class="tb-shop__foot"><span class="tb-pips"><i class="tb-pip tb-pip--on"></i><i class="tb-pip tb-pip--on"></i><i class="tb-pip"></i><i class="tb-pip"></i><i class="tb-pip"></i><i class="tb-pip"></i></span><span>2 / 6 · Capacity</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="affordable">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGTRAIN</span>
+          <span class="tb-shop__name">New train</span>
+          <span class="tb-shop__cost">600 kr</span>
+        </div>
+        <span class="tb-shop__desc">One more train, on the emptiest line. Upkeep 1.2 kr/s.</span>
+        <div class="tb-shop__foot"><span class="tb-pips"><i class="tb-pip"></i><i class="tb-pip"></i><i class="tb-pip"></i></span><span>3 owned · Fleet</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="affordable">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGSTAFF</span>
+          <span class="tb-shop__name">Hire drivers</span>
+          <span class="tb-shop__cost">900 kr</span>
+        </div>
+        <span class="tb-shop__desc">Trains dispatch themselves. You can still ring the bell.</span>
+        <div class="tb-shop__foot"><span class="tb-pips"><i class="tb-pip"></i></span><span>0 / 1 · Staff</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="unaffordable">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGTIME</span>
+          <span class="tb-shop__name">Tighter timetable</span>
+          <span class="tb-shop__cost">1 400 kr</span>
+        </div>
+        <span class="tb-shop__desc">Departures run at even intervals on every line, and the signalling floor drops 18%.</span>
+        <div class="tb-shop__foot"><span class="tb-shop__short">Need 160 kr more</span><span>0 / 1 · Timetable</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="unaffordable">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGFARE</span>
+          <span class="tb-shop__name">Turnstiles</span>
+          <span class="tb-shop__cost">1 600 kr</span>
+        </div>
+        <span class="tb-shop__desc">Fares worth 5% more.</span>
+        <div class="tb-shop__foot"><span class="tb-shop__short">Need 360 kr more</span><span>0 / 1 · Fare</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="affordable">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGSPEED</span>
+          <span class="tb-shop__name">C1 bogie service</span>
+          <span class="tb-shop__cost">1 200 kr</span>
+        </div>
+        <span class="tb-shop__desc">Top speed and acceleration up 10%; the open stretches quicken.</span>
+        <div class="tb-shop__foot"><span class="tb-pips"><i class="tb-pip"></i></span><span>0 / 1 · Stock</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="project">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGNET</span>
+          <span class="tb-shop__name">Västerortsbanan</span>
+          <span class="tb-shop__cost">5 trust</span>
+        </div>
+        <span class="tb-shop__desc">Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.</span>
+        <div class="tb-shop__foot"><span>Charter · a whole line</span><span>1952 · Project</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="project">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGTHRU</span>
+          <span class="tb-shop__name">Through-running</span>
+          <span class="tb-shop__cost">8 trust</span>
+        </div>
+        <span class="tb-shop__desc">Changing lines gets easier, so more of the city rides across them.</span>
+        <div class="tb-shop__foot"><span>Once only</span><span>1957 · Project</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="locked">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGNET</span>
+          <span class="tb-shop__name">Röda linjen</span>
+          <span class="tb-shop__cost">10 trust</span>
+        </div>
+        <span class="tb-shop__desc">Charter the red line as a Söder shuttle, with a train. Fruängen waits at the far end.</span>
+        <div class="tb-shop__foot"><span class="tb-shop__gate">Unlocks in 1964</span><span>Project</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="locked">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGART</span>
+          <span class="tb-shop__name">Konst i tunnelbanan</span>
+          <span class="tb-shop__cost">45 000 kr</span>
+        </div>
+        <span class="tb-shop__desc">Art in the stations: +15% demand everywhere. The world's longest gallery.</span>
+        <div class="tb-shop__foot"><span class="tb-shop__gate">Unlocks in 1964</span><span>Comfort</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="locked">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGSIG</span>
+          <span class="tb-shop__name">CBTC signalling</span>
+          <span class="tb-shop__cost">60 000 kr</span>
+        </div>
+        <span class="tb-shop__desc">Moving-block signalling: trains brake later and run 7% harder.</span>
+        <div class="tb-shop__foot"><span class="tb-shop__gate">Unlocks in 1975 · needs ATC</span><span>Signalling</span></div>
+      </button>
+
+      <button class="tb-shop" data-state="locked">
+        <div class="tb-shop__top">
+          <span class="tb-shop__icon">SVGNIGHT</span>
+          <span class="tb-shop__name">Nattrafik</span>
+          <span class="tb-shop__cost">80 000 kr</span>
+        </div>
+        <span class="tb-shop__desc">The city never fully sleeps: night demand doubled.</span>
+        <div class="tb-shop__foot"><span class="tb-shop__gate">Unlocks in 1975</span><span>Service</span></div>
+      </button>
+    </div>
+    <div class="legend">
+      <span><b>affordable</b> green on hover, invites a click</span>
+      <span><b>unaffordable</b> cost dims to amber-dim, shortfall named</span>
+      <span><b>locked</b> dashed border, ghosted, year in politic</span>
+      <span><b>project</b> politic keyline, priced in trust</span>
+      <span><b>maxed</b> leaves the shop; the relic dims only if it lingers</span>
+    </div>
+  </section>
+
+  <!-- 06 MENU -------------------------------------------------------------->
+  <section class="sec" id="s6">
+    <div class="sec__head"><span class="sec__num">06</span><h2>Menu</h2><span class="sec__note">the first thing anyone sees · a cover, not a form</span></div>
+    <p class="lead">The menu is the cover of the thing it opens, so it stops looking like a settings dialog and starts looking like the game: the wordmark and the portal mark large, a dark reveal of the map bleeding behind, the buttons left-aligned on the same axis as the era moments. One primary action, the rest standard, the disclaimer in micro at the foot. It is the pass-01 start-screen moment, now built from the pass-02 button family so the menu and the game speak the same language.</p>
+    <div class="two">
+      <div>
+        <p class="subcap">Start · a save present</p>
+        <div class="demo" style="padding:0;overflow:hidden">
+          <div class="tb-menu" style="height:420px">
+            <svg class="tb-menu__bg" viewBox="0 0 640 420" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">
+              <rect width="640" height="420" fill="var(--tb-bg)"></rect>
+              <g stroke="var(--tb-line-hi)" stroke-width="1" opacity="0.5"><path d="M0 120h640M0 260h640M0 360h640M180 0v420M360 0v420M520 0v420"></path></g>
+              <path d="M330 380 L400 250 L470 150 L540 70" fill="none" stroke="var(--tb-green)" stroke-width="4" stroke-linecap="round"></path>
+              <g fill="var(--tb-bg)" stroke="var(--tb-ink)" stroke-width="2.5"><circle cx="400" cy="250" r="5"></circle><circle cx="470" cy="150" r="5"></circle><circle cx="540" cy="70" r="6.5"></circle></g>
+            </svg>
+            <div class="tb-menu__veil"></div>
+            <div class="tb-menu__inner">
+              <div class="tb-menu__mark">
+                <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true"><path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="var(--tb-ink)" stroke-width="5"></path><path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="var(--tb-green)" stroke-width="4.4"></path><path d="M5 41h38" stroke="var(--tb-ink)" stroke-width="3"></path></svg>
+                <span class="tb-menu__word">TUNNELBANA</span>
+              </div>
+              <div class="tb-menu__sub">Build Stockholm, out from T-Centralen.</div>
+              <button class="tb-btn tb-btn--primary tb-btn--block">Continue · 1962</button>
+              <button class="tb-btn tb-btn--std tb-btn--block">New network</button>
+              <button class="tb-btn tb-btn--std tb-btn--block">How to play</button>
+              <button class="tb-btn tb-btn--std tb-btn--block">Settings</button>
+              <div class="tb-menu__legal">Unofficial fan work. Not affiliated with any transit operator or Region Stockholm.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="subcap">Settings · the same panel language</p>
+        <div class="demo" style="padding:0;overflow:hidden">
+          <div class="tb-menu" style="height:420px">
+            <div style="position:absolute;inset:0;background:var(--tb-bg)"></div>
+            <div class="tb-menu__veil"></div>
+            <div class="tb-menu__inner">
+              <div class="tb-menu__word" style="font-size:1.1rem;letter-spacing:.28em;margin-bottom:.2rem">SETTINGS</div>
+              <div class="tb-row" style="padding:.55rem 0;border-bottom:1px solid var(--tb-line)">Theme <span><button class="tb-btn tb-btn--inline">Dark</button></span></div>
+              <div class="tb-row" style="padding:.55rem 0;border-bottom:1px solid var(--tb-line)">Sound <span class="tb-row__v" style="color:var(--tb-ghost)">coming later</span></div>
+              <div class="tb-row" style="padding:.55rem 0;border-bottom:1px solid var(--tb-line)">Language <span class="tb-row__v">English</span></div>
+              <div class="tb-row" style="padding:.55rem 0;border-bottom:1px solid var(--tb-line)">Save <span class="tb-row__v" style="color:var(--tb-muted)">automatic, local</span></div>
+              <button class="tb-btn tb-btn--std tb-btn--block" style="margin-top:.7rem">Export save</button>
+              <button class="tb-btn tb-btn--std tb-btn--danger tb-btn--block">Reset progress</button>
+              <button class="tb-btn tb-btn--std tb-btn--block">Back</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="pillnote">Both screens are one <span style="color:var(--tb-ink)">.tb-menu</span>: the same left-aligned inner column, the same buttons, the same veil over the map. The How to play and About pages are the same panel again, one column wider. The menu is not a special surface, it is the panel system at full-screen scale.</p>
+  </section>
+
+  <!-- 07 IN SITU ----------------------------------------------------------->
+  <section class="sec" id="s7">
+    <div class="sec__head"><span class="sec__num">07</span><h2>In situ</h2><span class="sec__note">the whole chrome, in its corners, over a live map</span></div>
+    <p class="lead">Everything at once, arranged the way the game arranges it: readouts and brand top-left, the shop rail top-right, the bell and station panel bottom-left, feedback bottom-right. The pillar the handover names — nothing may make the map smaller or uglier — is visible here as the empty middle. The chrome is a frame around the city, never a lid on it.</p>
+    <div class="demo demo--map" style="position:relative;height:560px;overflow:hidden;padding:0">
+      <svg viewBox="0 0 1100 560" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">
+        <g stroke="var(--tb-line-hi)" stroke-width="1" opacity="0.4"><path d="M0 150h1100M0 320h1100M0 460h1100M260 0v560M520 0v560M760 0v560M960 0v560"></path></g>
+        <path d="M470 470 L560 360 L640 250 L760 160 L860 90" fill="none" stroke="var(--tb-green)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <g fill="var(--tb-bg)" stroke="var(--tb-ink)" stroke-width="2.5"><circle cx="470" cy="470" r="5"></circle><circle cx="560" cy="360" r="5"></circle><circle cx="640" cy="250" r="5"></circle><circle cx="760" cy="160" r="6.5"></circle></g>
+        <circle cx="760" cy="160" r="11" fill="none" stroke="var(--tb-green)" stroke-width="2" opacity="0.6"></circle>
+        <text x="650" y="244" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--tb-ink)" stroke="var(--tb-void)" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">Skanstull</text>
+      </svg>
+      <div style="position:absolute;top:16px;left:16px;display:flex;flex-direction:column;gap:10px;width:240px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true"><path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="var(--tb-ink)" stroke-width="5"></path><path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="var(--tb-green)" stroke-width="4.4"></path><path d="M5 41h38" stroke="var(--tb-ink)" stroke-width="3"></path></svg>
+          <div><div style="font-size:.8rem;font-weight:600;letter-spacing:.3em">TUNNELBANA</div><div style="font-size:.56rem;letter-spacing:.14em;color:var(--tb-muted);text-transform:uppercase;margin-top:2px">Build Stockholm</div></div>
+        </div>
+        <div class="tb-panel"><div class="tb-panel__body">
+          <span class="tb-num tb-num--counter" id="situ-money">1 240<span class="tb-num__unit">kr</span></span>
+          <div class="tb-readout__rates"><span class="tb-rate">+5.1 fares</span><span class="tb-rate">−1.7 upkeep</span><span class="tb-rate tb-rate--up">+3.4 kr/s</span></div>
+          <div style="font-size:var(--tb-fs-caption)"><span class="tb-num tb-num--trust">2.4</span> <span style="color:var(--tb-muted)">trust · 38% coverage</span></div>
+          <div style="font-size:var(--tb-fs-body);color:var(--tb-muted)"><b class="tb-num" style="color:var(--tb-ink)">184 906</b> riders carried</div>
+        </div></div>
+      </div>
+      <div style="position:absolute;top:16px;right:16px;width:260px;display:flex;flex-direction:column;gap:8px">
+        <div class="tb-panel"><div class="tb-panel__body" style="gap:.3rem"><div class="tb-row" style="color:var(--tb-ink)">Era 1957</div><div class="tb-row" style="color:var(--tb-ghost);font-size:var(--tb-fs-caption)">Genom staden</div></div></div>
+        <button class="tb-shop" data-state="affordable"><div class="tb-shop__top"><span class="tb-shop__icon">SVGCAP</span><span class="tb-shop__name">Longer trains</span><span class="tb-shop__cost">800 kr</span></div><span class="tb-shop__desc">+60 passengers per train.</span><div class="tb-shop__foot"><span class="tb-pips"><i class="tb-pip tb-pip--on"></i><i class="tb-pip tb-pip--on"></i><i class="tb-pip"></i><i class="tb-pip"></i><i class="tb-pip"></i><i class="tb-pip"></i></span><span>2 / 6</span></div></button>
+        <button class="tb-shop" data-state="unaffordable"><div class="tb-shop__top"><span class="tb-shop__icon">SVGTIME</span><span class="tb-shop__name">Tighter timetable</span><span class="tb-shop__cost">1 400 kr</span></div><span class="tb-shop__desc">Even intervals; signalling floor drops 18%.</span><div class="tb-shop__foot"><span class="tb-shop__short">Need 160 kr more</span><span>0 / 1</span></div></button>
+      </div>
+      <div style="position:absolute;bottom:20px;left:16px;display:flex;flex-direction:column;gap:8px;width:280px">
+        <div class="tb-panel"><div class="tb-panel__head"><span class="tb-panel__title">Skanstull</span><span class="tb-panel__tag">Station</span><button class="tb-panel__close">×</button></div><div class="tb-panel__body"><div class="tb-row">Waiting <span class="tb-row__v">64 · crowded</span></div><div class="tb-row" style="color:var(--tb-red)">7 gave up waiting</div></div></div>
+        <button class="tb-bell" id="situ-bell"><span class="tb-bell__disc"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M5 3l6 5-6 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span><span class="tb-bell__t">AVGÅNG</span><span class="tb-bell__s" id="situ-bell-sub">1 ready, 12 waiting</span></span></button>
+      </div>
+      <div style="position:absolute;bottom:20px;right:16px;display:flex;gap:8px;align-items:flex-end">
+        <button class="tb-btn tb-btn--inline">Feedback</button>
+        <button class="tb-btn tb-btn--inline" style="width:1.9rem;height:1.9rem;justify-content:center;border-radius:50%">©</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 DEV --------------------------------------------------------------->
+  <section class="sec" id="s8">
+    <div class="sec__head"><span class="sec__num">08</span><h2>Back to the dev side</h2><span class="sec__note">how to adopt it, and the light-theme call</span></div>
+    <div class="decisions">
+      <div class="dbox">
+        <div class="dbox__row"><h4>Adoption order</h4><p>Load tokens-ui.css after tokens.css, then port the component layer top to bottom: foundations, then buttons (the top ask), then swap each hand-built panel for the anatomy. Each step is independent and visible; nothing needs a big-bang rewrite.</p></div>
+        <div class="dbox__row"><h4>The legacy alias block</h4><p>index.html maps --bg, --panel, --ink onto the pass-01 names. Keep it: the component layer targets the --tb- names, so the alias can retire class by class as you port, not all at once.</p></div>
+        <div class="dbox__row"><h4>Icons</h4><p>Shop icons are the pass-01 upgrade grammar: 24 box, 2px stroke, currentColor, so a card colours its own icon by state with no extra files. New categories draw one shape by the section-07 rules in the design doc.</p></div>
+      </div>
+      <div class="dbox dbox--flag">
+        <div class="dbox__row"><h4>Light theme · my recommendation</h4><p>Worth keeping, now that it costs nothing. Every component token is theme-independent, so light is purely the surface and aspect names re-pointed (in tokens-ui.css), which this whole page proves by re-theming with one attribute. I darkened the aspect colours for AA contrast on white and kept their meaning. Toggle the header to check it against every component at once.</p></div>
+        <div class="dbox__row"><h4>One thing to confirm</h4><p>Light is a genuine second theme to eyeball, not a designed <em>atmosphere</em>: the game's mood is the night city, and light mode is a bright room. If it is only a daylight-legibility aid, ship it as-is; if it is meant to feel authored, that is a separate pass and I would scope it.</p></div>
+        <div class="dbox__row"><h4>Not in this pass</h4><p>Sound, achievements, and the schematic diagram view, all still parked. Era moment cards and the ending were pass 01 and are unchanged; they already use this panel language.</p></div>
+      </div>
+    </div>
+    <div style="margin-top:26px;padding:18px 20px;border:1px solid var(--tb-line);display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1 1 300px;font-size:11px;color:var(--tb-muted);line-height:1.7">Two files to take: <a href="tokens-ui.css">tokens-ui.css</a> (the new names) and this page's component layer, which lives in its <span style="color:var(--tb-ink)">&lt;style&gt;</span> block behind the "this is the deliverable" banner. The pass-02 section of the design doc has the adoption notes and the full state table in prose.</div>
+      <a href="TUNNELBANA-DESIGN-DOC.md" style="font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--tb-void);background:var(--tb-ink);padding:11px 18px;border:0">Open the design doc</a>
+    </div>
+  </section>
+
+  <p class="foot">Tunnelbana UI system, pass 02. Unofficial fan work. Not affiliated with any transit operator or Region Stockholm.</p>
+</div>
+
+<template id="icons">
+  <svg data-i="SVGCAP" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="15" width="14" height="3" rx="0.5"></rect><rect x="5" y="10" width="10" height="3" rx="0.5"></rect><rect x="5" y="5" width="6" height="3" rx="0.5"></rect></svg>
+  <svg data-i="SVGTRAIN" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="3"></rect><path d="M4 12h16"></path><circle cx="8.5" cy="20" r="1.3" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="20" r="1.3" fill="currentColor" stroke="none"></circle></svg>
+  <svg data-i="SVGSTAFF" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20a7 7 0 0 1 14 0"></path></svg>
+  <svg data-i="SVGTIME" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="4.5" width="17" height="16" rx="1"></rect><path d="M3.5 9.5h17M9 9.5v11"></path><rect x="4.5" y="10.5" width="3.5" height="3" fill="currentColor" stroke="none"></rect></svg>
+  <svg data-i="SVGFARE" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"></circle><path d="M9 9v6M15 9l-4 3 4 3"></path></svg>
+  <svg data-i="SVGSPEED" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l4 4-4 4M11 8l4 4-4 4M18 8l3 4-3 4"></path></svg>
+  <svg data-i="SVGNET" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l6 6 6-6M12 12v6"></path><circle cx="6" cy="5" r="2" fill="currentColor" stroke="none"></circle><circle cx="18" cy="5" r="2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="20" r="2" fill="currentColor" stroke="none"></circle></svg>
+  <svg data-i="SVGTHRU" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h13a4 4 0 0 1 0 8H8"></path><path d="M11 14l-3 3 3 3"></path></svg>
+  <svg data-i="SVGART" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"></rect><path d="M4 15l4-4 4 4 3-3 5 5"></path><circle cx="9" cy="9" r="1.4" fill="currentColor" stroke="none"></circle></svg>
+  <svg data-i="SVGSIG" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2.5" width="8" height="19" rx="4"></rect><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" opacity="0.4"></circle><circle cx="12" cy="16.5" r="1.5" fill="currentColor" stroke="none" opacity="0.4"></circle></svg>
+  <svg data-i="SVGNIGHT" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+</template>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  // Inject shop icons from the template into every placeholder.
+  var tpl = document.getElementById('icons');
+  var lib = {};
+  tpl.content.querySelectorAll('svg[data-i]').forEach(function (s) { lib[s.getAttribute('data-i')] = s; });
+  document.querySelectorAll('.tb-shop__icon').forEach(function (slot) {
+    var key = slot.textContent.trim();
+    if (lib[key]) { slot.textContent = ''; slot.appendChild(lib[key].cloneNode(true)); }
+  });
+
+  // Theme toggle: one attribute re-themes every component on the page.
+  document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = b.getAttribute('data-theme-set');
+      root.classList.add('theme-switching');
+      root.setAttribute('data-theme', t);
+      document.querySelectorAll('[data-theme-set]').forEach(function (o) {
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { root.classList.remove('theme-switching'); });
+      });
+    });
+  });
+
+  // Number system: group with a thin space, never a comma.
+  function group(n) { return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009'); }
+  function setMoney(el, n) {
+    if (!el) return;
+    el.firstChild ? (el.firstChild.textContent = group(n)) : (el.textContent = group(n));
+  }
+  var money = 1240;
+  var liveEls = ['live-money', 'situ-money'].map(function (id) { return document.getElementById(id); });
+  setInterval(function () {
+    money += 3.4;
+    liveEls.forEach(function (el) { if (el) setMoney(el, money); });
+  }, 1000);
+
+  // The bell flashes and updates its sub, exactly as the build does.
+  [['live-bell', 'live-bell-sub'], ['situ-bell', 'situ-bell-sub']].forEach(function (pair) {
+    var btn = document.getElementById(pair[0]);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      btn.classList.add('is-rung');
+      setTimeout(function () { btn.classList.remove('is-rung'); }, 250);
+      var sub = document.getElementById(pair[1]);
+      if (sub) sub.textContent = 'dispatched, 12 aboard';
+      money += 42;
+      liveEls.forEach(function (el) { if (el) setMoney(el, money); });
+    });
+  });
+})();
+</script>
+</body>
+</html>
