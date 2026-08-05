@@ -111,6 +111,14 @@ async function main() {
     await sleep(2500);
     await shot(ws, '4-game');
 
+    // The new chrome: the collapsed rail, and the bottom-right controls.
+    await evaluate(ws, `document.getElementById('rail-toggle').click()`);
+    await sleep(500);
+    await shot(ws, '4b-rail-hidden');
+    await shot(ws, '4c-corner-buttons', { x: 1040, y: 820, width: 400, height: 80 });
+    await evaluate(ws, `document.getElementById('rail-toggle').click()`);
+    await sleep(400);
+
     // 3. A richer state: money for the shop's affordable/unaffordable split,
     // a station panel open, and an era in reach. Reaches into the live game
     // through the debug handle the game already exposes.
