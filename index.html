@@ -9,7 +9,7 @@
      newer page (that shipped a dead Achievements screen and a 0.7 readout on a
      0.8 page). The handshake lives in the HTML because the HTML is the copy a
      browser revalidates. -->
-<meta name="tb-version" content="0.8.1">
+<meta name="tb-version" content="0.8.2">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="vendor/maplibre-gl.css" rel="stylesheet">
 <script src="vendor/maplibre-gl.js"></script>
@@ -174,7 +174,11 @@
   }
 
   /* The earn toast: bottom centre, out of the way of both HUD rails, gone in a
-     few seconds. An achievement should be noticed, not acknowledged. */
+     few seconds. An achievement should be noticed, not acknowledged.
+     It is a BUTTON, not a div (owner ask 2026-08-05): the toast is the only
+     place the game ever mentions an aim by name, so when it vanishes the
+     player is left with a bonus and no idea where the rest live. Clicking it
+     opens the achievements list. Keyboard reaches it for free this way. */
   #ach-toast {
     position: fixed;
     bottom: 1.4rem;
@@ -184,7 +188,16 @@
     border-color: var(--tb-green);
     text-align: center;
     min-width: 200px;
+    display: block;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
   }
+  #ach-toast:hover, #ach-toast:focus-visible {
+    border-color: var(--tb-green);
+    box-shadow: 0 0 0 1px var(--tb-green);
+  }
+  #ach-toast:hover #ach-toast-more { color: var(--tb-green); }
 
   #boot {
     position: fixed;
@@ -305,16 +318,11 @@
       </div>
     </div>
 
-    <div class="tb-panel">
-      <div class="tb-panel__head">
-        <span class="tb-panel__title">Upgrades</span>
-        <span class="tb-panel__tag" id="qty-tag">Buy</span>
-      </div>
-      <div class="tb-panel__body"><div class="tb-quant" id="qty-row"></div></div>
-    </div>
-
-    <div id="shop" style="display: contents"></div>
-
+    <!-- Network sits ABOVE the shop, not below it (owner ask 2026-08-05). It is
+         the rail's only pure-information panel, and it was stranded under a
+         shop list that grows every era: by 1957 you had to scroll past a dozen
+         cards to read how your lines were running. Era (the goal) then Network
+         (the state) then Upgrades (the actions) also reads in that order. -->
     <div class="tb-panel">
       <div class="tb-panel__head"><span class="tb-panel__title">Network</span></div>
       <div class="tb-panel__body">
@@ -329,6 +337,16 @@
         <button class="tb-btn tb-btn--inline" id="btn-reactivate"></button>
       </div>
     </div>
+
+    <div class="tb-panel">
+      <div class="tb-panel__head">
+        <span class="tb-panel__title">Upgrades</span>
+        <span class="tb-panel__tag" id="qty-tag">Buy</span>
+      </div>
+      <div class="tb-panel__body"><div class="tb-quant" id="qty-row"></div></div>
+    </div>
+
+    <div id="shop" style="display: contents"></div>
   </div>
 
   <div class="hud" id="hud-br">
@@ -350,12 +368,13 @@
     <button id="about-mark" aria-label="About and credits">&copy;</button>
   </div>
 
-  <div class="tb-panel" id="ach-toast" hidden>
+  <button type="button" class="tb-panel" id="ach-toast" hidden>
     <div class="tb-panel__body">
       <div class="tb-panel__title" id="ach-toast-label"></div>
       <div class="tb-ach__name" id="ach-toast-name"></div>
+      <div class="tb-panel__tag" id="ach-toast-more"></div>
     </div>
-  </div>
+  </button>
 
   <div class="tb-moment" id="moment" hidden>
     <div class="tb-moment__panel">
@@ -416,6 +435,9 @@
           useful service. It cannot be bought. Trust pays for the things money alone cannot:
           chartering a new line, upgrading a station into a Hub, and advancing to the next
           era.</p>
+          <p>It has a ceiling: exactly what the next era asks of you, shown beside the number.
+          Once you are full you earn none until you spend some or move on, so trust is
+          something to use rather than hoard. The last era lifts the ceiling for good.</p>
         </div>
 
         <div class="tb-prose">
@@ -434,6 +456,12 @@
           demolish it.</p>
           <p>Cost grows along the line you are extending, so a long line gets expensive; a
           new line starts cheap again.</p>
+          <p>On the map: every station you have built is a hollow circle, drawn larger at the
+          two ends of a line. The tinted disc around it, in that line's colour, is the area it
+          serves; it widens with the station's tier and its entrances. A thin outer ring with
+          a solid centre marks a Hub or a place where two lines meet. A greyed circle is a
+          stop you placed off-anchor, between the real ones. A dashed ring with a name is a
+          real station waiting for you.</p>
         </div>
 
         <div class="tb-prose">
@@ -458,6 +486,13 @@
           of what it makes with you watching. It is safe to close the tab; progress saves
           itself.</p>
         </div>
+
+        <!-- Icon key. Built at runtime from the same <template> the shop draws
+             from, so a new icon cannot ship without a meaning next to it. -->
+        <div class="tb-prose">
+          <h3>What the icons mean</h3>
+        </div>
+        <div class="tb-key" id="icon-key"></div>
 
         <button class="tb-btn tb-btn--std tb-btn--block" id="help-back" style="margin-top: 1rem">Back</button>
       </div>
