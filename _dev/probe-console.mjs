@@ -80,7 +80,10 @@ async function main() {
     await sleep(3500);
 
     console.log('menu hidden:', await evaluate(ws, 'document.getElementById("menu").hidden'));
-    console.log('start label:', await evaluate(ws, 'document.getElementById("menu-start").textContent'));
+    // The primary button is #menu-resume in both states (its LABEL changes from
+    // Start to Resume when a save exists). The probe used to read #menu-start,
+    // an id that no longer exists, and reported an eval error on every run.
+    console.log('start label:', await evaluate(ws, 'document.getElementById("menu-resume").textContent'));
     // Click every menu button and report the resulting view state.
     for (const id of ['menu-help', 'help-back', 'menu-settings', 'settings-back', 'menu-about', 'about-back']) {
       const r = await evaluate(ws, `(() => {

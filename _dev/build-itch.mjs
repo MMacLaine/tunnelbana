@@ -11,8 +11,11 @@ const ZIP = join(ROOT, 'dist', 'tunnelbana.zip');
 rmSync(join(ROOT, 'dist'), { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 
+// incrementaldb.txt is TEMPORARY: an ownership token for the incrementaldb.com
+// listing, reachable at <build root>/incrementaldb.txt once uploaded. Remove it
+// here and delete the file once verification is confirmed.
 const INCLUDE = ['index.html', 'tokens.css', 'tokens-ui.css', 'ui.css', 'favicon.svg',
-                 'src', 'vendor', 'fonts', 'basemap'];
+                 'incrementaldb.txt', 'src', 'vendor', 'fonts', 'basemap'];
 for (const item of INCLUDE) {
   cpSync(join(ROOT, item), join(STAGE, item), { recursive: true });
 }

@@ -21,7 +21,10 @@ const SITE = '/Users/matthewmaclaine/personal website/tunnelbana';
 const CHECK = process.argv.includes('--check');
 
 // What a player needs, and nothing else: no harnesses, no design kit, no docs.
-const SHIP_FILES = ['index.html', 'favicon.svg', 'tokens.css', 'tokens-ui.css', 'ui.css'];
+// incrementaldb.txt is TEMPORARY: an ownership token for the incrementaldb.com
+// listing. Remove it here and delete the file once verification is confirmed.
+const SHIP_FILES = ['index.html', 'favicon.svg', 'tokens.css', 'tokens-ui.css', 'ui.css',
+                    'incrementaldb.txt'];
 const SHIP_DIRS = ['src', 'basemap', 'fonts', 'vendor'];
 
 function walk(dir, base = dir, out = []) {
