@@ -139,6 +139,12 @@ const STR = {
   everyS: 'every ',
   bellAuto: 'Automatic · every',
   unlocksIn: 'Unlocks in',
+  unlockAt: 'Unlocks at',
+  unlockWhen: 'Unlocks when',
+  unlockDelivered: 'is delivered',
+  unlockStations: 'stations',
+  unlockRetail: 'kr/s retail',
+  unlockHubs: 'hubs of your own',
   need: 'Need',
   more: 'more',
   ownedLower: 'owned',
@@ -170,6 +176,9 @@ const STR = {
     diagram:    { name: 'Linjekartan',       desc: 'The map on the platform wall: your network as a schematic diagram. Toggles in the map corner.' },
     patterns:   { name: 'Trafikledning',     desc: 'Run your own service patterns: mark stops for the express to skip, and trains alternate full and express. Set it per stop, in the station panel.' },
     region:     { name: 'Regionplanen',      desc: 'Permission to build ' + CAT.region.add.buildRadius + ' km further from T-Centralen, per level. Stockholm does not end at the tullar.' },
+    escalators: { name: 'Rulltrappor',       desc: 'Escalators network-wide: +' + CAT.escalators.add.gateRate + ' passengers/s through every station\'s gates, per level.' },
+    hosts:      { name: 'Stationsvärdar',    desc: 'Hosts on the platforms: crowded queues give up ' + pct(CAT.hosts.mult.abandon) + '% slower, per level. Patience, bought.' },
+    adverts:    { name: 'Reklamavtal',       desc: 'Advertising in your stations: retail rent worth ' + pct(CAT.adverts.mult.retail) + '% more, per level.' },
     works:      { name: 'Works department',  desc: 'Bulk orders: raise entrances, gates or retail one level across every station in one click. The buttons appear in the Network panel.' },
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
     redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line as a Söder shuttle, Mariatorget to Zinkensdamm, with a train. Connect it to your network your way; Fruängen waits at the far end.' },
@@ -1521,6 +1530,9 @@ const SHOP_META = {
   diagram:     { icon: 'net',   cat: 'Office' },
   patterns:    { icon: 'time',  cat: 'Service' },
   region:      { icon: 'net',   cat: 'Project' },
+  escalators:  { icon: 'cap',   cat: 'Capacity' },
+  hosts:       { icon: 'staff', cat: 'Comfort' },
+  adverts:     { icon: 'art',   cat: 'Comfort' },
   westline:    { icon: 'net',   cat: 'Project' },
   redline:     { icon: 'net',   cat: 'Project' },
   blueline:    { icon: 'net',   cat: 'Project' },
@@ -1606,9 +1618,43 @@ $('qty-row').addEventListener('click', (e) => {
   updateUI();
 });
 
+// A locked card names its condition in the player's own numbers (the
+// disabled-is-designed rule, extended to the future).
+function unlockText(item) {
+  const u = item.unlock || {};
+  if (u.stations) return STR.unlockAt + ' ' + u.stations + ' ' + STR.unlockStations;
+  if (u.delivered) return STR.unlockAt + ' ' + fmt(u.delivered) + ' ' + STR.riders;
+  if (u.coverage) return STR.unlockAt + ' ' + Math.round(u.coverage * 100) + '% ' + STR.coverage;
+  if (u.corridor) {
+    const c = CORRIDORS.find((x) => x.id === u.corridor);
+    return STR.unlockWhen + ' ' + (c ? c.name : u.corridor) + ' ' + STR.unlockDelivered;
+  }
+  if (u.retail) return STR.unlockAt + ' ' + u.retail + ' ' + STR.unlockRetail;
+  if (u.hubs) return STR.unlockAt + ' ' + u.hubs + ' ' + STR.unlockHubs;
+  return STR.unlocksIn + ' ' + item.era;
+}
+
 const shopEl = $('shop');
 const cards = {};
+// The shop is grouped by category (0.11): headers in first-seen catalog
+// order, hidden with their group when nothing under them shows.
+const catOrder = [];
 for (const item of sim.CATALOG) {
+  const c = (SHOP_META[item.id] || {}).cat || '';
+  if (!catOrder.includes(c)) catOrder.push(c);
+}
+const catHeader = {};
+for (const c of catOrder) {
+  const h = document.createElement('div');
+  h.className = 'tb-shopcat';
+  h.textContent = c;
+  shopEl.appendChild(h);
+  catHeader[c] = h;
+  buildCardsFor(c);
+}
+function buildCardsFor(cat) {
+  for (const item of sim.CATALOG) {
+    if (((SHOP_META[item.id] || {}).cat || '') !== cat) continue;
   const s = STR.shop[item.id];
   const meta = SHOP_META[item.id] || { icon: 'net', cat: '' };
   const card = document.createElement('button');
@@ -1633,6 +1679,7 @@ for (const item of sim.CATALOG) {
   });
   shopEl.appendChild(card);
   cards[item.id] = card;
+  }
 }
 
 // Level pips: how much of this upgrade you own, at a glance.
@@ -1651,12 +1698,16 @@ function updateShop() {
     const card = cards[item.id];
     const owned = g.owned[item.id];
     const maxed = owned >= sim.maxFor(g, item);
-    const open = sim.eraVisible(g, item);
-    // An era-locked item shows as a PROMISE rather than being hidden (pass 02,
-    // section 05: "a dashed promise with its year"), but only for the era the
-    // player is working toward. Showing all five eras at once would be a wall
-    // of text, not an invitation.
-    const soon = !open && nextEra && item.era === nextEra.year;
+    const eraOpen = sim.eraVisible(g, item);
+    const open = eraOpen && sim.unlockMet(g, item);
+    // A locked item shows as a PROMISE rather than being hidden (pass 02,
+    // section 05: "a dashed promise with its year"): the next era's items
+    // carry their year, and an era-open item still behind its unlock carries
+    // the CONDITION in the player's own numbers (0.11 grammar). All five
+    // eras at once would be a wall of text, not an invitation.
+    const soonEra = !eraOpen && nextEra && item.era === nextEra.year;
+    const soonUnlock = eraOpen && !open;
+    const soon = soonEra || soonUnlock;
     // A maxed upgrade still leaves the shop (owner ask): the space belongs to
     // what can be bought. 'train' reads maxed only while the fleet cap binds,
     // so it stays as the cap readout.
@@ -1697,7 +1748,9 @@ function updateShop() {
     const left = card.querySelector('[data-slot=left]');
     if (soon) {
       left.className = 'tb-shop__gate';
-      left.textContent = STR.unlocksIn + ' ' + item.era + (item.needs ? ' · ' + STR.needsDrivers.toLowerCase() : '');
+      left.textContent = soonUnlock
+        ? unlockText(item)
+        : STR.unlocksIn + ' ' + item.era + (item.needs ? ' · ' + STR.needsDrivers.toLowerCase() : '');
     } else if (gated) {
       left.className = 'tb-shop__gate';
       left.textContent = STR.needsDrivers;
@@ -1720,6 +1773,15 @@ function updateShop() {
     catEl.textContent = item.id === 'train'
       ? (owned + 1) + ' ' + STR.ownedLower + ' · ' + meta.cat
       : owned + ' / ' + max + ' · ' + meta.cat;
+  }
+  // Category headers follow their groups: no header stands over nothing.
+  for (const c of catOrder) {
+    let any = false;
+    for (const item of sim.CATALOG) {
+      if (((SHOP_META[item.id] || {}).cat || '') !== c) continue;
+      if (cards[item.id].style.display !== 'none') { any = true; break; }
+    }
+    catHeader[c].style.display = any ? '' : 'none';
   }
   // Era panel
   const next = sim.nextEra(g);

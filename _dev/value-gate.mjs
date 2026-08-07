@@ -100,7 +100,12 @@ function netRate(owned, demand, surgeAt) {
 function measure(withoutOwned, withOwned, demand, applyStation) {
   const bases = [];
   const deltas = SURGE_PHASES.map((ph) => {
-    const a = applyStation ? netRateStation(withoutOwned, demand, null, ph) : netRate(withoutOwned, demand, ph);
+    // The baseline may itself carry a station upgrade ({owned, upgrade}),
+    // so an item that MULTIPLIES a station axis (adverts on retail) can be
+    // measured against the same axis it multiplies.
+    const a = applyStation
+      ? netRateStation(withoutOwned.owned ?? withoutOwned, demand, withoutOwned.upgrade ?? null, ph)
+      : netRate(withoutOwned, demand, ph);
     const b = applyStation ? netRateStation(withOwned.owned, demand, withOwned.upgrade, ph) : netRate(withOwned, demand, ph);
     bases.push(a);
     return b - a;
@@ -161,6 +166,12 @@ const CASES = [
   { id: 'artstation', demand: 'mid',  base: { drivers: 1, train: 4, timetable: 1 },   buy: { artstation: 1 } },
   { id: 'cbtc',       demand: 'high', base: { drivers: 1, train: 1, timetable: 1, atc: 1 }, buy: { cbtc: 1 } },
   { id: 'nightservice', demand: 'high', base: { drivers: 1, train: 3, timetable: 1 }, buy: { nightservice: 1 } },
+  // The 0.11 batch. escalators pay like gates: when arriving trains have
+  // room. hosts pay where crowds leak. ('seasonpass', the fare-vs-demand
+  // choice upgrade, was measured here at -19.96/s in its OWN regime and cut
+  // before shipping: the note in the catalog records the lesson.)
+  { id: 'escalators', demand: 'high', base: { drivers: 1, capacity: 2, train: 1 }, buy: { escalators: 1 } },
+  { id: 'hosts',      demand: 'high', base: { drivers: 1, train: 2 },              buy: { hosts: 1 } },
 ];
 
 let failed = 0;
@@ -218,6 +229,23 @@ for (const c of STATION_CASES) {
     c.demand, true
   );
   const r = report(c, m);
+  if (!r.ok && !r.ledgered) failed++;
+  if (r.ledgered) warned++;
+  if (r.thin) thinCount++;
+}
+
+// adverts multiplies retail, so both sides carry the same shop level and the
+// delta is the multiplier's worth alone. Graded like 'st shop': policing the
+// budget, not proving a fortune (one level on one station is intrinsically
+// small; the item's job is 59 stations deep in retail).
+{
+  const base = { drivers: 1, train: 4, timetable: 1 };
+  const m = measure(
+    { owned: { ...base }, upgrade: { kind: 'shop', at: 0 } },
+    { owned: { ...base, adverts: 1 }, upgrade: { kind: 'shop', at: 0 } },
+    'low', true
+  );
+  const r = report({ id: 'adverts' }, m);
   if (!r.ok && !r.ledgered) failed++;
   if (r.ledgered) warned++;
   if (r.thin) thinCount++;

@@ -615,6 +615,21 @@ export const CATALOG = [
     mult: { speed: 0.9 } },
   { id: 'turnstiles', base: 1600, growth: 1,   max: 1, era: 1950,
     mult: { fare: 1.05 } },
+  // --- The 0.11 batch, aimed at the measured 1957 desert (probe-arc
+  // 2026-08-08: three dead zones totalling ~20 min between t=2118 and 3550,
+  // catalog maxed, 2.4M kr idle). All unlock by PLAY, not calendar. ---
+  { id: 'escalators', base: 2600, growth: 1.9, max: 3, era: 1952, unlock: { stations: 10 },
+    add: { gateRate: 25 } },
+  { id: 'hosts',      base: 5200, growth: 2,   max: 2, era: 1957, unlock: { delivered: 60000 },
+    mult: { abandon: 0.75 } },
+  // 'seasonpass' (fares down, demand up: the first CHOICE upgrade) was CUT
+  // here by measurement, not taste: -19.96 kr/s in its own demand-slack
+  // regime (value-gate 2026-08-08), because a fare cut bites every boarding
+  // instantly while added demand converts at ~0.2 kr/s per percent. A real
+  // trade needs an economy where demand converts harder; revisit with
+  // mid-game demand growth, like the depot lesson.
+  { id: 'adverts',    base: 20000, growth: 2.2, max: 2, era: 1957, unlock: { retail: 25 },
+    mult: { retail: 1.5 } },
   // The statistics office: pure information, priced as a treat (owner ask
   // 2026-08-07: stats are a thing incremental players BUY into). Not graded
   // by the value gate, like atc: legibility purchases earn attention, not kr.
@@ -660,8 +675,10 @@ export const CATALOG = [
   { id: 'zonefare',   base: 20000, growth: 1,  max: 1, era: 1975,
     mult: { fare: 1.15 } },
   // Late sinks (report 638 §5): thresholds without sinks just make the player
-  // wait with a full wallet.
-  { id: 'artstation', base: 45000, growth: 1,  max: 1, era: 1964,
+  // wait with a full wallet. Moved 1964 -> 1957 in 0.11 (historically right:
+  // the art programme began with T-Centralen in 1957) and deepened to three
+  // steep levels, because the 1957 desert needed ~600k of things to want.
+  { id: 'artstation', base: 45000, growth: 3,  max: 3, era: 1957,
     add: { demand: 0.15 } },
   // cbtc is frequency AND speed (moving-block signalling lets trains run
   // closer and brake later); pure frequency saturates at reachable demand.
@@ -965,7 +982,7 @@ export function commerceRate(g) {
       r += st.shop * BAL.shopKrPerLevel * Math.max(0.5, st.mult);
     }
   }
-  return r;
+  return r * effectMult(g, 'retail');
 }
 
 // Trust per second right now: the rate the HUD shows, so the player can see
@@ -1572,7 +1589,7 @@ export function moveTime(g, d) {
 // tighter fixed process.
 export function dwellFor(g, st, boarded) {
   const fixed = Math.max(BAL.minDwell, BAL.baseDwell[st.tier]);
-  const gateRate = BAL.gateRateBase + BAL.gateRatePerLevel * st.gates;
+  const gateRate = BAL.gateRateBase + effectAdd(g, 'gateRate') + BAL.gateRatePerLevel * st.gates;
   return fixed + boarded / gateRate;
 }
 
@@ -2010,7 +2027,7 @@ export function tick(g, dt) {
       // Held until opening day: an unopened line has no service to abandon.
       const crowd = waitingAt(g, li, i) / (cap * s.mult);
       if (g.opened && crowd > 0.25) {
-        const leaveK = BAL.abandonPerSec * crowd * crowd * dt;
+        const leaveK = BAL.abandonPerSec * effectMult(g, 'abandon') * crowd * crowd * dt;
         const lost = (L.waitingF[i] + L.waitingB[i]) * leaveK;
         L.waitingF[i] -= L.waitingF[i] * leaveK;
         L.waitingB[i] -= L.waitingB[i] * leaveK;
@@ -2536,6 +2553,40 @@ export function eraVisible(g, item) {
   return item.era <= eraYear(g);
 }
 
+// The unlock grammar (0.11, owner direction: the shop should react to how
+// you PLAY, not just to the calendar). An item may carry a declarative
+// `unlock` beside its era; both must hold. Every key is a number the HUD
+// already shows, so a locked card can name its condition in the player's
+// own terms.
+function playerHubs(g) {
+  const seen = new Set();
+  let n = 0;
+  for (const L of g.lines) for (const st of L.stations) {
+    const k = physKeyOf(st);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) n++;
+  }
+  return n;
+}
+
+export function unlockMet(g, item) {
+  const u = item.unlock;
+  if (!u) return true;
+  if (u.stations && stationCount(g) < u.stations) return false;
+  if (u.delivered && g.totalDelivered < u.delivered) return false;
+  if (u.coverage && coverage(g) < u.coverage) return false;
+  if (u.corridor && !g.planDone[u.corridor]) return false;
+  if (u.hubs && playerHubs(g) < u.hubs) return false;
+  if (u.retail && commerceRate(g) < u.retail) return false;
+  if (u.achievement && !g.achieved[u.achievement]) return false;
+  return true;
+}
+
+export function itemVisible(g, item) {
+  return eraVisible(g, item) && unlockMet(g, item);
+}
+
 export function shopCost(g, id) {
   const item = CATALOG.find((s) => s.id === id);
   return Math.round(item.base * Math.pow(item.growth, g.owned[id]));
@@ -2564,7 +2615,7 @@ function geoMax(base, growth, owned, budget) {
 // own max and by the era gate.
 export function affordableLevels(g, id, want) {
   const item = CATALOG.find((s) => s.id === id);
-  if (!item || !eraVisible(g, item)) return 0;
+  if (!item || !itemVisible(g, item)) return 0;
   if (item.needs && !g.owned[item.needs]) return 0;
   const room = maxFor(g, item) - g.owned[id];
   if (room <= 0) return 0;
@@ -2651,7 +2702,7 @@ export function upgradeStationN(g, li, i, kind, want) {
 
 export function canBuy(g, id) {
   const item = CATALOG.find((s) => s.id === id);
-  if (!eraVisible(g, item)) return false;
+  if (!itemVisible(g, item)) return false;
   if (g.owned[id] >= maxFor(g, item)) return false;
   if (item.needs && !g.owned[item.needs]) return false;
   const cost = shopCost(g, id);

@@ -227,6 +227,30 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.bulkUpgrade(bw, 'gates') !== 0) err('a broke order should buy nothing');
 }
 
+// --- The unlock grammar (0.11): items unlock by PLAY, layered on era; the
+// condition binds canBuy, and meeting it opens the purchase. ---
+{
+  const ug = sim.newGame();
+  ug.money = 1e9;
+  ug.era = 1; // escalators' era is open...
+  if (sim.canBuy(ug, 'escalators')) err('escalators must wait for 10 stations');
+  ug.planDone['green-south'] = true;
+  while (sim.stationCount(ug) < 10) {
+    const k = ug.lines[0].stations.length;
+    sim.extendTo(ug, 0, 'tail', ANCHORS[k].geo, k);
+  }
+  if (!sim.canBuy(ug, 'escalators')) err('ten stations should unlock escalators');
+  if (!sim.buy(ug, 'escalators')) err('escalators purchase failed');
+  ug.era = 2;
+  if (sim.canBuy(ug, 'hosts')) err('hosts must wait for 60k delivered');
+  ug.totalDelivered = 60000;
+  if (!sim.canBuy(ug, 'hosts')) err('60k delivered should unlock hosts');
+  if (sim.canBuy(ug, 'adverts')) err('adverts must wait for retail income');
+  // artstation deepened: three steep levels, era 1957 now.
+  ug.money = 1e9;
+  if (sim.buyN(ug, 'artstation', 3) !== 3) err('artstation should take three levels in 1957');
+}
+
 // --- The city's edge and the anchor softlock (0.10.2, both from one live
 // report). A free spot parked beside an unbuilt plan anchor must not veto
 // it: with the era gate demanding complete corridors, that veto was a

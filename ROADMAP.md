@@ -20,6 +20,18 @@ when a ruling changes, and strike items when they land.
 - **0.10.1**: design parity for the stats page, clock/rush chips, note
   toasts, amber incident markers.
 
+## In the build (0.11, unreleased)
+
+The upgrades dig (2026-08-08): a play-based unlock grammar (stations,
+delivered, coverage, corridor, hubs, retail, achievement — layered on era,
+locked cards name their condition), the shop grouped by category, and a
+measured batch aimed at the 1957 desert probe-arc found (worst gap 753 s →
+192 s): Rulltrappor, Stationsvärdar, Reklamavtal, artstation moved to 1957
+and deepened to three levels. `seasonpass` (the fare-vs-demand choice
+upgrade) was CUT by the value gate at −19.96 kr/s in its own regime; the
+lesson is recorded in the catalog. Remaining dominant wait is the 1964
+trust wall (11.6/25 pk at t=3600), already a watch item below.
+
 ## Agreed, not yet built
 
 | Item | Ruling | Status |
