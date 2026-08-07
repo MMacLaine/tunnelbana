@@ -161,6 +161,11 @@ export const BAL = {
   // curve is gated by political capital and by needing trains to run them.
   stationBase: 1100,       // flat station cost, grows with THIS line's length
   stationGrowth: 1.32,
+  // The city's edge (owner ruling 2026-08-08: "people are being silly and
+  // rightfully so" — one player laid track toward Gotland). 13 km from
+  // T-Centralen covers every authored anchor with margin (Akalla, the
+  // farthest, sits at ~12.4); Regionplanen extends it, within reason.
+  buildRadiusKm: 13,
   trackPerKm: 520,         // kr per km of track
   waterMult: 2.0,          // track cost multiplier when the segment crosses water
   minSpacingKm: 0.35,      // same-line stations may not land closer than this
@@ -664,6 +669,11 @@ export const CATALOG = [
     mult: { dispatchInterval: 0.8, speed: 0.93 } },
   { id: 'nightservice', base: 80000, growth: 1, max: 1, era: 1975,
     mult: { night: 2 } },
+  // Regionplanen: permission to build beyond the city's edge, the first
+  // upgrade whose product is SPACE. Late, steep, two levels (13 -> 17 -> 21
+  // km), so "outside Stockholm, within reason" stays within reason.
+  { id: 'region',     base: 120000, growth: 2.5, max: 2, era: 1975,
+    add: { buildRadius: 4 } },
 ];
 
 export function effectMult(g, key) {
@@ -2202,21 +2212,43 @@ function shareTarget(g, li, geo) {
   return own ? 'own' : best;
 }
 
+// The share that actually applies to THIS placement. A revealed anchor is
+// always buildable ground (softlock fix, 2026-08-08: a player parked a free
+// spot beside Rådmansgatan and the spacing rule then vetoed the anchor, the
+// corridor, and with the plan gate every era after it): a same-line
+// neighbour no longer vetoes an anchor build, and a nearby station on
+// ANOTHER line only becomes the junction when it IS this anchor, so a stray
+// free spot cannot hijack a plan stop.
+function shareFor(g, li, geo, anchorIdx) {
+  let share = shareTarget(g, li, geo);
+  if (anchorIdx !== null && share === 'own') share = null;
+  if (anchorIdx !== null && share && share !== 'own' && share.st.anchor !== anchorIdx) share = null;
+  return share;
+}
+
 // What the drag label needs to say about a junction, read-only.
 export function junctionPreview(g, li, geo) {
   const s = shareTarget(g, li, geo);
   return s && s !== 'own' ? { name: s.st.name, tier: s.st.tier } : null;
 }
 
-export function extensionCost(g, li, end, geo) {
+export function extensionCost(g, li, end, geo, anchorIdx = null) {
   const from = endStation(g, li, end);
   const km = kmBetween(from.geo, geo);
-  const share = shareTarget(g, li, geo);
+  const share = shareFor(g, li, geo, anchorIdx);
   // A junction shares a station that already exists: track is the only build.
   const station = share && share !== 'own' ? 0
     : BAL.stationBase * Math.pow(BAL.stationGrowth, Math.max(0, g.lines[li].stations.length - 2));
   const track = km * BAL.trackPerKm * (crossesWater(from.geo, geo) ? BAL.waterMult : 1);
   return Math.round(station + track);
+}
+
+// How far from T-Centralen a NEW station may stand. The city has an edge
+// (owner ruling 2026-08-08, after a player built toward Gotland): the base
+// radius covers every authored anchor with margin, and Regionplanen buys
+// permission further out, within reason.
+export function buildRadiusNow(g) {
+  return BAL.buildRadiusKm + effectAdd(g, 'buildRadius');
 }
 
 export function maxStationsNow(g) {
@@ -2227,17 +2259,18 @@ export function maxStationsNow(g) {
 // free spots are refused until the 1950 plan is delivered ('plan'). Checked
 // after water and spacing, so the label always names the harder refusal.
 export function placementProblem(g, li, end, geo, anchorIdx = null) {
-  const share = shareTarget(g, li, geo);
+  const share = shareFor(g, li, geo, anchorIdx);
   if (share && share !== 'own') {
     // A junction adds no station on the ground and sits on dry land already.
     if (share.st.tier < 2) return 'needsTier2';
   } else {
     if (stationCount(g) >= maxStationsNow(g)) return 'max';
     for (const w of WATER) if (inRing(geo, w.ring)) return 'water';
+    if (kmBetween(geo, ANCHORS[0].geo) > buildRadiusNow(g)) return 'far';
     if (share === 'own') return 'tooClose';
     if (anchorIdx === null && !freeBuildUnlocked(g)) return 'plan';
   }
-  if (g.money < extensionCost(g, li, end, geo)) return 'money';
+  if (g.money < extensionCost(g, li, end, geo, anchorIdx)) return 'money';
   return null;
 }
 
@@ -2362,8 +2395,8 @@ export function extendTo(g, li, end, geo, anchorIdx) {
   if (anchorIdx !== null && usedAnchorsOnLine(g, li).has(anchorIdx)) return false;
   if (anchorIdx !== null && !anchorRevealed(g, anchorIdx)) return false;
   if (placementProblem(g, li, end, geo, anchorIdx)) return false;
-  g.money -= extensionCost(g, li, end, geo);
-  const share = shareTarget(g, li, geo); // 'own'/under-tier already refused above
+  g.money -= extensionCost(g, li, end, geo, anchorIdx);
+  const share = shareFor(g, li, geo, anchorIdx); // 'own'/under-tier already refused above
   let station;
   if (share) {
     // The SAME station on the ground: copy identity AND built state, so the
@@ -2920,7 +2953,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.10.1';
+export const VERSION = '0.10.2';
 
 export function serialize(g) {
   return JSON.stringify({

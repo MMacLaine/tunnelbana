@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.10.2",
+      "title": "The city has an edge",
+      "content": "Fixes from a player report.\n\n- Fixed: a station placed too close to an unbuilt planned stop could block that stop permanently, and with it the next era. Planned stops can now always be built.\n- Building is limited to 13 km from T-Centralen, which covers the whole historical network with room to spare. A late-game purchase, Regionplanen, extends the limit twice. Stations already built further out are untouched.\n- The camera now stays with the city."
+    },
+    {
       "version": "0.10.1",
       "title": "Design pass, finished",
       "content": "Visual corrections, bringing 0.10's remaining surfaces onto the intended design.\n\n- The statistics page now uses the designed graph, line table and record book.\n- The clock and rush grade appear as proper chips in the HUD; the chip pulses through a peak and resolves to the grade.\n- City notes and postcards use the designed toast, with a coloured rail marking the type.\n- Incident markers are amber, as designed: attention, not alarm."

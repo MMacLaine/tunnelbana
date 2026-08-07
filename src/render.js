@@ -8,6 +8,7 @@ import { EGGS } from './facts.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
   endStation, waitingAt, trainPos, anchorRevealed, teaseVisible, corridorOf, dayPhase,
+  buildRadiusNow,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -479,6 +480,23 @@ function drawDragPreview(g) {
   if (!drag) return;
   const from = project(endStation(g, drag.li, drag.end).geo);
   const to = drag.snap !== null ? project(ANCHORS[drag.snap].geo) : { x: drag.x, y: drag.y };
+  // The city's edge: while a drag approaches or crosses the region plan's
+  // radius, the boundary shows itself, so the refusal has a visible shape.
+  {
+    const centre = project(ANCHORS[0].geo);
+    const rPx = buildRadiusNow(g) * pxPerKm();
+    if (Math.hypot(to.x - centre.x, to.y - centre.y) > rPx * 0.82) {
+      ctx.beginPath();
+      ctx.arc(centre.x, centre.y, rPx, 0, Math.PI * 2);
+      ctx.setLineDash([4, 8]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = drag.problem === 'far' ? COL.red : COL.ghost;
+      ctx.globalAlpha = 0.6;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+    }
+  }
   const ok = !drag.problem;
   ctx.beginPath();
   ctx.moveTo(from.x, from.y);

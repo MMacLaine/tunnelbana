@@ -54,7 +54,7 @@ function nextExtension() {
       for (let li = 0; li < g.lines.length; li++) {
         for (const end of ['head', 'tail']) {
           if (sim.placementProblem(g, li, end, ANCHORS[k].geo, k)) continue;
-          const cost = sim.extensionCost(g, li, end, ANCHORS[k].geo);
+          const cost = sim.extensionCost(g, li, end, ANCHORS[k].geo, k);
           if (!best || cost < best.cost) best = { li, end, cost, k };
         }
       }

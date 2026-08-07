@@ -3,7 +3,7 @@
 // transfer flow, surges, political capital, the mothball deficit rule, offline
 // progress, and save round-trips. Run: node _dev/smoke.mjs
 import * as sim from '../src/sim.js';
-import { ANCHORS, CORRIDORS, WEST_FIRST, WATER, inRing } from '../src/data.js';
+import { ANCHORS, CORRIDORS, WEST_FIRST, WATER, inRing, kmBetween } from '../src/data.js';
 
 const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); };
 
@@ -225,6 +225,46 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (Math.round(m0 - bw.money) !== quote.kr) err('the order should cost its quote');
   bw.money = 300; // poorer than any single level
   if (sim.bulkUpgrade(bw, 'gates') !== 0) err('a broke order should buy nothing');
+}
+
+// --- The city's edge and the anchor softlock (0.10.2, both from one live
+// report). A free spot parked beside an unbuilt plan anchor must not veto
+// it: with the era gate demanding complete corridors, that veto was a
+// permanent softlock. And the map has an edge now: 13 km from T-Centralen,
+// which every authored anchor clears, extended by Regionplanen. ---
+{
+  const ed = sim.newGame();
+  ed.money = 1e9;
+  ed.planDone['green-south'] = true; // free spots allowed for this test
+  // Park a free spot ~150 m from Medborgarplatsen's anchor, same line.
+  const near = [ANCHORS[3].geo[0] + 0.0013, ANCHORS[3].geo[1]];
+  if (sim.extendTo(ed, 0, 'tail', near, null) !== true) err('setup: the nearby free spot should build');
+  if (sim.placementProblem(ed, 0, 'tail', ANCHORS[3].geo, 3) !== null) {
+    err('a revealed anchor must stay buildable beside a same-line free spot, got ' +
+      sim.placementProblem(ed, 0, 'tail', ANCHORS[3].geo, 3));
+  }
+  if (!sim.extendTo(ed, 0, 'tail', ANCHORS[3].geo, 3)) err('the anchor build should succeed (softlock fix)');
+  if (!sim.usedAnchorsAll(ed).has(3)) err('the anchor should be REAL, not a hijacked share');
+  // A free spot NEXT to a free spot still refuses: the spacing rule lives.
+  if (sim.placementProblem(ed, 0, 'tail', [near[0] + 0.001, near[1]], null) !== 'tooClose') {
+    err('free-spot spacing must still refuse');
+  }
+  // The edge: every anchor inside the base radius, far ground refused,
+  // Regionplanen buys distance.
+  for (const [i, a] of ANCHORS.entries()) {
+    if (kmBetween(a.geo, ANCHORS[0].geo) > sim.BAL.buildRadiusKm) {
+      err('anchor ' + i + ' (' + a.name + ') lies outside the base build radius');
+    }
+  }
+  const farGeo = [59.20, 18.10]; // ~14.7 km out, dry ground, no water band
+  if (sim.placementProblem(ed, 0, 'tail', farGeo, null) !== 'far') {
+    err('ground beyond the radius should refuse as far, got ' + sim.placementProblem(ed, 0, 'tail', farGeo, null));
+  }
+  ed.era = 4;
+  if (!sim.buy(ed, 'region')) err('Regionplanen should sell in 1975');
+  if (sim.placementProblem(ed, 0, 'tail', farGeo, null) === 'far') {
+    err('one region level should reach ~15 km out');
+  }
 }
 
 // --- Service patterns (0.10): the unlock gates the verb, termini refuse,
