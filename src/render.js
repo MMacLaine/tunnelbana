@@ -694,20 +694,34 @@ function drawEggs(g) {
   }
 }
 
-// A failure is louder than a rush: faster pulse, red family, real signage
-// wording (SIGNALFEL is what the platform displays actually say).
+// The incident marker per pass 03 section e: AMBER family, a pulsing halo
+// with a warning tick — attention, never alarm (the first cut was red, which
+// the design explicitly rules out). Real signage wording: SIGNALFEL is what
+// the platform displays actually say.
 function drawIncident(g) {
   if (!g.incident || g.clock >= g.incident.until) return;
   const p = project(g.incident.geo);
-  const r = 13 + Math.sin(clockT * 6) * 2.5;
+  const r = 12 + Math.sin(clockT * 4) * 2;
   ctx.beginPath();
   ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
   ctx.lineWidth = 2;
-  ctx.strokeStyle = COL.red;
-  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = COL.amber;
+  ctx.globalAlpha = 0.55 + 0.35 * (0.5 + 0.5 * Math.sin(clockT * 4));
   ctx.stroke();
   ctx.globalAlpha = 1;
-  label('SIGNALFEL', p.x + 14, p.y + 14, COL.red, 10, { weight: 600 });
+  // The warning tick, inside the halo above the station glyph.
+  ctx.strokeStyle = COL.amber;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y - 7.5);
+  ctx.lineTo(p.x, p.y - 4);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(p.x, p.y - 1.8, 0.9, 0, Math.PI * 2);
+  ctx.fillStyle = COL.amber;
+  ctx.fill();
+  label('SIGNALFEL', p.x + 14, p.y + 14, COL.amber, 10, { weight: 600 });
 }
 
 function drawTrains(g) {

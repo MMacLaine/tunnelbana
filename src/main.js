@@ -101,8 +101,8 @@ const STR = {
   notesOn: 'On',
   notesOff: 'Off',
   statLost: 'gave up waiting, ever',
-  statLegend: 'riders/min in green, gross kr/s in grey · last two hours',
-  statPeakWindow: 'best in this window',
+  statLegRiders: 'riders/min',
+  statLegGross: 'kr/s',
   statNoData: 'The ledger fills as the network runs.',
   statBestMin: 'Best minute ever',
   statBestGross: 'Best income rate',
@@ -871,7 +871,7 @@ wrap.addEventListener('pointerdown', (e) => {
   if (eggId) {
     const egg = sim.foundEgg(g, eggId);
     if (egg) {
-      showNote(STR.noteCity, egg.fact);
+      showNote('fact', egg.name, egg.fact);
       updateUI();
     }
     e.stopPropagation();
@@ -1131,6 +1131,8 @@ $('line-rows').addEventListener('pointerdown', (e) => {
 });
 
 let lineRowsHTML = '';   // rebuild only on change: fewer re-renders, fewer eaten presses
+let rushChipHTML = '';   // same rule for the rush chip
+let lastRush = null;     // the most recent grade, shown as a chip for a while
 function updateLineRows() {
   const rows = [];
   const fee = B.moveTrainKr;
@@ -1231,8 +1233,9 @@ let noteKind = 0;
 let noteN = 3;
 let noteShownAt = 0;
 
-function showNote(tag, text) {
-  $('fact-tag').textContent = tag;
+function showNote(kind, who, text) {
+  $('fact-toast').className = 'tb-toast tb-toast--' + kind;
+  $('fact-tag').textContent = who;
   $('fact-text').textContent = text;
   $('fact-toast').hidden = false;
   noteShownAt = performance.now();
@@ -1260,9 +1263,9 @@ function maybeNote() {
   if (noteKind) {
     noteN = (noteN + 13) % 9973;
     const pc = sim.postcard(g, noteN);
-    if (pc) showNote(STR.noteBoard, NAMES[noteN % NAMES.length] + ' · ' + pc.from + ' → ' + pc.to + ' · ' + pc.km + ' km');
+    if (pc) showNote('commuter', NAMES[noteN % NAMES.length], pc.from + ' → ' + pc.to + ' · ' + pc.km + ' km');
   } else {
-    showNote(STR.noteCity, FACTS[factIdx % FACTS.length]);
+    showNote('fact', STR.noteCity, FACTS[factIdx % FACTS.length]);
     factIdx++;
     store.set(FACT_KEY, String(factIdx));
   }
@@ -1444,11 +1447,13 @@ function renderAchievements() {
 function renderStats() {
   $('stats-sub').textContent = fmt(g.totalDelivered) + ' ' + STR.ridersCarried +
     ' · ' + fmt(g.totalLost) + ' ' + STR.statLost;
-  // The graph: riders/min (line colour) and gross kr/s (muted) over the
-  // sampled window, self-scaling.
+  // The graph, on the pass-03 treatment: riders/min in the riders colour,
+  // gross kr/s in the money colour, self-scaling over the sampled window.
   const cv = $('stats-graph');
   const ctx = cv.getContext('2d');
   const css = getComputedStyle(document.documentElement);
+  const colRiders = css.getPropertyValue('--tb-graph-riders').trim() || '#35a86b';
+  const colMoney = css.getPropertyValue('--tb-graph-money').trim() || '#e0a63c';
   ctx.clearRect(0, 0, cv.width, cv.height);
   const H = g.hist;
   if (H.t.length >= 2) {
@@ -1464,32 +1469,34 @@ function renderStats() {
       ctx.strokeStyle = colour;
       ctx.stroke();
     };
-    draw(H.gross, css.getPropertyValue('--tb-ghost').trim() || '#5a6673');
-    draw(H.riders, css.getPropertyValue('--tb-green').trim() || '#35a86b');
-    $('stats-legend').textContent = STR.statLegend +
-      ' · ' + fmt(Math.max(...H.riders)) + STR.perMin + ' ' + STR.statPeakWindow;
+    draw(H.gross, colMoney);
+    draw(H.riders, colRiders);
+    $('stats-legend').innerHTML =
+      '<b><i style="background:' + colRiders + '"></i>' + STR.statLegRiders + '</b>' +
+      '<b><i style="background:' + colMoney + '"></i>' + STR.statLegGross + '</b>';
   } else {
     $('stats-legend').textContent = STR.statNoData;
   }
-  // The ledger: one row per line.
-  const row = (cells) => '<div class="tb-row">' + cells + '</div>';
+  // The ledger: the pass-03 line table.
   $('stats-lines').innerHTML = g.lines.map((L, li) => {
     const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
-    return row(
-      '<span class="tb-chip" style="background:' + L.color + '"></span><span>' + L.name + '</span>' +
-      '<span class="tb-row__v">' + fmt(L.delivered) + ' ' + STR.riders + ' · ' +
-      fmt(L.earned) + ' kr · ' + active + ' 🚆</span>'
-    );
+    return '<tr><td><span class="tb-linedot" style="background:' + L.color + '"></span>' + L.name + '</td>' +
+      '<td>' + fmt(L.delivered) + '</td>' +
+      '<td>' + fmt(L.earned) + ' kr</td>' +
+      '<td class="dim">' + active + '</td></tr>';
   }).join('');
-  // The record book.
+  // The record book: the pass-03 record rows.
   const rushTxt = sim.RUSH_GRADES.map((r) => (g.rushCount[r.grade] ? r.grade + '×' + g.rushCount[r.grade] : ''))
     .filter(Boolean).join(' ');
+  const rec = (k, v) =>
+    '<div class="tb-record"><span class="tb-record__k">' + k + '</span>' +
+    '<span class="tb-record__v">' + v + '</span></div>';
   $('stats-records').innerHTML =
-    row(STR.statBestMin + '<span class="tb-row__v">' + fmt(g.records.riders) + STR.perMin + '</span>') +
-    row(STR.statBestGross + '<span class="tb-row__v">' + fmt(g.records.gross) + ' kr/s</span>') +
-    row(STR.statRush + '<span class="tb-row__v">' + (rushTxt || '—') + '</span>') +
-    row(STR.statMoves + '<span class="tb-row__v">' + fmt(g.trainMoves || 0) + '</span>') +
-    row(STR.statFixed + '<span class="tb-row__v">' + fmt(g.incidentsFixed || 0) + '</span>');
+    rec(STR.statBestMin, fmt(g.records.riders) + STR.perMin) +
+    rec(STR.statBestGross, fmt(g.records.gross) + ' kr/s') +
+    rec(STR.statRush, rushTxt || '—') +
+    rec(STR.statMoves, fmt(g.trainMoves || 0)) +
+    rec(STR.statFixed, fmt(g.incidentsFixed || 0));
 }
 
 // --- Shop (pass 02, section 05) ---
@@ -1775,12 +1782,36 @@ function updateUI() {
     (Number.isFinite(pkCap) ? ' / ' + pkCap : '') + ' ' + STR.trust;
   $('pk-rate').textContent = pkFull ? STR.trustCapped
     : pkPerMin > 0 ? '+' + pkPerMin.toFixed(1) + STR.perMin : '';
-  // The clock (owner ask): the city keeps a visible time of day, and the
-  // phase label rides with it. Before opening day there is no timetable yet.
-  const phase = g.opened ? STR.phases[sim.dayPhase(g)] : STR.openingDay;
-  const clock = g.opened ? sim.clockHM(g) : '';
-  $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage +
-    (clock ? ' · ' + clock : '') + (phase ? ' · ' + phase : '');
+  // The clock, on the pass-03 treatment: hm in ink, the phase in caps, the
+  // chip warming at peaks and cooling at night. Before opening day there is
+  // no timetable yet, so the strip just says so.
+  const phIdx = sim.dayPhase(g);
+  const phase = g.opened ? STR.phases[phIdx] : STR.openingDay;
+  const dataPhase = !g.opened ? '' : (phIdx === 0 || phIdx === 2) ? 'peak' : phIdx === 3 ? 'night' : '';
+  $('pk-cov').innerHTML = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage + ' · ' +
+    (g.opened
+      ? '<span class="tb-clock"' + (dataPhase ? ' data-phase="' + dataPhase + '"' : '') + '>' +
+        '<span class="tb-clock__hm">' + sim.clockHM(g) + '</span>' +
+        (phase ? '<span class="tb-clock__phase">' + phase + '</span>' : '') + '</span>'
+      : phase);
+  // The rush chip: pulses through a peak, then resolves to the grade for a
+  // while (pass 03 section d). Grades are information; the chip is where the
+  // information lives between the float and the record book.
+  const peakNow = g.opened && dataPhase === 'peak';
+  const gradeFresh = lastRush && performance.now() - lastRush.at < 25000;
+  $('rush-row').hidden = !(peakNow || gradeFresh);
+  const chipHTML = gradeFresh
+    ? '<span class="tb-grade" data-grade="' + lastRush.grade + '">' +
+      '<span class="tb-grade__mark">' + lastRush.grade + '</span>' +
+      '<span class="tb-grade__label">' + fmt(lastRush.carried) + ' ' + STR.riders + '</span>' +
+      (lastRush.trust ? '<span>+' + lastRush.trust + ' ' + STR.trust + '</span>' : '') + '</span>'
+    : peakNow
+      ? '<span class="tb-rush"><span class="tb-rush__pulse"></span>' + STR.phases[phIdx] + '</span>'
+      : '';
+  if (chipHTML !== rushChipHTML) {
+    rushChipHTML = chipHTML;
+    $('rush-chip').innerHTML = chipHTML;
+  }
   $('btn-mothball').disabled = sim.idleTrains(g).length === 0 || g.trains.length - mb <= 1;
   $('btn-reactivate').disabled = mb === 0;
   // The bell states the service it runs: manual, automatic with its cadence,
@@ -1833,6 +1864,7 @@ function frame(now) {
     if (e.type === 'incident') { render.addFloatGeo(e.geo, STR.incidentName + ' · ' + e.name, 'red'); sfx.incident(); }
     if (e.type === 'incident-over') render.addFloatGeo(e.geo, STR.incidentOver, 'muted');
     if (e.type === 'rush-grade') {
+      lastRush = { ...e, at: performance.now() };
       render.addFloatGeo(e.geo, STR.phases[e.phase] + ' · ' + e.grade + ' · ' +
         fmt(e.carried) + ' ' + STR.riders + (e.trust ? ' · +' + e.trust + ' ' + STR.trust : ''),
         e.grade === 'A' || e.grade === 'B' ? undefined : 'muted');
