@@ -26,8 +26,10 @@ constructors (`sim.addTrain`), the smoke suite lints for literals.
    `index.html` (deploy asserts they match).
 2. **Changelog**: add the entry at index 0 of `updates.json`, unique
    `version` matching `VERSION` (deploy asserts this too), `title`,
-   `content` in Markdown. Player-facing voice, first person, no dashes as
-   punctuation.
+   `content` in Markdown. Written AS MATTHEW, to players: first person,
+   plain sentences, admit fault plainly, at most one wry aside, no dashes
+   as punctuation. Not a bullet list of features. Owner feedback
+   2026-08-07: "make it sound more human, less AI." Read it aloud first.
 3. Run the three gates above, then commit here and push.
 4. **maclaine.se**: `node _dev/deploy-to-site.mjs`, then in
    `/Users/matthewmaclaine/personal website` stage ONLY `tunnelbana/`
