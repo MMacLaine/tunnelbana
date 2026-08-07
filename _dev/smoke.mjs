@@ -111,6 +111,37 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.placementProblem(old, 0, 'head', [59.3315, 18.0380]) !== null) err('a save with free spots must keep the ability');
 }
 
+// --- The rush is graded (0.10): a full day cycle on a working line must
+// score both peaks, count the grades, credit at most the capped trust nod,
+// and survive a save. The clock face maps the cycle to readable hours. ---
+{
+  const r = sim.newGame();
+  r.money = 1e6;
+  for (let k = 3; k < 8; k++) sim.extendTo(r, 0, 'tail', ANCHORS[k].geo, k);
+  sim.buy(r, 'drivers');
+  sim.buy(r, 'train');
+  let grades = 0;
+  for (let t = 0; t < sim.BAL.dayLen * 1.5; t += 0.05) {
+    sim.tick(r, 0.05);
+    for (const e of r.events) {
+      if (e.type === 'rush-grade') {
+        grades++;
+        if (!'ABCDE'.includes(e.grade)) err('rush grade should be a letter, got ' + e.grade);
+        if (!(e.share >= 0 && e.share <= 1)) err('rush share out of range');
+        if (!Array.isArray(e.geo)) err('rush grade should carry a place');
+      }
+    }
+    r.events.length = 0;
+  }
+  if (grades < 2) err('a 1.5-day cycle should grade at least two peaks, got ' + grades);
+  const counted = Object.values(r.rushCount).reduce((a, b) => a + b, 0);
+  if (counted !== grades) err('rushCount should match the grades emitted');
+  if (r.pk > sim.pkCap(r) + 1e-6) err('rush trust must respect the ceiling');
+  if (!/^\d\d:\d\d$/.test(sim.clockHM(r))) err('clockHM should read as HH:MM, got ' + sim.clockHM(r));
+  const backR = sim.hydrate(sim.serialize(r));
+  if (Object.values(backR.rushCount).reduce((a, b) => a + b, 0) !== counted) err('rushCount must survive a save');
+}
+
 // --- The cadence readout (owner ask, 2026-08-04): the number the player
 // watches must respond to the purchases that claim to improve it. ---
 {
