@@ -89,8 +89,10 @@
 .tb-shop__desc { font-size: var(--tb-fs-body); color: var(--tb-muted); line-height: var(--tb-lh); }
 .tb-shop__foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
   font-size: var(--tb-fs-caption); color: var(--tb-ghost); }
-.tb-pips { display: flex; gap: 3px; }
-.tb-pip { width: 15px; height: 3px; background: var(--tb-line); border-radius: 1px; }
+/* Pips flex-shrink instead of overflowing: the fleet ladder is era-scaled
+   (0.9) and can reach 28 slots, which at a fixed 15px would leave the card. */
+.tb-pips { display: flex; gap: 3px; max-width: 170px; }
+.tb-pip { flex: 0 1 15px; min-width: 3px; height: 3px; background: var(--tb-line); border-radius: 1px; }
 .tb-pip--on { background: var(--tb-green-dim); }
 
 /* State: unaffordable — visible, structured, reason named; NOT faded out */

@@ -29,7 +29,29 @@ const STR = {
   lvl: 'lvl',
   foundBtn: 'Found a new line',
   linesHdr: 'Trains per line',
-  addTrain: '+',
+  // Fleet orders (0.9): the transfer verb was the most-missed mechanic in the
+  // 0.8.2 feedback, so every state says what it does or why it will not.
+  reqTrain: 'Bring a train here',
+  sendTrain: 'Send a train to the line that needs it most',
+  feeShort: 'Need ' + B.moveTrainKr + ' kr for a depot transfer',
+  noSpareElsewhere: 'No other line can spare a train',
+  noSpareHere: 'This line has no train to spare',
+  queuedChip: 'moving…',
+  queuedCancel: 'Transfer ordered · click to cancel and take the ' + B.moveTrainKr + ' kr back',
+  transferHint: 'Depot transfer · ' + B.moveTrainKr + ' kr · a busy train moves when it next parks',
+  aimTag: 'NEXT',
+  aims: {
+    open: 'Ring AVGÅNG to send your first train out. Space works too.',
+    extend: 'Extend the line: drag its glowing end to the staked ring. Building is the game.',
+    train: 'Buy a second train in the shop. One train cannot hold a headway alone.',
+    drivers: 'Hire drivers: trains dispatch themselves, and the line earns while you build.',
+    eraReady: 'The city is ready. Advance the era in the top-right panel.',
+    trust: 'trust grows with coverage, so serve more of the city',
+    riders: 'carry riders: longer lines, more trains',
+    finale: 'Hela Stockholm: connect every remaining station on the map.',
+    toward: 'Toward',
+    toGo: 'to go',
+  },
   mothballBtn: 'Mothball idle train',
   reactivateBtn: 'Reactivate train',
   mothballedFloat: 'mothballed',
@@ -911,38 +933,119 @@ $('sp-found').addEventListener('click', () => {
   }
 });
 
-// Per-line train allocation rows (player-controlled, report 634 risk 3).
-$('line-rows').addEventListener('click', (e) => {
-  const li = e.target?.dataset?.li;
-  if (li !== undefined && sim.moveTrain(g, Number(li))) updateUI();
+// Per-line fleet rows (player-controlled, report 634 risk 3; rebuilt 0.9).
+// POINTERDOWN, not click: these rows are re-rendered when their numbers move,
+// and a click whose press and release straddle a re-render dispatches to the
+// container instead of the button, so the old + button genuinely "did
+// nothing" some of the time (live report, 2026-08-07). Pointerdown fires
+// before any re-render can replace the node under the pointer.
+$('line-rows').addEventListener('pointerdown', (e) => {
+  const d = e.target?.dataset || {};
+  if (d.req !== undefined && sim.requestTrain(g, Number(d.req))) updateUI();
+  if (d.send !== undefined && sim.sendTrain(g, Number(d.send))) updateUI();
+  if (d.cancel !== undefined && sim.cancelMove(g, Number(d.cancel))) updateUI();
   // Clicking a line's name finds it: the map flies to its first stop and
   // selects it, so "which one is that on the map" has an answer (owner,
   // 2026-08-04: a chartered line was hard to locate at all).
-  const focus = e.target?.dataset?.focus;
-  if (focus !== undefined) {
-    const L = g.lines[Number(focus)];
+  if (d.focus !== undefined) {
+    const L = g.lines[Number(d.focus)];
     if (L && L.stations.length) {
-      selectStation({ li: Number(focus), i: 0 });
+      selectStation({ li: Number(d.focus), i: 0 });
       if (map) map.easeTo({ center: [L.stations[0].geo[1], L.stations[0].geo[0]], duration: 600 });
       updateUI();
     }
   }
 });
 
+let lineRowsHTML = '';   // rebuild only on change: fewer re-renders, fewer eaten presses
 function updateLineRows() {
   const rows = [];
+  const fee = B.moveTrainKr;
   for (let li = 0; li < g.lines.length; li++) {
     const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
+    const q = sim.queuedMoves(g, li);
+    const spareElsewhere = g.lines.some((_, l2) => l2 !== li && sim.spareTrains(g, l2) >= 1);
+    const canReq = g.money >= fee && spareElsewhere;
+    const canSend = g.money >= fee && sim.spareTrains(g, li) >= 1;
+    // Disabled is information: the tooltip names the shortfall (pass 02, §03).
+    const reqWhy = !spareElsewhere ? STR.noSpareElsewhere
+      : g.money < fee ? STR.feeShort : STR.reqTrain + ' · ' + fee + ' kr';
+    const sendWhy = sim.spareTrains(g, li) < 1 ? STR.noSpareHere
+      : g.money < fee ? STR.feeShort : STR.sendTrain + ' · ' + fee + ' kr';
+    const qChip = (q.in || q.out)
+      ? ' <button class="tb-linkbtn" data-cancel="' + li + '" title="' + STR.queuedCancel + '"' +
+        ' style="color: var(--tb-amber)">' + (q.in ? '+' + q.in : '') + (q.out ? '−' + q.out : '') + '…</button>'
+      : '';
     rows.push(
       '<div class="tb-row"><span class="tb-chip" style="background:' + g.lines[li].color + '"></span>' +
       '<button class="tb-linkbtn" data-focus="' + li + '">' + g.lines[li].name + '</button>' +
       '<span class="tb-row__v">' + g.lines[li].stations.length + ' ' + STR.stops + ' · ' +
-      active + ' 🚆 · ' + (active ? Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + '</span>' +
-      (g.lines.length > 1 ? '<button class="tb-btn tb-btn--inline" data-li="' + li + '">' + STR.addTrain + '</button>' : '') +
+      active + ' 🚆' + qChip + ' · ' + (active ? Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + '</span>' +
+      (g.lines.length > 1
+        ? '<button class="tb-btn tb-btn--inline" data-send="' + li + '" title="' + sendWhy + '"' +
+          (canSend ? '' : ' disabled') + '>−</button>' +
+          '<button class="tb-btn tb-btn--inline" data-req="' + li + '" title="' + reqWhy + '"' +
+          (canReq ? '' : ' disabled') + '>+</button>'
+        : '') +
       '</div>'
     );
   }
-  $('line-rows').innerHTML = rows.join('');
+  if (g.lines.length > 1) {
+    rows.push('<div class="tb-row" style="color: var(--tb-ghost); font-size: var(--tb-fs-caption)">' +
+      STR.transferHint + '</div>');
+  }
+  const html = rows.join('');
+  if (html !== lineRowsHTML) {
+    lineRowsHTML = html;
+    $('line-rows').innerHTML = html;
+  }
+}
+
+// --- The aims strip: one standing suggestion, read from sim state so it can
+// never contradict the board or get stuck waiting on a scripted step. It walks
+// a new player through the loop (dispatch, extend, fleet, drivers), then
+// becomes the era objective with live numbers. Dismissable, and the dismissal
+// is remembered: it is a tutorial, not a nag. ---
+const AIM_KEY = 'tunnelbana_aims';
+let aimsHidden = store.get(AIM_KEY) === 'hidden';
+$('aim-tag').textContent = STR.aimTag;
+$('aim-close').addEventListener('click', () => {
+  aimsHidden = true;
+  store.set(AIM_KEY, 'hidden');
+  $('aim-panel').hidden = true;
+});
+
+function aimText() {
+  if (!g.opened) return STR.aims.open;
+  if (sim.stationCount(g) < 6) return STR.aims.extend;
+  // Fleet SIZE, not purchases: a chartered line's gift train counts too.
+  if (g.trains.length < 2) return STR.aims.train;
+  if (!g.owned.drivers) return STR.aims.drivers;
+  if (sim.canAdvanceEra(g)) return STR.aims.eraReady;
+  const next = sim.nextEra(g);
+  if (next) {
+    const needR = Math.max(0, next.delivered - g.totalDelivered);
+    const needP = Math.max(0, next.pk - g.pk);
+    const bits = [];
+    if (needR > 0) bits.push(fmt(needR) + ' ' + STR.riders);
+    if (needP > 0.05) bits.push(needP.toFixed(1) + ' ' + STR.trust);
+    // Name the binding constraint, so "wait" always comes with a lever.
+    const lever = needR > 0 ? STR.aims.riders : STR.aims.trust;
+    return STR.aims.toward + ' ' + next.year + ': ' + bits.join(' · ') + ' ' + STR.aims.toGo +
+      ' — ' + lever + '.';
+  }
+  if (!g.endingSeen) return STR.aims.finale;
+  return null;
+}
+
+let lastAim = '';
+function updateAim() {
+  const aim = aimsHidden || paused ? null : aimText();
+  $('aim-panel').hidden = !aim;
+  if (aim && aim !== lastAim) {
+    lastAim = aim;
+    $('aim-text').textContent = aim;
+  }
 }
 
 // --- Achievements: aims, stated plainly, with the bonus they carry ---
@@ -1277,6 +1380,7 @@ function updateUI() {
   bell.classList.toggle('tb-bell--auto', auto);
   bell.disabled = !idleN;
   if (selected) updateStationPanel();
+  updateAim();
   updateLineRows();
   updateShop();
 }
@@ -1307,6 +1411,7 @@ function frame(now) {
     if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSH · ' + e.name);
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
+    if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
     if (e.type === 'achievement') showAchievement(e.name);
     if (e.type === 'open') render.addFloatGeo(e.geo, STR.ribbonCut);

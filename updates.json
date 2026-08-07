@@ -1,0 +1,24 @@
+{
+  "updates": [
+    {
+      "version": "0.9.0",
+      "title": "Your trains, where you want them",
+      "content": "Built from the first week of player reports, most of which were about the fleet.\n\n**Fixed**\n- Extending a line could strand a train parked at the old end of it, where it could never be dispatched again. Trains now step along to the new terminus.\n- The button for moving trains between lines could silently do nothing. It has been rebuilt.\n\n**Fleet**\n- Every line row now has **+** and **−**: bring a train in, or send one to the line that needs it most. If every train is out running, the order waits and executes the moment one parks. Cancelling refunds the fee.\n- The fleet ceiling now rises with every era (8 in 1950, up to 28 in the sandbox). The price of each new train is the real limit.\n\n**New**\n- A NEXT strip suggests what to do next, from your first departure through each era's goal, with live numbers. Dismiss it once and it stays gone.\n- Four new achievements, including one for your first depot transfer and one for taking a line across the water yourself.\n- How to play now explains managing the fleet."
+    },
+    {
+      "version": "0.8.2",
+      "title": "Two ceilings and a key to the icons",
+      "content": "- Trust now stops accruing at exactly what the next era asks, so it reads as something to spend rather than hoard. The HUD says when you are at the ceiling and why.\n- Station upgrade depth is capped by era as well as by station tier, so the opening era is about building wide rather than deepening three stops.\n- The achievement toast is clickable and opens the full list, which now shows every aim and the bonus it carries.\n- How to play gained a key to the shop icons."
+    },
+    {
+      "version": "0.8.1",
+      "title": "A menu button and a quieter screen",
+      "content": "- A Menu button in the corner, for everyone who did not guess Esc.\n- Feedback can be sent from the menu as well as the corner box.\n- The upgrade rail collapses, and remembers that you collapsed it, so the map can be the whole window."
+    },
+    {
+      "version": "0.8.0",
+      "title": "The economy slice",
+      "content": "- Achievements: eighteen aims with small permanent bonuses.\n- Station upgrades deepened from three flat levels to an eight-level ladder gated by tier, and retail arrived as a third station axis.\n- Era thresholds were re-derived from measured pacing, so the story advances on your building pace instead of a distant rider tally.\n- Old saves migrate: nothing is lost, and the game says so once."
+    }
+  ]
+}
