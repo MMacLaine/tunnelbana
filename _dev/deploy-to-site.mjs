@@ -23,8 +23,11 @@ const CHECK = process.argv.includes('--check');
 // What a player needs, and nothing else: no harnesses, no design kit, no docs.
 // incrementaldb.txt is TEMPORARY: an ownership token for the incrementaldb.com
 // listing. Remove it here and delete the file once verification is confirmed.
+// updates.json is the incrementaldb.com update feed (polled daily): newest
+// entry first, unique version strings, Markdown content. It lives here so a
+// release and its changelog ship in the same push.
 const SHIP_FILES = ['index.html', 'favicon.svg', 'tokens.css', 'tokens-ui.css', 'ui.css',
-                    'incrementaldb.txt'];
+                    'incrementaldb.txt', 'updates.json'];
 const SHIP_DIRS = ['src', 'basemap', 'fonts', 'vendor'];
 
 function walk(dir, base = dir, out = []) {
@@ -129,6 +132,33 @@ if (!CHECK) {
   if (meta !== version) {
     console.error(`VERSION SKEW: index.html declares tb-version ${meta} but the game is ${version}.`);
     process.exit(1);
+  }
+}
+// The update feed must lead with the version being shipped, or incrementaldb
+// (which polls it daily and keys on the version string) announces the previous
+// release forever. Same class of guard as the tb-version assertion above:
+// things that must move together are checked together.
+{
+  let feed;
+  try {
+    feed = JSON.parse(readFileSync(join(SRC, 'updates.json'), 'utf8'));
+  } catch (e) {
+    console.error('updates.json is not valid JSON: ' + e.message);
+    process.exit(1);
+  }
+  const top = feed?.updates?.[0];
+  if (!top || top.version !== version) {
+    console.error(`FEED SKEW: updates.json leads with ${top?.version || 'nothing'} but the game is ${version}. ` +
+      'Write the changelog entry before shipping the release.');
+    process.exit(1);
+  }
+  const seen = new Set();
+  for (const u of feed.updates) {
+    if (!u.version || !u.title || !u.content || seen.has(u.version)) {
+      console.error('updates.json: every entry needs a unique version, a title and content.');
+      process.exit(1);
+    }
+    seen.add(u.version);
   }
 }
 console.log(`tunnelbana v${version} (assets stamped ${stamp}) -> ${SITE}`);

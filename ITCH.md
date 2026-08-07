@@ -6,9 +6,9 @@ the gates below.
 
 | Surface | URL | Updated by |
 |---|---|---|
-| itch.io | https://maclaine.itch.io/tunnelbana-build-stockholm | manual zip upload |
+| itch.io | https://maclaine.itch.io/tunnelbana-build-stockholm | zip upload: manual, or `butler` (see below) |
 | maclaine.se | https://www.maclaine.se/tunnelbana | `node _dev/deploy-to-site.mjs` + push |
-| incrementaldb | listing pending council review | see below |
+| incrementaldb | listing pending council review | `updates.json` feed, polled daily (see below) |
 
 The zip is built by `node _dev/build-itch.mjs` and lands at `dist/tunnelbana.zip`
 (~389 KB). Three external hosts, all deliberate, all named in the build script's
@@ -90,12 +90,50 @@ it from `SHIP_FILES` in `_dev/deploy-to-site.mjs`, drop it from `INCLUDE` in
 `_dev/build-itch.mjs`. Both pipelines are explicit allowlists and
 `deploy-to-site` deletes anything not on its list.
 
-Once confirmed, they support automated update feeds: a public JSON array,
-newest at index 0, each entry `version` / `title` / `content` (Markdown allowed),
-polled daily around midnight UTC. Natural home is
-`https://www.maclaine.se/tunnelbana/updates.json`, which would need its own
-`SHIP_FILES` entry. There is no changelog file in this repo yet, so those
-entries have to be authored.
+Once confirmed, they poll an update feed daily around midnight UTC. That feed
+exists as of 0.9.0: **`updates.json` at the repo root**, shipped by
+`deploy-to-site.mjs`, public at
+`https://www.maclaine.se/tunnelbana/updates.json`. Give incrementaldb that URL
+and updates flow with no further ceremony. Newest entry sits at index 0 with a
+unique `version` string, plus `title` and `content` (Markdown).
+
+Writing the entry is part of cutting a release, like the version bump, and the
+deploy script enforces it: it refuses to ship if the feed's top entry is not
+the version being shipped, so a release cannot go out wearing the previous
+release's changelog. The feed deliberately does NOT ship in the itch zip: the
+zip's URL changes on every upload, and one stable feed URL is the point.
+
+## Automating the itch upload (butler)
+
+itch's own CLI, `butler`, replaces the browser upload form: it pushes the zip,
+diffs against the previous build so repeat uploads are small, and stamps a
+user-visible version. Installed at `/opt/homebrew/bin/butler` (v15.30.0, with
+its `7z.so` and `libc7zip.dylib` beside it). Do NOT `brew install butler`:
+that is an unrelated Mac launcher app by Many Tricks, and it burned ten
+minutes on 2026-08-07. itch ships the real one from its own CDN:
+
+```
+curl -sL -o butler.zip "https://broth.itch.zone/butler/darwin-amd64/LATEST/archive/default"
+unzip butler.zip && install -m 755 butler 7z.so libc7zip.dylib /opt/homebrew/bin/
+butler login                 # opens a browser, stores the API key locally
+```
+
+Then a release upload is one command, run only after the gates below pass:
+
+```
+butler push dist/tunnelbana.zip maclaine/tunnelbana-build-stockholm:html --userversion <version>
+```
+
+The first push creates the `html` channel; after it, open the dashboard once
+and tick **This file will be played in the browser** on that upload (butler
+cannot set the flag; it survives later pushes). The page-level embed settings
+in the table above are untouched by butler. What butler does NOT automate is a
+devlog post: itch has no public API for those, so announcements stay manual.
+The incrementaldb feed above carries the changelog either way.
+
+"Updates itself on push" this is not, on purpose: the zip is only ever built
+from a state that passed the gates, and pushing it stays a decision. It just
+stops costing a trip through the upload form.
 
 ## Before every upload
 
