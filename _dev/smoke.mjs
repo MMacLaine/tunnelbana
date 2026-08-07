@@ -3,7 +3,7 @@
 // transfer flow, surges, political capital, the mothball deficit rule, offline
 // progress, and save round-trips. Run: node _dev/smoke.mjs
 import * as sim from '../src/sim.js';
-import { ANCHORS, CORRIDORS, WEST_FIRST } from '../src/data.js';
+import { ANCHORS, CORRIDORS, WEST_FIRST, WATER, inRing } from '../src/data.js';
 
 const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); };
 
@@ -22,6 +22,17 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
       if (line.includes('ENTITY-LINT')) return;
       if (key.test(line)) err(`${f}:${i + 1} hand-builds a sim entity. Use sim.addTrain(g, line).`);
     });
+  }
+}
+
+// --- Water bands may never drown an anchor: a ring that contains one walls
+// off the campaign (the 2026-08-07 sweep added five bands by hand; this is
+// the constraint each of them was checked against, now enforced). ---
+{
+  for (let i = 0; i < ANCHORS.length; i++) {
+    for (const w of WATER) {
+      if (inRing(ANCHORS[i].geo, w.ring)) err(ANCHORS[i].name + ' is inside the ' + w.label + ' water band');
+    }
   }
 }
 
@@ -409,6 +420,23 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (!sim.cancelMove(q, 1)) err('cancelMove should find the order');
   if (Math.round(q.money - m1) !== sim.BAL.moveTrainKr) err('cancel must refund the fee');
   void m0;
+  // Mothball-then-move is the natural way a player frees a train up (live
+  // itch report, 2026-08-07): a transfer takes a mothballed train and wakes
+  // it on arrival, rather than queueing forever past it.
+  {
+    const mb = sim.newGame();
+    mb.money = 1e6;
+    mb.pk = 1e6;
+    mb.era = 1;
+    mb.totalDelivered = 3e4;
+    sim.buy(mb, 'westline');
+    if (!sim.mothball(mb)) err('setup: mothball should work with two active trains');
+    const rm = sim.requestTrain(mb, 1);
+    if (rm !== 'moved') err('a mothballed train should transfer immediately, got ' + rm);
+    if (sim.mothballedTrains(mb).length !== 0) err('a transferred train must wake on arrival');
+    if (mb.trains.filter((t) => t.line === 1).length !== 2) err('the mothballed train should be on line 1 now');
+  }
+
   // The fleet ceiling is era-scaled and a big fleet survives hydration.
   const trainItem = sim.CATALOG.find((i) => i.id === 'train');
   const capOf = (era) => { const w = sim.newGame(); w.era = era; return sim.maxFor(w, trainItem); };
