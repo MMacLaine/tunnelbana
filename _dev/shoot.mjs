@@ -164,6 +164,22 @@ async function main() {
     await evaluate(ws, `window.__tb && window.__tb.showMoment && window.__tb.showMoment(1952)`);
     await sleep(500);
     await shot(ws, '6-moment');
+
+    // 5. The diagram (0.10): buy Linjekartan, toggle, let a train run on it.
+    await evaluate(ws, `(async () => {
+      const t = window.__tb;
+      document.getElementById('moment-close').click();
+      const { sim, g } = t;
+      g.era = 3; g.money = 1e9;
+      sim.buy(g, 'diagram');
+      t.updateUI();
+      document.getElementById('dia-toggle').click();
+      sim.dispatch(g);
+      for (let i = 0; i < 40; i++) sim.tick(g, 0.1);
+      return 'ok';
+    })()`);
+    await sleep(600);
+    await shot(ws, '8-diagram');
   } finally {
     chrome.kill();
     server.kill();
