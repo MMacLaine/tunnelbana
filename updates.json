@@ -2,28 +2,28 @@
   "updates": [
     {
       "version": "0.9.1",
-      "title": "Mothballed trains move, and the water means it",
-      "content": "Someone on itch found both of these within hours of 0.9.0, which is honestly the dream.\n\nMothballing a train and then trying to move it to another line did nothing, which is exactly backwards, since parking a train is the obvious first step to freeing it up. Now the transfer just takes the mothballed train and wakes it when it arrives.\n\nAnd the water. I drew the no-building zones over Stockholm's water by hand and missed six of them, so the game would warn you about building in the water and then let you do it a few pixels later. Årstaviken, Brunnsviken, Lilla Värtan and friends now push back properly. If you already built a station in the sea, it stays. I'm calling it landfill."
+      "title": "Mothballed transfers and missing water zones",
+      "content": "Fixes from a player report on itch.\n\n- Mothballed trains can now be moved between lines. The transfer takes the mothballed train and reactivates it on arrival.\n- Added missing no-build water zones (Årstaviken, Ulvsundasjön, Lilla Värtan, Brunnsviken, Karlbergssjön). It was possible to build stations on open water in areas the warning did not cover. Stations already built there are unaffected."
     },
     {
       "version": "0.9.0",
-      "title": "Your trains, where you want them",
-      "content": "The first week of feedback was mostly about trains, so this update is mostly about trains.\n\nExtending a line could strand a train parked at the end of it. Permanently. That one is fixed, and I'm sorry.\n\nMoving trains between lines actually works now. Every line has **+** and **−**, the cost is visible, and if every train is out running, your order waits and happens the moment one parks. The fleet cap also grows with each era, so a five line network is no longer fighting over eight trains.\n\nThere is also a NEXT hint by the dispatch button that suggests what to do, from your first departure through each era's goal. Close it and it stays closed. And four new achievements, one of which is just for moving a train between lines, because apparently I needed to teach that better."
+      "title": "Train management",
+      "content": "Focused on the fleet, based on the first week of player feedback.\n\n- Fixed: extending a line could permanently strand a train parked at the end of it.\n- Trains can be moved between lines with the + and − buttons on each line row. If no train is idle, the transfer queues and executes when one parks. Queued transfers can be cancelled for a full refund.\n- The fleet cap now grows each era (8 in 1950, up to 28 in the final era).\n- Added a NEXT panel that suggests what to do next, from the first departure through each era's requirements. Can be dismissed permanently.\n- Added 4 achievements.\n- How to play now covers fleet management."
     },
     {
       "version": "0.8.2",
-      "title": "Two ceilings and a key to the icons",
-      "content": "Trust now caps at whatever the next era asks for, so it is something you spend rather than something you watch. Station upgrades are capped by era too, which keeps the opening about building outward instead of gold-plating three stops.\n\nThe achievement toast is clickable and takes you to the full list, and How to play finally explains what the shop icons mean."
+      "title": "Trust and upgrade ceilings",
+      "content": "- Trust is now capped at the next era's requirement, and the HUD shows the cap and why accrual stopped.\n- Station upgrade depth is now also capped by era, so the opening era is about building outward.\n- The achievement toast is clickable and opens the achievements list.\n- Added an icon key to How to play."
     },
     {
       "version": "0.8.1",
-      "title": "A menu button and a quieter screen",
-      "content": "A Menu button in the corner, for everyone who did not guess Esc. You can send feedback from the menu now, and the upgrade rail folds away so the map can have the whole window. It remembers you folded it."
+      "title": "Menu button and collapsible rail",
+      "content": "- Added a Menu button for players who did not find Esc.\n- Feedback can be sent from the menu.\n- The upgrade rail can be collapsed to clear the map, and the choice is remembered."
     },
     {
       "version": "0.8.0",
-      "title": "The economy slice",
-      "content": "Achievements arrived: eighteen aims, each with a small permanent bonus. Station upgrades went from three flat levels to an eight level ladder gated by the station's tier, and stations can rent out retail space. The era targets moved to match how people actually build.\n\nOld saves carry over with nothing lost, and the game says so once."
+      "title": "The economy update",
+      "content": "- Added 18 achievements, each with a small permanent bonus.\n- Station upgrades deepened from three flat levels to an eight-level ladder gated by station tier.\n- Added retail as a third station upgrade axis.\n- Rebalanced era thresholds against measured pacing.\n- Old saves migrate automatically. Nothing is lost, and the game explains the changes once."
     }
   ]
 }
