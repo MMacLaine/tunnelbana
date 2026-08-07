@@ -180,6 +180,19 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.hydrate(sim.serialize(ic)).incidentsFixed !== 1) err('incidentsFixed must survive a save');
 }
 
+// --- Postcards (0.10): a journey read from the sim's own routes, any n. ---
+{
+  const pcg = sim.newGame();
+  pcg.money = 1e6;
+  for (let k = 3; k < 7; k++) sim.extendTo(pcg, 0, 'tail', ANCHORS[k].geo, k);
+  for (let n = 0; n < 24; n++) {
+    const pc = sim.postcard(pcg, n);
+    if (!pc || !pc.from || !pc.to || pc.from === pc.to || !(pc.km > 0)) {
+      err('postcard(' + n + ') should be a real journey, got ' + JSON.stringify(pc));
+    }
+  }
+}
+
 // --- The cadence readout (owner ask, 2026-08-04): the number the player
 // watches must respond to the purchases that claim to improve it. ---
 {

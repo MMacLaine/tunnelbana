@@ -1,6 +1,7 @@
 import * as sim from './sim.js';
 import * as render from './render.js';
 import { ANCHORS, CORRIDORS } from './data.js';
+import { FACTS, NAMES } from './facts.js';
 
 // UI copy interpolates from BAL and the CATALOG so a balance change can never
 // make the interface lie.
@@ -93,6 +94,10 @@ const STR = {
   incidentName: 'SIGNALFEL',
   fixCrew: 'Send the repair crew',
   incidentOver: 'Signals restored',
+  noteCity: 'STOCKHOLM',
+  noteBoard: 'ON BOARD',
+  notesOn: 'On',
+  notesOff: 'Off',
   freeUnlockedFloat: 'Build anywhere: the city approves your own stations',
   junction: 'Interchange',
   riders: 'riders',
@@ -449,6 +454,7 @@ function menuView(which) {
     $('settings-reset').textContent = STR.reset;
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
     $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
+    $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
     $('settings-export').textContent = STR.exportBtn;
     $('settings-import').textContent = STR.importBtn;
     $('import-text').hidden = true;
@@ -1037,6 +1043,57 @@ function updateLineRows() {
   }
 }
 
+// --- City notes: a fact about the real Stockholm, or a postcard from one
+// journey the sim is actually carrying, every couple of minutes. Ambience,
+// not information: one at a time, click to dismiss, off in Settings. Facts
+// advance through the list across sessions so nobody rereads note 1. ---
+const NOTES_KEY = 'tunnelbana_notes';
+const FACT_KEY = 'tunnelbana_factidx';
+const NOTE_EVERY = 120;   // game-seconds between notes
+let notesOn = store.get(NOTES_KEY) !== 'off';
+let factIdx = Number(store.get(FACT_KEY)) || 0;
+let lastNoteAt = 0;
+let noteKind = 0;
+let noteN = 3;
+let noteShownAt = 0;
+
+function showNote(tag, text) {
+  $('fact-tag').textContent = tag;
+  $('fact-text').textContent = text;
+  $('fact-toast').hidden = false;
+  noteShownAt = performance.now();
+}
+$('fact-toast').addEventListener('click', () => {
+  $('fact-toast').hidden = true;
+  noteShownAt = 0;
+});
+$('settings-notes').addEventListener('click', () => {
+  notesOn = !notesOn;
+  store.set(NOTES_KEY, notesOn ? 'on' : 'off');
+  $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
+  if (!notesOn) $('fact-toast').hidden = true;
+});
+
+function maybeNote() {
+  if (noteShownAt && performance.now() - noteShownAt > 11000) {
+    $('fact-toast').hidden = true;
+    noteShownAt = 0;
+  }
+  if (!notesOn || !g.opened || paused || momentOpen) return;
+  if (!$('fact-toast').hidden || g.clock - lastNoteAt < NOTE_EVERY) return;
+  lastNoteAt = g.clock;
+  noteKind ^= 1;
+  if (noteKind) {
+    noteN = (noteN + 13) % 9973;
+    const pc = sim.postcard(g, noteN);
+    if (pc) showNote(STR.noteBoard, NAMES[noteN % NAMES.length] + ' · ' + pc.from + ' → ' + pc.to + ' · ' + pc.km + ' km');
+  } else {
+    showNote(STR.noteCity, FACTS[factIdx % FACTS.length]);
+    factIdx++;
+    store.set(FACT_KEY, String(factIdx));
+  }
+}
+
 // --- The aims strip: one standing suggestion, read from sim state so it can
 // never contradict the board or get stuck waiting on a scripted step. It walks
 // a new player through the loop (dispatch, extend, fleet, drivers), then
@@ -1496,6 +1553,7 @@ function frame(now) {
     achToastAt = 0;
     $('ach-toast').hidden = true;
   }
+  maybeNote();
   if (map && basemapUp) {
     map.triggerRepaint(); // drawing happens in the map's render event, never here
   } else {

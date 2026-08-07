@@ -1201,6 +1201,29 @@ export function odWeights(g, li, i) {
   });
 }
 
+// A postcard: one journey somebody is taking right now, read from the same
+// cached routes the passengers use (a display of the sim's own numbers,
+// never a second model). n picks deterministically; the UI supplies a name.
+export function postcard(g, n) {
+  const net = networkCache(g);
+  const keys = net.keys;
+  if (keys.length < 2) return null;
+  for (let attempt = 0; attempt < keys.length; attempt++) {
+    const oKey = keys[(n + attempt) % keys.length];
+    const destMap = net.routes.get(oKey);
+    if (!destMap || !destMap.size) continue;
+    const dests = [...destMap.entries()];
+    const [dKey, r] = dests[(n * 7) % dests.length];
+    const o = net.phys.get(oKey).entries[0];
+    const d = net.phys.get(dKey).entries[0];
+    const from = g.lines[o[0]].stations[o[1]].name;
+    const to = g.lines[d[0]].stations[d[1]].name;
+    if (from === to) continue;
+    return { from, to, km: Math.round(r.km * 10) / 10 };
+  }
+  return null;
+}
+
 export function moveTime(g, d) {
   const m = effectMult(g, 'speed'); // < 1 = faster stock
   const v = BAL.maxSpeedKmS / m;
