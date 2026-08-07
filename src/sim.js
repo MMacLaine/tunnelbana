@@ -178,6 +178,17 @@ export const BAL = {
   surgeDur: 25,            // seconds a rush lasts
   surgeSpawnMult: 3,       // spawn multiplier at the rushed station
   surgeFareMult: 1.5,      // fare multiplier for boardings at the rushed station
+  // Incidents (owner direction 2026-08-07: mid-game texture, never an early
+  // annoyance). From 1957 the network is old enough to break: a signal
+  // failure closes one station to boarding, the queue builds, and the rush
+  // grade remembers. The repair crew costs seconds of gross income, so the
+  // decision stays real at every scale; waiting it out is always legal and
+  // costs nothing but riders' patience. No fail state, ever.
+  incidentEra: 1957,
+  incidentEvery: 240,      // seconds between failures once the era allows them
+  incidentDur: 45,
+  incidentFixGross: 25,    // repair = this many seconds of gross income...
+  incidentFixMin: 400,     // ...but never less than this
   abandonPerSec: 0.06,     // share of a FULL platform that gives up per second
                            // (scaled by crowding squared: light queues barely leak)
   foundLineKr: 2500,       // charter a new line from a Knutpunkt
@@ -550,6 +561,10 @@ export function newGame() {
     rush: null,      // open peak window: { phase, delivered0, lost0 }
     rushCount: {},   // grade letter -> times earned
     totalLost: 0,
+    incident: null,  // { key, geo, name, until }, transient like surge
+    nextIncidentAt: 0,
+    incidentCounter: 0,
+    incidentsFixed: 0,
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -1276,11 +1291,65 @@ function surgedAt(g, li, i) {
   return g.surge && g.surge.line === li && g.surge.idx === i && g.clock < g.surge.until;
 }
 
+// --- Incidents: one at a time, like surges, transient (a reload clears the
+// current one, same policy as surges). The failure closes the PHYSICAL
+// station to boarding, every line entry at once. ---
+
+export function incidentAt(g, li, i) {
+  return !!g.incident && g.clock < g.incident.until &&
+    physKeyOf(g.lines[li].stations[i]) === g.incident.key;
+}
+
+export function incidentFixCost(g) {
+  return Math.round(Math.max(BAL.incidentFixMin, BAL.incidentFixGross * grossRate(g)));
+}
+
+export function fixIncident(g) {
+  if (!g.incident || g.clock >= g.incident.until) return false;
+  const cost = incidentFixCost(g);
+  if (g.money < cost) return false;
+  g.money -= cost;
+  g.incidentsFixed = (g.incidentsFixed || 0) + 1;
+  g.events.push({ type: 'incident-over', geo: g.incident.geo, name: g.incident.name, resolved: true });
+  g.incident = null;
+  return true;
+}
+
+function incidentTick(g) {
+  if (g.incident && g.clock >= g.incident.until) {
+    g.events.push({ type: 'incident-over', geo: g.incident.geo, name: g.incident.name, resolved: false });
+    g.incident = null;
+  }
+  if (g.incident || !g.opened || eraYear(g) < BAL.incidentEra) return;
+  if (!g.nextIncidentAt) {
+    // The era just allowed failures: the first one keeps its distance.
+    g.nextIncidentAt = g.clock + BAL.incidentEvery;
+    return;
+  }
+  if (g.clock < g.nextIncidentAt) return;
+  const flat = [];
+  for (let li = 0; li < g.lines.length; li++) {
+    if (g.lines[li].stations.length < 2) continue;
+    for (let i = 0; i < g.lines[li].stations.length; i++) flat.push([li, i]);
+  }
+  if (!flat.length) return;
+  const [li, i] = flat[g.incidentCounter % flat.length];
+  g.incidentCounter += 5; // its own co-prime-ish hop, out of step with surges
+  const st = g.lines[li].stations[i];
+  g.incident = {
+    key: physKeyOf(st), geo: st.geo, name: st.name,
+    until: g.clock + BAL.incidentDur,
+  };
+  g.nextIncidentAt = g.clock + BAL.incidentEvery;
+  g.events.push({ type: 'incident', geo: st.geo, name: st.name });
+}
+
 // Board passengers heading in the train's direction; fares are paid per
 // passenger-kilometre at boarding.
 function board(g, train, i) {
   const li = train.line;
   const L = g.lines[li];
+  if (incidentAt(g, li, i)) return 0; // signals down: doors stay shut here
   const run = train.run;
   const net = networkCache(g);
   const variant = net.variants[phaseVariantIdx(g)];
@@ -1521,6 +1590,9 @@ export function tick(g, dt) {
 
   // A peak opens or closes: the rush window is scored on the way out.
   rushTick(g);
+
+  // Something breaks, or gets repaired by neglect's deadline.
+  incidentTick(g);
 
   // Passengers gather where the NETWORK says they should: each station's spawn
   // splits across its lines and directions by the first hop of real shortest
@@ -2429,6 +2501,7 @@ export function serialize(g) {
     planDone: g.planDone,
     rushCount: g.rushCount,
     totalLost: Math.round(g.totalLost),
+    incidentsFixed: Math.round(g.incidentsFixed || 0),
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
@@ -2496,6 +2569,7 @@ export function hydrate(raw) {
   g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
   g.trainMoves = posInt(s.trainMoves, 1e6);
   g.totalLost = posInt(s.totalLost, 1e12);
+  g.incidentsFixed = posInt(s.incidentsFixed, 1e6);
   g.rushCount = {};
   if (s.rushCount && typeof s.rushCount === 'object') {
     for (const r of RUSH_GRADES) {

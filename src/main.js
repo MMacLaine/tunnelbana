@@ -90,6 +90,9 @@ const STR = {
   },
   planRepair: 'needs repair',
   planDoneFloat: 'line complete',
+  incidentName: 'SIGNALFEL',
+  fixCrew: 'Send the repair crew',
+  incidentOver: 'Signals restored',
   freeUnlockedFloat: 'Build anywhere: the city approves your own stations',
   junction: 'Interchange',
   riders: 'riders',
@@ -929,6 +932,15 @@ function updateStationPanel() {
     fb.textContent = STR.foundBtn + ' · ' + fmt(B.foundLineKr) + ' kr + ' + B.foundLinePk + ' ' + STR.trust;
     fb.disabled = !sim.canFoundLine(g, selected.li, selected.i);
   }
+  // A signal failure here: the repair crew is one click and real money.
+  const fixB = $('sp-fix');
+  const broken = sim.incidentAt(g, selected.li, selected.i);
+  fixB.hidden = !broken;
+  if (broken) {
+    const fixCost = sim.incidentFixCost(g);
+    fixB.textContent = STR.fixCrew + ' · ' + fmt(fixCost) + ' kr';
+    fixB.disabled = g.money < fixCost;
+  }
   // Left behind per minute: the headline diagnostic (abandonment).
   const left = Math.round(L.left60[selected.i] * 60);
   const lb = $('sp-left');
@@ -944,6 +956,9 @@ for (const kind of ['tier', 'ent', 'gates', 'shop']) {
   });
 }
 $('sp-close').addEventListener('click', () => selectStation(null));
+$('sp-fix').addEventListener('click', () => {
+  if (sim.fixIncident(g)) updateUI();
+});
 $('sp-down').addEventListener('click', () => {
   if (selected && sim.downgradeTier(g, selected.li, selected.i)) updateUI();
 });
@@ -1456,6 +1471,8 @@ function frame(now) {
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
+    if (e.type === 'incident') render.addFloatGeo(e.geo, STR.incidentName + ' · ' + e.name, 'red');
+    if (e.type === 'incident-over') render.addFloatGeo(e.geo, STR.incidentOver, 'muted');
     if (e.type === 'rush-grade') {
       render.addFloatGeo(e.geo, STR.phases[e.phase] + ' · ' + e.grade + ' · ' +
         fmt(e.carried) + ' ' + STR.riders + (e.trust ? ' · +' + e.trust + ' ' + STR.trust : ''),

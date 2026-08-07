@@ -38,6 +38,12 @@ function build(owned, demand) {
   const g = sim.newGame();
   g.era = sim.ERAS.length - 1; // everything unlocked; the gate tests function, not gating
   g.money = 1e12;
+  // Incidents off: the gate measures what a purchase EARNS, and a signal
+  // failure closing the measured hub mid-window is deliberate gameplay noise,
+  // not a fact about the purchase (st gates collapsed +0.91 -> +0.01 when
+  // 0.10's incidents first ran here). Same spirit as pinning money above so
+  // deficits never mothball.
+  g.nextIncidentAt = Infinity;
   g.totalDelivered = 6000; // era gates read this; spawn does not
   while (g.lines[0].stations.length < WEST_FIRST) {
     sim.extendTo(g, 0, 'tail', ANCHORS[g.lines[0].stations.length].geo, g.lines[0].stations.length);
