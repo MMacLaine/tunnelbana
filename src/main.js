@@ -1406,9 +1406,12 @@ function updateUI() {
     (Number.isFinite(pkCap) ? ' / ' + pkCap : '') + ' ' + STR.trust;
   $('pk-rate').textContent = pkFull ? STR.trustCapped
     : pkPerMin > 0 ? '+' + pkPerMin.toFixed(1) + STR.perMin : '';
+  // The clock (owner ask): the city keeps a visible time of day, and the
+  // phase label rides with it. Before opening day there is no timetable yet.
   const phase = g.opened ? STR.phases[sim.dayPhase(g)] : STR.openingDay;
+  const clock = g.opened ? sim.clockHM(g) : '';
   $('pk-cov').textContent = Math.round(sim.coverage(g) * 100) + '% ' + STR.coverage +
-    (phase ? ' · ' + phase : '');
+    (clock ? ' · ' + clock : '') + (phase ? ' · ' + phase : '');
   $('btn-mothball').disabled = sim.idleTrains(g).length === 0 || g.trains.length - mb <= 1;
   $('btn-reactivate').disabled = mb === 0;
   // The bell states the service it runs: manual, automatic with its cadence,
@@ -1453,6 +1456,11 @@ function frame(now) {
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
+    if (e.type === 'rush-grade') {
+      render.addFloatGeo(e.geo, STR.phases[e.phase] + ' · ' + e.grade + ' · ' +
+        fmt(e.carried) + ' ' + STR.riders + (e.trust ? ' · +' + e.trust + ' ' + STR.trust : ''),
+        e.grade === 'A' || e.grade === 'B' ? undefined : 'muted');
+    }
     if (e.type === 'plandone') {
       render.addFloatGeo(e.geo, e.name + ' · ' + STR.planDoneFloat +
         (e.trust ? ' · +' + e.trust + ' ' + STR.trust : ''));
