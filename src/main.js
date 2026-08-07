@@ -851,6 +851,19 @@ wrap.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     return;
   }
+  // A curiosity outranks the station under it: the diamond is small, and
+  // clicking it is the whole find.
+  const eggId = render.nearEgg(g, p);
+  if (eggId) {
+    const egg = sim.foundEgg(g, eggId);
+    if (egg) {
+      showNote(STR.noteCity, egg.fact);
+      updateUI();
+    }
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
   // A built station (not a grabbable end): select it for the panel.
   const st = render.nearStation(g, p);
   if (st) {
@@ -1751,6 +1764,7 @@ function frame(now) {
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
+    if (e.type === 'egg') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'incident') render.addFloatGeo(e.geo, STR.incidentName + ' · ' + e.name, 'red');
     if (e.type === 'incident-over') render.addFloatGeo(e.geo, STR.incidentOver, 'muted');
     if (e.type === 'rush-grade') {

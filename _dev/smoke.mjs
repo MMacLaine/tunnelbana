@@ -227,6 +227,20 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.bulkUpgrade(bw, 'gates') !== 0) err('a broke order should buy nothing');
 }
 
+// --- Curiosities (0.10): found once, counted, achievement-checked, saved. ---
+{
+  const eg = sim.newGame(); // T-Centralen and Gamla stan exist: norrstrom is live
+  const found = sim.foundEgg(eg, 'norrstrom');
+  if (!found || !found.fact) err('a reachable curiosity should be findable');
+  if (eg.eggsFound !== 1) err('eggsFound should count');
+  if (sim.foundEgg(eg, 'norrstrom') !== null) err('a curiosity is found once');
+  if (sim.foundEgg(eg, 'not-a-thing') !== null) err('unknown curiosities refuse');
+  sim.checkAchievements(eg);
+  if (!eg.achieved['egg-first']) err('the first find should earn its achievement');
+  const backEg = sim.hydrate(sim.serialize(eg));
+  if (!backEg.eggs['norrstrom'] || backEg.eggsFound !== 1) err('curiosities must survive a save');
+}
+
 // --- Postcards (0.10): a journey read from the sim's own routes, any n. ---
 {
   const pcg = sim.newGame();
