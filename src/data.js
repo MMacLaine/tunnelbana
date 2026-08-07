@@ -97,34 +97,49 @@ export const WEST_FIRST = 13; // Hötorget
 // contiguous ANCHORS range with the era that OPENS it (its first stake
 // appears on the map when the era arrives; after that, one-ahead reveal
 // walks it). A corridor may carry a tease: the dashed promise drawn until
-// its first anchor is built. Eras gate WHERE THE CITY GROWS NEXT, never what
-// the player may do.
+// its first anchor is built.
+//
+// The original ruling here was "eras gate WHERE THE CITY GROWS NEXT, never
+// what the player may do". Amended by the owner 2026-08-07, two days after
+// launch: players wandered off the plan early and stalled, so the campaign now
+// asks for the plan back. Two teeth: free spots stay locked until the 1950
+// line is complete (the city delivers its plan before it entertains
+// proposals), and an era will not advance while any opened corridor is
+// incomplete, including one the player demolished back open. The sandbox
+// promise is untouched: by 2000 every constraint is gone.
+// `trust`: granted ONCE when the corridor completes (the city repays the
+// charter when the promised line is delivered). Sized against the plan-gate
+// measurement of 2026-08-07: probe-arc's active player finished Västerort at
+// t=1708 and then sat ~470 s waiting for trust to reach the 1957 gate, the
+// exact wait the owner ruled out ("they wait on money if actively playing").
+// Per era the grants sum to the era's charter price (green-west 5, red
+// 5+2+3=10, blue 10+6=16); green-south has no charter and gets a token 2.
 export const CORRIDORS = [
-  { id: 'green-south', name: 'Söderort',  opensIn: 1950, start: 0,  end: 13 },
-  { id: 'green-west',  name: 'Västerort', opensIn: 1952, start: 13, end: 27,
+  { id: 'green-south', name: 'Söderort',  opensIn: 1950, start: 0,  end: 13, trust: 2 },
+  { id: 'green-west',  name: 'Västerort', opensIn: 1952, start: 13, end: 27, trust: 5,
     tease: {
       from: [59.3312, 18.0619],
       to: [59.3345, 18.0525],
       label: 'mot Hötorget · 1952',
       labelAt: [59.3352, 18.0540],
     } },
-  { id: 'red-south',   name: 'Röda linjen', opensIn: 1964, start: 27, end: 36,
+  { id: 'red-south',   name: 'Röda linjen', opensIn: 1964, start: 27, end: 36, trust: 5,
     tease: {
       from: [59.3200, 18.0720],   // Slussen: history turns west along Söder
       to: [59.3175, 18.0645],
       label: 'mot Fruängen · 1964',
       labelAt: [59.3162, 18.0570],
     } },
-  { id: 'red-orn',     name: 'Örnsbergsgrenen', opensIn: 1964, start: 36, end: 38 },
-  { id: 'red-ost',     name: 'Östermalm',   opensIn: 1964, start: 38, end: 42 },
-  { id: 'blue-main',   name: 'Blå linjen',  opensIn: 1975, start: 42, end: 53,
+  { id: 'red-orn',     name: 'Örnsbergsgrenen', opensIn: 1964, start: 36, end: 38, trust: 2 },
+  { id: 'red-ost',     name: 'Östermalm',   opensIn: 1964, start: 38, end: 42, trust: 3 },
+  { id: 'blue-main',   name: 'Blå linjen',  opensIn: 1975, start: 42, end: 53, trust: 10,
     tease: {
       from: [59.3312, 18.0619],   // T-Centralen: the deep line digs northwest
       to: [59.3305, 18.0480],
       label: 'mot Hjulsta · 1975',
       labelAt: [59.3320, 18.0430],
     } },
-  { id: 'blue-akalla', name: 'Akallagrenen', opensIn: 1975, start: 53, end: 59 },
+  { id: 'blue-akalla', name: 'Akallagrenen', opensIn: 1975, start: 53, end: 59, trust: 6 },
 ];
 
 // Water rings, hand-authored in geo space. COST LOGIC ONLY (a segment crossing

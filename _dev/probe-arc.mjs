@@ -26,6 +26,7 @@ const DT = 0.05;
 
 const g = sim.newGame();
 const log = [];        // {t, kind, what, cost, money}
+const gateAt = {};     // era year -> {riders, trust, plan, advanced} timestamps
 let lastBuyAt = 0;
 const gaps = [];       // seconds between consecutive purchases
 let bellRings = 0;
@@ -37,14 +38,22 @@ function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
 // that is not maxed. Deliberately NOT optimal: it is a floor on how well the
 // pacing must hold up, since a real player is slower and less tidy.
 function nextExtension() {
+  const used = sim.usedAnchorsAll(g);
   for (const c of CORRIDORS) {
     for (let k = c.start; k < c.end; k++) {
-      if (!sim.anchorRevealed(g, k)) continue;
+      // Skip BUILT anchors: anchorRevealed is true for them, and without this
+      // the bot re-bought every corridor stop as a junction share with its
+      // other line, shadow-tracking the corridor. That doubled both lines'
+      // lengths, drove the per-line cost exponent to 124-215k per real
+      // station, and the 2026-08-07 plan-gate measurement spent an hour
+      // grading that pathology as pacing. No player double-tracks a corridor
+      // stop by stop.
+      if (used.has(k) || !sim.anchorRevealed(g, k)) continue;
       // Which line should take it: the one whose end is nearest.
       let best = null;
       for (let li = 0; li < g.lines.length; li++) {
         for (const end of ['head', 'tail']) {
-          if (sim.placementProblem(g, li, end, ANCHORS[k].geo)) continue;
+          if (sim.placementProblem(g, li, end, ANCHORS[k].geo, k)) continue;
           const cost = sim.extensionCost(g, li, end, ANCHORS[k].geo);
           if (!best || cost < best.cost) best = { li, end, cost, k };
         }
@@ -120,8 +129,25 @@ for (let t = 0; t < HORIZON; t += DT) {
     log.push({ t, ...did, money: g.money });
   }
 
+  // Gate milestones, once a second: when does each condition for the NEXT era
+  // first go green? The spread between them is the wait, and its name is the
+  // balance question (owner direction 2026-08-07: an active early player
+  // should wait on money, never on trust).
+  if (Math.round(t * 20) % 20 === 0) {
+    const e2 = sim.nextEra(g);
+    if (e2) {
+      const k = e2.year;
+      gateAt[k] = gateAt[k] || {};
+      if (gateAt[k].riders === undefined && g.totalDelivered >= e2.delivered) gateAt[k].riders = t;
+      if (gateAt[k].trust === undefined && g.pk >= e2.pk) gateAt[k].trust = t;
+      if (gateAt[k].plan === undefined && sim.planBlockers(g).length === 0) gateAt[k].plan = t;
+    }
+  }
+
   // Advance the era as soon as it is allowed: the story should not wait.
   if (sim.canAdvanceEra(g) && sim.advanceEra(g)) {
+    const k = sim.eraYear(g);
+    if (gateAt[k]) gateAt[k].advanced = t;
     log.push({ t, kind: 'ERA', what: String(sim.eraYear(g)), cost: 0, money: g.money });
   }
 }
@@ -159,15 +185,28 @@ console.log('DEAD ZONES (>120s with nothing to do): ' +
   (dead.length ? dead.map(([a, b]) => Math.round(a) + '-' + Math.round(b) + 's').join(', ') : 'none'));
 const eras = log.filter((e) => e.kind === 'ERA');
 console.log('eras reached: ' + (eras.length ? eras.map((e) => e.what + ' @ ' + Math.round(e.t) + 's').join(' · ') : 'none'));
+// The gate autopsy: per era, when each condition went green and which one the
+// player was left waiting on.
+for (const [year, m] of Object.entries(gateAt)) {
+  const when = (v) => v === undefined ? 'never' : Math.round(v) + 's';
+  const last = Math.max(m.riders ?? Infinity, m.trust ?? Infinity, m.plan ?? Infinity);
+  const binder = !isFinite(last) ? 'unmet'
+    : last === m.plan ? 'PLAN (money-paced)' : last === m.riders ? 'RIDERS' : 'TRUST';
+  console.log('gate ' + year + ': riders ' + when(m.riders) + ' · trust ' + when(m.trust) +
+    ' · plan ' + when(m.plan) + ' -> last to go green: ' + binder);
+}
 // --- The wall: when there is nothing to do, WHY is there nothing to do? A
 // dead zone is a symptom; this names the cause instead of inviting a guess.
 console.log('\n--- the wall at t=' + HORIZON + 's ---');
 console.log('pk: ' + g.pk.toFixed(1) + ' · coverage ' + (sim.coverage(g) * 100).toFixed(1) + '%');
 const nx = sim.nextEra(g);
 if (nx) {
+  const plan = sim.planBlockers(g);
   console.log('next era ' + nx.year + ' needs ' + fmt(nx.delivered) + ' riders (have ' +
-    fmt(g.totalDelivered) + ') and ' + nx.pk + ' pk (have ' + g.pk.toFixed(1) + ') -> blocked by ' +
-    (g.totalDelivered < nx.delivered ? 'RIDERS' : g.pk < nx.pk ? 'TRUST' : 'nothing, advance now'));
+    fmt(g.totalDelivered) + ') and ' + nx.pk + ' pk (have ' + g.pk.toFixed(1) + ')' +
+    (plan.length ? ' and the plan (' + plan.map((b) => b.name + ' ' + b.built + '/' + b.total).join(', ') + ')' : '') +
+    ' -> blocked by ' +
+    (plan.length ? 'THE PLAN' : g.totalDelivered < nx.delivered ? 'RIDERS' : g.pk < nx.pk ? 'TRUST' : 'nothing, advance now'));
 }
 const reasons = {};
 for (const item of sim.CATALOG) {
