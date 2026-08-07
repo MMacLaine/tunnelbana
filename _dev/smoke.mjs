@@ -371,6 +371,75 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (p.trains[0].at !== p.lines[0].stations.length - 1) err('the parked train should relocate to the surviving end');
 }
 
+// 0.9 fleet orders (live reports, 2026-08-07: the transfer verb failed
+// silently). A transfer with no idle train QUEUES, fee up front, and executes
+// when a train parks; cancelling refunds; and the fleet cap grows with eras.
+{
+  const q = sim.newGame();
+  q.money = 1e6;
+  q.pk = 1e6;
+  q.era = 1;
+  q.totalDelivered = 3e4;
+  sim.buy(q, 'westline');   // line 1 with a gift train
+  sim.buy(q, 'train');      // joins the emptier line
+  sim.dispatchLine(q, 0);   // put every line-0 train in motion...
+  sim.dispatchLine(q, 0);
+  if (sim.idleTrains(q).some((t) => t.line === 0)) err('setup: line 0 should have no idle train');
+  const r = sim.requestTrain(q, 1); // ...so the order must queue, not move
+  if (r !== 'queued') err('requestTrain with nothing idle should queue, got ' + r);
+  if (q.moveQueue.length !== 1) err('the order should sit in the queue');
+  const before = q.trains.filter((t) => t.line === 1).length;
+  let done = false;
+  for (let t = 0; t < 180 && !done; t += 0.05) {
+    sim.tick(q, 0.05);
+    for (const e of q.events) if (e.type === 'trainmove') done = true;
+    q.events.length = 0;
+  }
+  if (!done) err('a queued order should execute when a train parks');
+  if (q.trains.filter((t) => t.line === 1).length !== before + 1) err('queued move count wrong');
+  if (q.moveQueue.length) err('an executed order should leave the queue');
+  // Cancel refunds the fee.
+  const m0 = q.money;
+  if (sim.sendTrain(q, 1) !== 'queued' && q.moveQueue.length === 0) {
+    // an idle train made it immediate; force a queued order to test cancel
+    q.moveQueue.push({ from: 1, to: 0 });
+    q.money -= sim.BAL.moveTrainKr;
+  }
+  const m1 = q.money;
+  if (!sim.cancelMove(q, 1)) err('cancelMove should find the order');
+  if (Math.round(q.money - m1) !== sim.BAL.moveTrainKr) err('cancel must refund the fee');
+  void m0;
+  // The fleet ceiling is era-scaled and a big fleet survives hydration.
+  const trainItem = sim.CATALOG.find((i) => i.id === 'train');
+  const capOf = (era) => { const w = sim.newGame(); w.era = era; return sim.maxFor(w, trainItem); };
+  if (capOf(0) !== 8) err('1950 fleet cap should stay 8');
+  if (!(capOf(4) > capOf(1) && capOf(1) > capOf(0))) err('the fleet cap must grow with the era');
+  q.era = 4;
+  q.owned.train = 18;
+  const backQ = sim.hydrate(sim.serialize(q));
+  if (backQ.owned.train !== 18) err('an era-scaled fleet must survive hydration, got ' + backQ.owned.train);
+}
+
+// Extending a line must not strand parked trains (live report, 2026-08-07:
+// "trains get stuck if you connect a new station to the end of the line").
+// Trains rest at exactly the ends a player extends; they relocate to the new
+// terminus, at either end, and stay dispatchable.
+{
+  const x = sim.newGame();
+  x.money = 1e6;
+  sim.extendTo(x, 0, 'tail', ANCHORS[3].geo, 3);
+  x.trains[0].at = x.lines[0].stations.length - 1; // parked at the tail, idle
+  sim.extendTo(x, 0, 'tail', ANCHORS[4].geo, 4);
+  if (x.trains[0].at !== x.lines[0].stations.length - 1) err('tail extension stranded a parked train');
+  if (!sim.dispatchLine(x, 0)) err('parked train must dispatch after a tail extension');
+  const y = sim.newGame();
+  y.money = 1e6;
+  y.trains[0].at = 0; // parked at the head, idle
+  sim.extendTo(y, 0, 'head', [59.3315, 18.0380], null);
+  if (y.trains[0].at !== 0) err('head extension stranded a parked train');
+  if (!sim.dispatchLine(y, 0)) err('parked train must dispatch after a head extension');
+}
+
 // Save round-trip preserves the network, era, catalog levels, and pk.
 {
   const back = sim.hydrate(sim.serialize(g));

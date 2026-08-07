@@ -176,6 +176,13 @@ export const BAL = {
   foundLineKr: 2500,       // charter a new line from a Knutpunkt
   foundLinePk: 3,
   moveTrainKr: 100,        // depot transfer fee (reassignment must not beat a return trip)
+  // The fleet ceiling grows with the era, because the LINES do (live feedback
+  // 2026-08-07: era 1952 opened a second line and not one new train slot).
+  // The value-gate knee (~3 trains per line at reachable demand) is a per-line
+  // argument, so a network-wide cap must scale with the network: 8 in 1950,
+  // +4 per era to 28 in the sandbox. Cost stays the real limiter, as the
+  // catalog's 1.6 growth makes train 20 a 7.5M kr decision.
+  fleetPerEra: 4,
   offlineCapS: 8 * 3600,   // offline progress simulates at most this long
 };
 
@@ -268,6 +275,28 @@ export const ACHIEVEMENTS = [
       g.lines.every((L) => L.left60.every((x) => x === 0)), add: { demand: 0.02 } },
   { id: 'final-era', name: 'Hela staden', hint: 'Reach the last era',
     check: (g) => g.era >= ERAS.length - 1, mult: { fare: 1.05 } },
+  // The 0.9 four (live feedback asked for more aims). 'depot-move' is also
+  // teaching: the transfer verb was the most-missed mechanic in the 0.8.2
+  // reports, and an aim that names it is a tutorial line that pays.
+  { id: 'depot-move', name: 'Omdisponering', hint: 'Move a train to another line',
+    check: (g) => (g.trainMoves || 0) >= 1, add: { demand: 0.01 } },
+  { id: 'under-water', name: 'Under Strömmen', hint: 'Take a line across the water yourself',
+    check: (g) => {
+      // The STARTING line already crosses Norrström and Söderström (screenshot
+      // pass: the toast fired at boot), so the aim is a THIRD crossing: one
+      // the player dug.
+      let n = 0;
+      for (const L of g.lines) {
+        for (let i = 0; i + 1 < L.stations.length; i++) {
+          if (crossesWater(L.stations[i].geo, L.stations[i + 1].geo) && ++n >= 3) return true;
+        }
+      }
+      return false;
+    }, mult: { fare: 1.02 } },
+  { id: 'rush-service', name: 'Rusningstrafik', hint: 'Carry 500 riders within one minute',
+    check: (g) => g.deliv60 * 60 >= 500, add: { demand: 0.02 } },
+  { id: 'forty', name: 'The city underground', hint: 'Run forty stations at once',
+    check: (g) => stationCount(g) >= 40, mult: { fare: 1.03 } },
 ];
 
 // Checked once a second rather than every tick: eighteen predicates over a live
@@ -501,6 +530,8 @@ export function newGame() {
     era: 0,
     lines: [newLine(Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)), 0)],
     trains: [newTrain(0)],
+    moveQueue: [],   // pending depot transfers: { from, to }, fee already paid
+    trainMoves: 0,
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -1433,6 +1464,10 @@ export function tick(g, dt) {
     }
   }
 
+  // Depot orders execute the moment a train parks, BEFORE drivers can send it
+  // straight back out from the terminus it just reached.
+  processMoveQueue(g);
+
   // Drivers: EVENT-DRIVEN turnaround (638 §2, 640 ordering). A train departs
   // when it has arrived, turned around, and its terminus has had the headway
   // floor since the LAST departure from that end. Departure timing is now
@@ -1758,6 +1793,18 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.lastPassB.push(-Infinity);
     for (const t of g.trains) if (t.line === li && t.run) { t.run.dest.push(0); t.run.destCont.push(0); }
   }
+  // A parked train at the extended end is no longer at a terminus, and
+  // dispatchFrom only ever looks at the two ends, so it would be stranded
+  // FOREVER (live player report, 2026-08-07: "trains get stuck if you connect
+  // a new station to the end of the line"). Worse, it still counted as idle,
+  // so the bell kept choosing its line and ringing into nothing. Relocate
+  // parked trains to the new terminus, exactly as demolish() already does at
+  // the other end of the same symmetry.
+  for (const t of g.trains) {
+    if (t.line !== li || t.run) continue;
+    if (end === 'head' && t.at === 1) t.at = 0;
+    if (end === 'tail' && t.at === L.stations.length - 2) t.at = L.stations.length - 1;
+  }
   L.rev += 1;
   computeDemand(g);
   g.events.push({ type: 'extend', geo: station.geo, name: station.name });
@@ -1827,7 +1874,7 @@ export function demolish(g, li, end) {
 // --- Catalog purchases ---
 
 export function maxFor(g, item) {
-  return item.max + (item.id === 'train' ? effectAdd(g, 'fleetMax') : 0);
+  return item.max + (item.id === 'train' ? effectAdd(g, 'fleetMax') + BAL.fleetPerEra * g.era : 0);
 }
 
 export function eraVisible(g, item) {
@@ -2033,23 +2080,137 @@ export function foundLine(g, li, i) {
   return true;
 }
 
-// Player-controlled train allocation (report 634 risk 3): pull an idle train
-// from the most-staffed other line onto this one. Free, reversible.
-export function moveTrain(g, toLi) {
-  if (g.money < BAL.moveTrainKr) return false;
-  let from = -1, most = 0;
-  for (let li = 0; li < g.lines.length; li++) {
-    if (li === toLi) continue;
-    const idle = g.trains.filter((t) => t.line === li && !t.run && !t.mothballed).length;
-    if (idle > most) { most = idle; from = li; }
-  }
-  if (from < 0) return false;
-  const t = g.trains.find((x) => x.line === from && !x.run && !x.mothballed);
-  g.money -= BAL.moveTrainKr;
+// --- Player-controlled train allocation (report 634 risk 3), rebuilt for 0.9.
+// The old moveTrain failed SILENTLY unless another line happened to hold an
+// idle train at the click instant, which under drivers is a coin flip (live
+// reports, 2026-08-07: "only plus which do not do nothing", "trains stay in
+// your first line forever"). A transfer is now an ORDER: the fee is taken when
+// it is placed, and if no train is idle right now the order waits in
+// g.moveQueue and executes the moment a train on the source line parks. ---
+
+function execMove(g, t, toLi) {
   t.line = toLi;
   t.at = 0;
   t.readyAt = g.clock + BAL.turnaroundS;
+  g.trainMoves = (g.trainMoves || 0) + 1;   // the Omdisponering aim reads this
+  g.events.push({ type: 'trainmove', geo: g.lines[toLi].stations[0].geo, name: g.lines[toLi].name });
+}
+
+function idleOn(g, li) {
+  return g.trains.find((t) => t.line === li && !t.run && !t.mothballed);
+}
+
+// Trains a line can still promise away: what it has minus what is already
+// queued to leave it.
+export function spareTrains(g, li) {
+  const own = g.trains.filter((t) => t.line === li).length;
+  const promised = g.moveQueue.filter((m) => m.from === li).length;
+  return own - promised;
+}
+
+// The neediest other line: fewest trains (counting queued arrivals), ties to
+// the lowest index so the pick is predictable.
+function neediestLine(g, notLi) {
+  let best = -1, least = Infinity;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (li === notLi) continue;
+    const n = g.trains.filter((t) => t.line === li).length +
+      g.moveQueue.filter((m) => m.to === li).length;
+    if (n < least) { least = n; best = li; }
+  }
+  return best;
+}
+
+// The richest other line that can still spare one, by the same accounting.
+function richestLine(g, notLi) {
+  let best = -1, most = 0;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (li === notLi) continue;
+    const n = spareTrains(g, li);
+    if (n > most) { most = n; best = li; }
+  }
+  return best;
+}
+
+// Immediate move, kept for probes and as the fast path: an idle train on the
+// source (explicit, or the line with the most to spare) departs for toLi now.
+export function moveTrain(g, toLi, fromLi) {
+  if (g.money < BAL.moveTrainKr) return false;
+  const from = fromLi !== undefined ? fromLi : richestLine(g, toLi);
+  if (from < 0 || from === toLi) return false;
+  const t = idleOn(g, from);
+  if (!t) return false;
+  g.money -= BAL.moveTrainKr;
+  execMove(g, t, toLi);
   return true;
+}
+
+// "Bring a train here": immediate if one is idle, an order otherwise.
+// Returns 'moved', 'queued', or false (no spare train anywhere, or no fee).
+export function requestTrain(g, toLi) {
+  if (g.money < BAL.moveTrainKr) return false;
+  if (moveTrain(g, toLi)) return 'moved';
+  const from = richestLine(g, toLi);
+  if (from < 0) return false;
+  g.money -= BAL.moveTrainKr;
+  g.moveQueue.push({ from, to: toLi });
+  return 'queued';
+}
+
+// "Send a train away": to the neediest other line, by the same contract.
+export function sendTrain(g, fromLi) {
+  if (g.money < BAL.moveTrainKr) return false;
+  if (spareTrains(g, fromLi) < 1) return false;
+  const to = neediestLine(g, fromLi);
+  if (to < 0) return false;
+  if (moveTrain(g, to, fromLi)) return 'moved';
+  g.money -= BAL.moveTrainKr;
+  g.moveQueue.push({ from: fromLi, to });
+  return 'queued';
+}
+
+// Orders queued for a line, for the row to show (either direction).
+export function queuedMoves(g, li) {
+  let inN = 0, outN = 0;
+  for (const m of g.moveQueue) {
+    if (m.to === li) inN++;
+    if (m.from === li) outN++;
+  }
+  return { in: inN, out: outN };
+}
+
+// Cancel the newest order involving this line; the fee comes back.
+export function cancelMove(g, li) {
+  for (let i = g.moveQueue.length - 1; i >= 0; i--) {
+    if (g.moveQueue[i].to === li || g.moveQueue[i].from === li) {
+      g.moveQueue.splice(i, 1);
+      g.money += BAL.moveTrainKr;
+      return true;
+    }
+  }
+  return false;
+}
+
+// Runs each tick, after trains have moved and before drivers dispatch, so a
+// train that just parked is caught before it is sent straight back out. An
+// order whose source line has lost all its trains refunds itself rather than
+// waiting forever on a promise nobody can keep.
+function processMoveQueue(g) {
+  if (!g.moveQueue.length) return;
+  for (let i = 0; i < g.moveQueue.length; i++) {
+    const m = g.moveQueue[i];
+    if (!g.trains.some((t) => t.line === m.from)) {
+      g.moveQueue.splice(i, 1);
+      g.money += BAL.moveTrainKr;
+      i--;
+      continue;
+    }
+    const t = idleOn(g, m.from);
+    if (!t) continue;
+    execMove(g, t, m.to);
+    g.moveQueue.splice(i, 1);
+    i--;
+  }
 }
 
 // --- Offline progress: closed-form, not re-simulated (report 634 risk 4) ---
@@ -2075,7 +2236,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.8.2';
+export const VERSION = '0.9.0';
 
 export function serialize(g) {
   return JSON.stringify({
@@ -2095,6 +2256,8 @@ export function serialize(g) {
       color: L.color,
     })),
     trains: g.trains.map((t) => ({ line: t.line, mothballed: t.mothballed })),
+    moves: g.moveQueue,
+    trainMoves: Math.round(g.trainMoves || 0),
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
@@ -2160,6 +2323,7 @@ export function hydrate(raw) {
   if (g.migratedFrom) checkAchievements(g);
   g.gross60 = Math.max(0, Number(s.gross60) || 0);
   g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
+  g.trainMoves = posInt(s.trainMoves, 1e6);
   if (Array.isArray(s.srcW) && s.srcW.length === g.srcW.length) {
     g.srcW = s.srcW.map((w, j) => {
       const v = Number(w);
@@ -2167,9 +2331,11 @@ export function hydrate(raw) {
       return Number.isFinite(v) ? Math.min(base * BAL.growthCap, Math.max(base, v)) : base;
     });
   }
-  // Clamp to the CURRENT catalog max: when a cap is lowered (a measurement
-  // ruling, e.g. timetable 3 -> 1), saved over-cap levels retire with it.
-  for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], item.max);
+  // Clamp to the CURRENT cap: when a cap is lowered (a measurement ruling,
+  // e.g. timetable 3 -> 1), saved over-cap levels retire with it. The train
+  // cap is era-scaled, so it must be read through maxFor (the era is already
+  // hydrated above), or a 1975 fleet would be amputated to the 1950 eight.
+  for (const item of CATALOG) g.owned[item.id] = posInt(s.owned?.[item.id], maxFor(g, item));
   g.totalDelivered = Math.max(0, Number(s.totalDelivered) || 0);
   const capMax = stationCap(g);
   const readQueue = (arr, i, st, fallbackHalf) => {
@@ -2207,13 +2373,24 @@ export function hydrate(raw) {
     }
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
     g.trains = [];
-    const tr = Array.isArray(s.trains) ? s.trains.slice(0, 32) : [];
+    // 48: the era-scaled ceiling (28 bought + 1 starting + 3 charter gifts is
+    // 32 exactly) plus honest headroom, so the bound is a sanity rail again
+    // rather than a cliff one purchase away.
+    const tr = Array.isArray(s.trains) ? s.trains.slice(0, 48) : [];
     for (const t of tr) {
       const li = posInt(t?.line, g.lines.length - 1);
       addTrain(g, li).mothballed = !!t?.mothballed;
     }
     if (!g.trains.length) addTrain(g, 0);
     if (!g.trains.some((t) => !t.mothballed)) g.trains[0].mothballed = false;
+    // Pending depot orders (0.9): fee already paid, so they must survive a
+    // reload. Anything malformed is dropped, not refunded: a forged save is
+    // not owed money.
+    g.moveQueue = (Array.isArray(s.moves) ? s.moves.slice(0, 16) : [])
+      .filter((m) => m && Number.isInteger(m.from) && Number.isInteger(m.to) &&
+        m.from !== m.to &&
+        m.from >= 0 && m.from < g.lines.length && m.to >= 0 && m.to < g.lines.length)
+      .map((m) => ({ from: m.from, to: m.to }));
     return g;
   }
 
