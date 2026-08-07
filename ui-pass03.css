@@ -1,0 +1,242 @@
+/* Tunnelbana UI · pass 03 component layer.
+   Extends ui.css (pass 02), which extends tokens.css + tokens-ui.css. Load in
+   that order. Like pass 02: every rule resolves only to token names, states are
+   CSS, SVG only where a shape cannot be drawn in CSS. Port wholesale or lift a
+   block. Pass 03 designs the game's MOMENTS: the newspaper, the record book,
+   the clock, the events on the map, and the diagram on the platform wall.
+
+   New tokens this pass needs live in the :root block at the top of THIS file so
+   the deliverable is one drop-in; fold them into tokens-ui.css when convenient.
+
+   Type note: the newspaper voice is Libre Caslon (SIL OFL, free, embeddable) —
+   the city talking. Everything the GAME says stays IBM Plex Mono. Credit the
+   font in the About panel (pass-03 licence rule). */
+
+:root {
+  --tb-serif: "Libre Caslon Display", "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --tb-serif-text: "Libre Caslon Text", Georgia, serif;
+
+  /* Era motif colours, from data.js LINE / corridor colours. A surface sets
+     --tb-era to one of these and every motif slot follows. */
+  --tb-era-1950: var(--tb-net-green);
+  --tb-era-1952: var(--tb-net-green);
+  --tb-era-1957: var(--tb-net-green);
+  --tb-era-1964: var(--tb-net-red);
+  --tb-era-1975: var(--tb-net-blue);
+  --tb-era-2000: var(--tb-net-future);
+  --tb-era: var(--tb-net-green);   /* default; per-surface override */
+
+  /* Rush grades resolve to existing aspect colours; meaning, not new hues.
+     A/B proceed, C neutral, D/E are information (amber then red), never alarm. */
+  --tb-grade-a: var(--tb-green);
+  --tb-grade-b: var(--tb-green-dim);
+  --tb-grade-c: var(--tb-muted);
+  --tb-grade-d: var(--tb-amber);
+  --tb-grade-e: var(--tb-red);
+
+  /* Schematic diagram surface. A sibling of the night map, not the same file.
+     Dark theme values; the light overrides sit in the [data-theme] block. */
+  --tb-dia-bg: #0c1219;
+  --tb-dia-grid: rgba(44, 61, 80, 0.28);
+  --tb-dia-tick: var(--tb-ink);
+  --tb-dia-label: var(--tb-muted);
+  --tb-dia-line-w: 7px;       /* trunk line weight on the diagram */
+  --tb-dia-tick-w: 2.5px;
+
+  /* Graph treatment for the statistics page. */
+  --tb-graph-grid: var(--tb-line);
+  --tb-graph-axis: var(--tb-line-hi);
+  --tb-graph-money: var(--tb-amber);
+  --tb-graph-riders: var(--tb-green);
+  --tb-graph-trust: var(--tb-politic);
+}
+
+:root[data-theme="light"] {
+  --tb-dia-bg: #eef2f6;
+  --tb-dia-grid: rgba(80, 96, 112, 0.22);
+}
+
+/* ============================================================================
+   a · THE ERA FRONT PAGE
+   A layout system, not five posters. Masthead is constant (a paper keeps its
+   name); the ERA is carried by --tb-era on the motif rule and the dateline.
+   Marked data slots (data-slot="…") are what the dev binds; copy here is
+   representative. Full-bleed is legal: this IS a deliberate moment.
+   ========================================================================== */
+.tb-news { background: var(--tb-bg); color: var(--tb-ink); border: var(--tb-border) solid var(--tb-line);
+  padding: clamp(1.4rem, 4vw, 2.6rem); display: flex; flex-direction: column;
+  gap: 1.1rem; position: relative; overflow: hidden; }
+.tb-news::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  /* a faint newsprint tone, one motif-coloured hairline top and bottom */
+  border-top: 4px solid var(--tb-era); border-bottom: 4px solid var(--tb-era); }
+.tb-news__masthead { text-align: center; border-bottom: 2px solid var(--tb-ink); padding-bottom: .7rem; }
+.tb-news__name { font: 400 clamp(2.2rem, 6vw, 3.8rem)/0.95 var(--tb-serif); letter-spacing: .01em;
+  color: var(--tb-ink); }
+.tb-news__rule { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; color: var(--tb-muted); margin-top: .5rem; }
+.tb-news__rule .tb-news__price { color: var(--tb-era); }
+.tb-news__body { display: grid; grid-template-columns: 1fr; gap: 1.1rem; }
+@media (min-width: 620px) { .tb-news__body { grid-template-columns: 2fr 1fr; } }
+.tb-news__lead { display: flex; flex-direction: column; gap: .7rem; }
+.tb-news__kicker { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; color: var(--tb-era); }
+.tb-news__headline { font: 400 clamp(1.6rem, 4.4vw, 2.7rem)/1.05 var(--tb-serif); text-wrap: balance; }
+.tb-news__lede { font: 400 var(--tb-fs-title)/1.55 var(--tb-serif-text); color: var(--tb-ink);
+  max-width: 46ch; text-wrap: pretty; }
+.tb-news__lede::first-letter { float: left; font: 400 3.1em/0.8 var(--tb-serif); padding: .04em .12em 0 0;
+  color: var(--tb-era); }
+.tb-news__aside { display: flex; flex-direction: column; gap: .7rem; border-left: var(--tb-border) solid var(--tb-line);
+  padding-left: 1rem; }
+.tb-news__motif { aspect-ratio: 3 / 2; border: var(--tb-border) solid var(--tb-line); background: var(--tb-panel);
+  position: relative; overflow: hidden; }
+.tb-news__stat { border-top: var(--tb-border) solid var(--tb-line); padding-top: .55rem; }
+.tb-news__stat:first-child { border-top: 0; padding-top: 0; }
+.tb-news__stat b { display: block; font: var(--tb-weight-semi) var(--tb-fs-hero)/1 var(--tb-mono);
+  font-variant-numeric: tabular-nums; letter-spacing: var(--tb-track-tight); }
+.tb-news__stat span { font: 400 var(--tb-fs-caption)/1.3 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; color: var(--tb-muted); }
+.tb-news__foot { border-top: 2px solid var(--tb-ink); padding-top: .6rem; display: flex; gap: 1.2rem;
+  font: 400 var(--tb-fs-caption)/1.4 var(--tb-serif-text); color: var(--tb-muted); }
+.tb-news__foot .tb-news__col { flex: 1; }
+.tb-news__continue { margin-top: .4rem; align-self: flex-end; }
+
+/* ============================================================================
+   b · ACHIEVEMENTS AT SCALE
+   The 22-row list will not survive 100+. Categorised, counted, with hidden and
+   tiered states. Glyph per category in the pass-01 icon grammar.
+   ========================================================================== */
+.tb-ach-page { display: flex; flex-direction: column; gap: 1.1rem; }
+.tb-ach-cat { display: flex; flex-direction: column; }
+.tb-ach-cat__head { display: flex; align-items: center; gap: .6rem; padding: .4rem 0 .5rem;
+  border-bottom: var(--tb-border) solid var(--tb-line); margin-bottom: .55rem; }
+.tb-ach-cat__glyph { width: 22px; height: 22px; color: var(--tb-muted); flex: none; display: grid; place-items: center; }
+.tb-ach-cat__name { font: var(--tb-weight-semi) var(--tb-fs-title)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; }
+.tb-ach-cat__count { margin-left: auto; font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-muted);
+  font-variant-numeric: tabular-nums; }
+.tb-ach-cat__bar { height: 3px; background: var(--tb-line); position: relative; flex: 1 1 80px; max-width: 90px; margin-left: .3rem; }
+.tb-ach-cat__bar > i { position: absolute; inset: 0 auto 0 0; background: var(--tb-green-dim); }
+.tb-ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .5rem; }
+
+.tb-ach { display: flex; align-items: flex-start; gap: .6rem; padding: .55rem .65rem;
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-panel);
+  background: var(--tb-panel-t); }
+.tb-ach__mark { width: 26px; height: 26px; flex: none; border-radius: var(--tb-radius-pill);
+  border: var(--tb-border) solid var(--tb-line); display: grid; place-items: center; color: var(--tb-ghost); }
+.tb-ach__mark svg { width: 15px; height: 15px; }
+.tb-ach__txt { display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
+.tb-ach__name { font: var(--tb-weight-semi) var(--tb-fs-body)/1.2 var(--tb-mono); color: var(--tb-ink); }
+.tb-ach__hint { font: 400 var(--tb-fs-caption)/1.4 var(--tb-mono); color: var(--tb-muted); }
+.tb-ach__tier { margin-top: .12rem; display: flex; gap: 3px; }
+.tb-ach__tier i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--tb-line-hi); }
+.tb-ach__tier i.on { background: var(--tb-amber); border-color: var(--tb-amber); }
+
+/* earned: the mark fills green, the aim is stated in the past */
+.tb-ach[data-state="earned"] .tb-ach__mark { border-color: var(--tb-green); color: var(--tb-green); background: var(--tb-hover-green); }
+.tb-ach[data-state="earned"] .tb-ach__name { color: var(--tb-ink); }
+/* locked: legible, the hint is the whole point (nothing is a secret except hidden) */
+.tb-ach[data-state="locked"] .tb-ach__name { color: var(--tb-muted); }
+/* hidden: ??? until earned, a dashed mark; hint replaced by a category tease */
+.tb-ach[data-state="hidden"] { border-style: dashed; }
+.tb-ach[data-state="hidden"] .tb-ach__mark { border-style: dashed; }
+.tb-ach[data-state="hidden"] .tb-ach__name { color: var(--tb-ghost); }
+.tb-ach[data-state="hidden"] .tb-ach__hint { color: var(--tb-ghost); font-style: italic; }
+
+/* ============================================================================
+   c · THE STATISTICS PAGE  (opens over the menu, a purchased reward)
+   ========================================================================== */
+.tb-stats { display: grid; grid-template-columns: 1fr; gap: 1.1rem; }
+@media (min-width: 720px) { .tb-stats { grid-template-columns: 1.4fr 1fr; } }
+.tb-graph { border: var(--tb-border) solid var(--tb-line); background: var(--tb-panel-t); padding: .7rem .8rem; }
+.tb-graph__head { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
+.tb-graph__title { font: var(--tb-weight-semi) var(--tb-fs-caption)/1 var(--tb-mono);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; color: var(--tb-muted); }
+.tb-graph__legend { margin-left: auto; display: flex; gap: .7rem; font: 400 var(--tb-fs-caption)/1 var(--tb-mono); }
+.tb-graph__legend b { font-weight: 400; }
+.tb-graph__legend i { display: inline-block; width: 9px; height: 3px; margin-right: 4px; vertical-align: middle; }
+.tb-record { display: flex; align-items: baseline; gap: .5rem; padding: .5rem 0;
+  border-top: var(--tb-border) solid var(--tb-line); }
+.tb-record:first-child { border-top: 0; }
+.tb-record__k { font: 400 var(--tb-fs-label)/1.2 var(--tb-mono); color: var(--tb-muted); flex: 1; }
+.tb-record__v { font: var(--tb-weight-semi) var(--tb-fs-title)/1 var(--tb-mono); font-variant-numeric: tabular-nums; }
+.tb-record__where { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-ghost); }
+.tb-linetable { width: 100%; border-collapse: collapse; font: 400 var(--tb-fs-label)/1 var(--tb-mono); }
+.tb-linetable th { text-align: right; font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-ghost);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; padding: .35rem .5rem; border-bottom: var(--tb-border) solid var(--tb-line); }
+.tb-linetable th:first-child { text-align: left; }
+.tb-linetable td { padding: .38rem .5rem; border-bottom: var(--tb-border) solid var(--tb-line);
+  text-align: right; font-variant-numeric: tabular-nums; color: var(--tb-ink); }
+.tb-linetable td:first-child { text-align: left; color: var(--tb-ink); }
+.tb-linetable td.dim { color: var(--tb-muted); }
+.tb-linetable .tb-linedot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  margin-right: .5rem; vertical-align: -1px; }
+
+/* ============================================================================
+   d · THE CLOCK AND THE RUSH GRADE
+   ========================================================================== */
+.tb-clock { display: inline-flex; align-items: center; gap: .5rem; font: 400 var(--tb-fs-label)/1 var(--tb-mono);
+  color: var(--tb-muted); }
+.tb-clock__face { width: 20px; height: 20px; flex: none; color: var(--tb-muted); }
+.tb-clock__hm { color: var(--tb-ink); font-variant-numeric: tabular-nums; font-weight: var(--tb-weight-semi);
+  letter-spacing: var(--tb-track-tight); }
+.tb-clock__phase { color: var(--tb-ghost); letter-spacing: var(--tb-track-caps); text-transform: uppercase;
+  font-size: var(--tb-fs-caption); }
+.tb-clock[data-phase="peak"] .tb-clock__phase { color: var(--tb-amber); }
+.tb-clock[data-phase="night"] .tb-clock__phase { color: var(--tb-politic); }
+
+.tb-rush { display: inline-flex; align-items: center; gap: .55rem; padding: .34rem .6rem;
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-chip); background: var(--tb-panel-t);
+  font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps); text-transform: uppercase;
+  color: var(--tb-muted); }
+.tb-rush__pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--tb-amber); flex: none;
+  animation: tb-rush-pulse 1.4s ease-in-out infinite; }
+@keyframes tb-rush-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.35); } }
+.tb-grade { display: inline-flex; align-items: center; gap: .5rem; padding: .34rem .6rem;
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-chip); background: var(--tb-panel-t);
+  font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps); text-transform: uppercase; color: var(--tb-muted); }
+.tb-grade__mark { width: 20px; height: 20px; border-radius: var(--tb-radius-chip); display: grid; place-items: center;
+  font: var(--tb-weight-semi) var(--tb-fs-body)/1 var(--tb-mono); color: var(--tb-void); }
+.tb-grade[data-grade="A"] { border-color: var(--tb-grade-a); } .tb-grade[data-grade="A"] .tb-grade__mark { background: var(--tb-grade-a); }
+.tb-grade[data-grade="B"] { border-color: var(--tb-grade-b); } .tb-grade[data-grade="B"] .tb-grade__mark { background: var(--tb-grade-b); }
+.tb-grade[data-grade="C"] .tb-grade__mark { background: var(--tb-grade-c); }
+.tb-grade[data-grade="D"] { border-color: var(--tb-grade-d); } .tb-grade[data-grade="D"] .tb-grade__mark { background: var(--tb-grade-d); }
+.tb-grade[data-grade="E"] { border-color: var(--tb-grade-e); } .tb-grade[data-grade="E"] .tb-grade__mark { background: var(--tb-grade-e); color: var(--tb-ink); }
+.tb-grade__label { color: var(--tb-ink); }
+
+/* ============================================================================
+   e · EVENT LANGUAGE ON THE MAP
+   Marker families in the pass-01 station-glyph grammar, plus toast anatomy.
+   ========================================================================== */
+.tb-mark { position: relative; width: 28px; height: 28px; display: grid; place-items: center; color: var(--tb-ink); }
+.tb-mark svg { overflow: visible; }
+/* incident: amber family, resolvable — a ring that pulses attention, not alarm */
+.tb-incident__halo { animation: tb-rush-pulse 1.6s ease-in-out infinite; transform-origin: center; }
+/* curiosity: quiet, discoverable, must NOT read as a task — a faint politic diamond */
+.tb-curiosity { opacity: .8; }
+
+.tb-toast { display: inline-flex; align-items: stretch; gap: .55rem; max-width: 320px;
+  background: var(--tb-panel-t); border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-chip);
+  -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  padding: .5rem .6rem; font: 400 var(--tb-fs-caption)/1.4 var(--tb-mono); color: var(--tb-muted); }
+.tb-toast__rail { width: 3px; border-radius: 2px; background: var(--tb-line-hi); flex: none; }
+.tb-toast--fact .tb-toast__rail { background: var(--tb-muted); }
+.tb-toast--commuter .tb-toast__rail { background: var(--tb-era, var(--tb-green)); }
+.tb-toast--incident .tb-toast__rail { background: var(--tb-amber); }
+.tb-toast__body { display: flex; flex-direction: column; gap: .12rem; min-width: 0; }
+.tb-toast__who { color: var(--tb-ink); font-weight: var(--tb-weight-semi); }
+.tb-toast__trip { color: var(--tb-muted); }
+.tb-toast__trip b { color: var(--tb-ink); font-weight: 400; }
+.tb-toast__meta { color: var(--tb-ghost); font-size: var(--tb-fs-micro); }
+
+/* ============================================================================
+   f · THE SCHEMATIC MAP  (a full surface; its page owns layout, these are the parts)
+   ========================================================================== */
+.tb-dia { background: var(--tb-dia-bg); position: relative; }
+.tb-dia__label { font: var(--tb-weight-semi) var(--tb-fs-micro) var(--tb-mono); fill: var(--tb-dia-label);
+  letter-spacing: .01em; paint-order: stroke; stroke: var(--tb-dia-bg); stroke-width: 3px; stroke-linejoin: round; }
+.tb-dia__label--term { fill: var(--tb-ink); }
+.tb-dia__legend { position: absolute; display: flex; flex-direction: column; gap: .35rem; }
+.tb-dia__legrow { display: flex; align-items: center; gap: .5rem; font: 400 var(--tb-fs-caption)/1 var(--tb-mono);
+  color: var(--tb-muted); }
+.tb-dia__legrow i { width: 16px; height: 4px; border-radius: 2px; flex: none; }
