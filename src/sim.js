@@ -580,6 +580,8 @@ export function newGame() {
     hist: { t: [], riders: [], gross: [] },   // sampled every 30 s, capped
     histAt: 0,
     records: { riders: 0, gross: 0 },         // best riders/min and kr/s seen
+    grossLife: 0,   // everything ever earned: the front page's "turned over"
+    playedS: 0,     // active seconds across sessions: SLUTSTATION prints it
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -1410,6 +1412,7 @@ function board(g, train, i) {
   if (surgedAt(g, li, i)) amt *= BAL.surgeFareMult;
   g.money += amt;
   L.earned += amt;
+  g.grossLife += amt;
   g.grossEma += amt / GROSS_TAU;
   g.gross60 += amt / 60;
   if (amt >= 0.5) g.events.push({ type: 'payout', geo: L.stations[i].geo, amt: Math.round(amt) });
@@ -1615,6 +1618,7 @@ export function coverage(g) {
 
 export function tick(g, dt) {
   g.clock += dt;
+  g.playedS += dt;
 
   // Surges: a station rushes on a steady cadence; deterministic rotation.
   if (g.surge && g.clock >= g.surge.until) g.surge = null;
@@ -1689,6 +1693,7 @@ export function tick(g, dt) {
     const rent = commerceRate(g) * dt;
     if (rent > 0) {
       g.money += rent;
+      g.grossLife += rent;
       g.grossEma += rent / GROSS_TAU;
       g.gross60 += rent / 60;
     }
@@ -2560,6 +2565,7 @@ export function simulateOffline(g, seconds) {
   const earned = net * s;
   const delivered = g.deliv60 * BAL.offlineDiscount * s;
   g.money += earned;
+  g.grossLife += earned;
   g.totalDelivered += delivered;
   // The night report names the busiest line by its lifetime share: honest,
   // since offline is closed-form and carries no per-line simulation.
@@ -2597,6 +2603,8 @@ export function serialize(g) {
     })),
     hist: g.hist,
     records: g.records,
+    grossLife: Math.round(g.grossLife),
+    playedS: Math.round(g.playedS),
     trains: g.trains.map((t) => ({ line: t.line, mothballed: t.mothballed })),
     moves: g.moveQueue,
     trainMoves: Math.round(g.trainMoves || 0),
@@ -2672,6 +2680,8 @@ export function hydrate(raw) {
   g.trainMoves = posInt(s.trainMoves, 1e6);
   g.totalLost = posInt(s.totalLost, 1e12);
   g.incidentsFixed = posInt(s.incidentsFixed, 1e6);
+  g.grossLife = posInt(s.grossLife, 1e15);
+  g.playedS = posInt(s.playedS, 1e9);
   g.records.riders = posInt(s.records?.riders, 1e9);
   g.records.gross = Math.min(1e12, Math.max(0, Number(s.records?.gross) || 0));
   if (s.hist && ['t', 'riders', 'gross'].every((k) => Array.isArray(s.hist[k]))) {

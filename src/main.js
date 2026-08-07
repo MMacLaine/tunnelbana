@@ -108,6 +108,14 @@ const STR = {
   statMoves: 'Depot transfers',
   statFixed: 'Incidents repaired',
   awayLed: 'led the night',
+  newsContinue: 'Continue · the city keeps running →',
+  newsTurnover: 'turned over',
+  newsStationsOpen: 'stations open',
+  newsStationsBuilt: 'stations built',
+  newsRidersAll: 'riders, all told',
+  newsPlayed: 'played',
+  newsCity: 'Staden.',
+  newsNext: 'Nästa.',
   freeUnlockedFloat: 'Build anywhere: the city approves your own stations',
   junction: 'Interchange',
   riders: 'riders',
@@ -688,24 +696,88 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Era moments ---
+// --- Era moments: FRONT PAGES (pass 03 section a). One template, six
+// datasets; the copy is the design team's, verbatim; the NUMBERS are live,
+// which is the whole point: the paper reports the reader's own railway. ---
+const ERA_NEWS = {
+  1952: { era: 'var(--tb-era-1952)', date: 'STOCKHOLM · 26 OKTOBER 1952', kicker: 'VÄSTERORT', ed: 'SÖNDAGSUPPLAGA', price: '20 ÖRE',
+    head: 'Tunnelbanan når västerut mot Vällingby',
+    lede: 'The first branch strikes west this week, out toward the new suburbs, and the map grows a second arm. The reader’s network already carries a city that was walking a year ago.',
+    next: 'Plans stir to join the lines through the centre. The city watches T-Centralen.' },
+  1957: { era: 'var(--tb-era-1957)', date: 'STOCKHOLM · 24 NOVEMBER 1957', kicker: 'GENOM STADEN', ed: 'SÖNDAGSUPPLAGA', price: '25 ÖRE',
+    head: 'The line reaches under the water to T-Centralen',
+    lede: 'Stockholm’s underground crossed the water this morning, and the whole city is now one ride from the centre. Norrmalm opens to building, every fare across the water is worth more, and the network the reader has built stands at the figures below.',
+    next: 'A second colour is drawn in committee. Röda linjen is spoken of, south toward Fruängen.' },
+  1964: { era: 'var(--tb-era-1964)', date: 'STOCKHOLM · 5 APRIL 1964', kicker: 'RÖDA LINJEN', ed: 'SÖNDAGSUPPLAGA', price: '30 ÖRE',
+    head: 'A second colour on the map: the red line opens south',
+    lede: 'The red line runs today from the centre toward Fruängen, and for the first time the diagram needs two colours to explain itself. The city the reader is building has become a network, not a line.',
+    next: 'Deep boring is proposed under Järvafältet. A blue line, they are calling it.' },
+  1975: { era: 'var(--tb-era-1975)', date: 'STOCKHOLM · 31 AUGUSTI 1975', kicker: 'BLÅ LINJEN', ed: 'SÖNDAGSUPPLAGA', price: '75 ÖRE',
+    head: 'The blue line opens under Järvafältet',
+    lede: 'A third colour reaches the northwest suburbs today, deep-bored and blasted through rock, its stations left as raw cave. Three lines now thread the centre, and the reader’s map looks like a city’s.',
+    next: 'The plan nears its last page. What comes after the plan is the reader’s to decide.' },
+  2000: { era: 'var(--tb-era-2000)', date: 'STOCKHOLM · 1 JANUARI 2000', kicker: 'STADEN', ed: 'MILLENNIEUPPLAGA', price: '10 KRONOR',
+    head: 'A new century rides the network you built',
+    lede: 'Every constraint is gone; the plan is complete and the city is yours to shape freely. The whole map is lit, every station on it connected, and the reader is free to build for its own sake.',
+    next: 'There is no next page in the plan. There is the map, and the reader.' },
+  slut: { era: 'var(--tb-era-2000)', date: 'STOCKHOLM · SLUTSTATION', kicker: 'SLUTSTATION', ed: 'SISTA UPPLAGAN', price: 'TACK',
+    head: 'The arc completes: 1950 to now, one continuous ride',
+    lede: 'Nothing stops. The trains keep running, the fares keep landing, and the city keeps the light you gave it. This is the last front page the paper will print, and it is about the reader.',
+    next: 'The trains keep running.' },
+};
+
+// The motif: the network so far, recoloured to the era (design team's
+// representative cut; a live-network drawing is a later refinement).
+function newsMotif(era) {
+  return '<rect width="200" height="134" fill="var(--tb-panel)"></rect>' +
+    '<g stroke="var(--tb-line)" stroke-width="1" opacity="0.5"><path d="M0 45h200M0 90h200M60 0v134M130 0v134"></path></g>' +
+    '<path d="M40 118 L70 84 L96 60 L120 36 L150 20" fill="none" stroke="' + era + '" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path>' +
+    '<g fill="var(--tb-panel)" stroke="var(--tb-ink)" stroke-width="2.4"><circle cx="40" cy="118" r="4.5"></circle><circle cx="70" cy="84" r="4.5"></circle><circle cx="96" cy="60" r="4.5"></circle><circle cx="120" cy="36" r="4.5"></circle><circle cx="150" cy="20" r="5.5"></circle></g>';
+}
+
 let momentOpen = false;
-function showMoment(year) {
-  const m = STR.eras[year];
-  if (!m) return;
+function showFrontPage(key) {
+  const e = ERA_NEWS[key];
+  if (!e) return;
   momentOpen = true;
-  $('moment-title').textContent = m.title;
-  $('moment-blurb').textContent = m.blurb;
+  const n = $('news');
+  n.style.setProperty('--tb-era', e.era);
+  $('news-ed').textContent = e.ed;
+  $('news-date').textContent = e.date;
+  $('news-price').textContent = e.price;
+  $('news-kicker').textContent = e.kicker;
+  $('news-headline').textContent = e.head;
+  $('news-lede').textContent = e.lede;
+  $('news-motif').innerHTML = newsMotif(e.era);
+  const slut = key === 'slut';
+  $('news-s1').textContent = fmt(g.totalDelivered);
+  $('news-s1k').textContent = slut ? STR.newsRidersAll : STR.ridersCarried;
+  $('news-s2').textContent = String(sim.stationCount(g));
+  $('news-s2k').textContent = slut ? STR.newsStationsBuilt : STR.newsStationsOpen;
+  if (slut) {
+    const h = Math.floor(g.playedS / 3600), m = Math.floor((g.playedS % 3600) / 60);
+    $('news-s3').textContent = h + ' h ' + m + ' m';
+    $('news-s3k').textContent = STR.newsPlayed;
+  } else {
+    $('news-s3').innerHTML = numHTML(g.grossLife, ' kr');
+    $('news-s3k').textContent = STR.newsTurnover;
+  }
+  // The foot: the city's own words (the old era blurbs), and what stirs next.
+  const blurb = slut ? STR.ending.blurb : (STR.eras[key] ? STR.eras[key].blurb : '');
+  $('news-foot1').innerHTML = '<b style="color:var(--tb-ink);font-weight:400">' + STR.newsCity + '</b> ';
+  $('news-foot1').append(blurb);
+  $('news-foot2').innerHTML = '<b style="color:var(--tb-ink);font-weight:400">' + STR.newsNext + '</b> ';
+  $('news-foot2').append(e.next);
   $('moment').hidden = false;
   save();
+}
+function showMoment(year) {
+  showFrontPage(year);
 }
 function showEnding() {
-  momentOpen = true;
-  $('moment-title').textContent = STR.ending.title;
-  $('moment-blurb').textContent = STR.ending.blurb;
-  $('moment').hidden = false;
-  save();
+  showFrontPage('slut');
 }
+$('moment-close').textContent = STR.newsContinue;
 $('moment-close').addEventListener('click', () => {
   momentOpen = false;
   $('moment').hidden = true;
