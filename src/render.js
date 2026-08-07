@@ -4,9 +4,10 @@
 // projected per frame through the active projector.
 
 import { ANCHORS, CORRIDORS, LINE, WATER } from './data.js';
+import { EGGS } from './facts.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
-  endStation, waitingAt, trainPos, anchorRevealed, teaseVisible, corridorOf,
+  endStation, waitingAt, trainPos, anchorRevealed, teaseVisible, corridorOf, dayPhase,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -29,6 +30,8 @@ const THEMES = {
     trainDetail: 'rgba(11, 15, 20, 0.55)',
     veil: 'rgba(7, 10, 14, 0.78)',
     glowAlpha: 0.09,
+    politic: '#9b8cc9',
+    silver: '#c9ced6',
   },
   light: {
     bg: '#f4f6f8',
@@ -47,6 +50,8 @@ const THEMES = {
     // A grey scrim, not a white one: white on positron reads as nothing.
     veil: 'rgba(96, 112, 128, 0.42)',
     glowAlpha: 0.18,
+    politic: '#6b5aa8',
+    silver: '#8b93a1',
   },
 };
 let COL = THEMES.dark;
@@ -618,6 +623,77 @@ function drawSurge(g) {
   label('RUSH HOUR', p.x + 14, p.y + 14, COL.amber, 10, { weight: 600 });
 }
 
+// --- Curiosities (pass 03 section e): a faint politic diamond that rewards
+// noticing and never reads as a task. Silverpilen is a TRAIN: at night it
+// glides the green line's geometry, unlisted, unlabeled, silver. ---
+
+// Where Silverpilen is right now (parametric on the wall clock, so it drifts
+// the whole line over ~40 s and vanishes at dawn). Null when it does not run.
+function silverpilenPos(g) {
+  if (dayPhase(g) !== 3 || g.lines[0].stations.length < 3) return null;
+  const L = g.lines[0];
+  const f = (clockT % 40) / 40 * (L.stations.length - 1);
+  const i = Math.min(L.stations.length - 2, Math.floor(f));
+  const a = project(L.stations[i].geo);
+  const b = project(L.stations[i + 1].geo);
+  const t = f - i;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+// Visible, unfound curiosities with their screen positions.
+export function eggMarks(g) {
+  const used = usedAnchorsAll(g);
+  const out = [];
+  for (const e of EGGS) {
+    if (g.eggs[e.id] || !e.needs(used)) continue;
+    if (e.id === 'silverpilen') {
+      const p = silverpilenPos(g);
+      if (p) out.push({ id: e.id, x: p.x, y: p.y, train: true });
+      continue;
+    }
+    const p = project(e.geo);
+    out.push({ id: e.id, x: p.x, y: p.y });
+  }
+  return out;
+}
+
+export function nearEgg(g, p) {
+  for (const m of eggMarks(g)) {
+    if (Math.hypot(p.x - m.x, p.y - m.y) < (m.train ? 18 : 12)) return m.id;
+  }
+  return null;
+}
+
+function drawEggs(g) {
+  for (const m of eggMarks(g)) {
+    if (m.train) {
+      // Silverpilen: the 1950 train shape, silver, no rider count, no fuss.
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.roundRect(m.x - 14, m.y - 8, 28, 16, 2.5);
+      ctx.fillStyle = COL.silver;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    const s = 6.5;
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(Math.PI / 4);
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = COL.politic;
+    ctx.lineWidth = 1.8;
+    ctx.strokeRect(-s, -s, s * 2, s * 2);
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = COL.politic;
+    ctx.globalAlpha = 0.8;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
 // A failure is louder than a rush: faster pulse, red family, real signage
 // wording (SIGNALFEL is what the platform displays actually say).
 function drawIncident(g) {
@@ -716,6 +792,7 @@ export function draw(g) {
   drawDragPreview(g);
   drawStations(g);
   drawSelected(g);
+  drawEggs(g);
   drawSurge(g);
   drawIncident(g);
   drawTrains(g);
