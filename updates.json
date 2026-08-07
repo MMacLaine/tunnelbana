@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.10.1",
+      "title": "Design pass, finished",
+      "content": "Visual corrections, bringing 0.10's remaining surfaces onto the intended design.\n\n- The statistics page now uses the designed graph, line table and record book.\n- The clock and rush grade appear as proper chips in the HUD; the chip pulses through a peak and resolves to the grade.\n- City notes and postcards use the designed toast, with a coloured rail marking the type.\n- Incident markers are amber, as designed: attention, not alarm."
+    },
+    {
       "version": "0.10.0",
       "title": "Rush hours, the offices, and the platform-wall map",
       "content": "A large update focused on mid-game depth, based on the first days of feedback and a new design pass.\n\n- Added an in-game clock. Rush hours are graded A–E on how many would-be riders you carried; a clean rush earns a little trust.\n- From 1957, signals occasionally fail at a station: boarding stops until it passes, or you pay the repair crew.\n- Era transitions are now newspaper front pages carrying your own network's numbers. The ending got the same treatment.\n- Achievements expanded from 22 to 81, in categories, some hidden.\n- New purchases: the statistics office (graphs, records, a per-line ledger), the works department (bulk station upgrades), Trafikledning (mark stops for the express to skip; trains alternate full and express, and no stop loses service), and Linjekartan (your network as a schematic diagram).\n- Added sound: the dispatch bell, fare ticks, era chords. All synthesized, with an off switch in Settings.\n- Occasional short notes: facts about Stockholm and postcards from riders on your network. Off switch in Settings.\n- The while-you-were-away report now includes your running rate and busiest line.\n- Six quiet curiosities are hidden on the map for the observant.\n- Fleet cap reminder from 0.9: it rises each era; this update adds nothing you must buy to keep pace."
