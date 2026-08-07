@@ -322,7 +322,257 @@ export const ACHIEVEMENTS = [
     check: (g) => g.deliv60 * 60 >= 500, add: { demand: 0.02 } },
   { id: 'forty', name: 'The city underground', hint: 'Run forty stations at once',
     check: (g) => stationCount(g) >= 40, mult: { fare: 1.03 } },
+  // --- Achievements 2.0 (0.10, owner direction: aims are what drive the end
+  // game; some easy, some brutal). Almost everything below is RECOGNITION,
+  // no modifier: the pass-01 budget ruling (the whole set worth ~x1.3) holds,
+  // and only a handful of hard aims carry a token. Categories, hidden flags
+  // and tier families live in ACH_META below; the checks stay data. ---
+  // history
+  { id: 'vasterort', name: 'Västerort', hint: 'Complete the 1952 line to Vällingby',
+    check: (g) => !!g.planDone['green-west'] },
+  { id: 'genom-staden', name: 'Genom staden', hint: 'Reach 1957: the lines become a system',
+    check: (g) => g.era >= 2 },
+  { id: 'red-complete', name: 'Söder om Söder', hint: 'Deliver every red corridor',
+    check: (g) => g.planDone['red-south'] && g.planDone['red-orn'] && g.planDone['red-ost'] },
+  { id: 'blue-complete', name: 'Järvafältet', hint: 'Deliver both blue corridors',
+    check: (g) => g.planDone['blue-main'] && g.planDone['blue-akalla'] },
+  { id: 'charters', name: 'Three charters', hint: 'Take all three megaproject lines',
+    check: (g) => g.owned.westline && g.owned.redline && g.owned.blueline },
+  { id: 'slutstation', name: 'SLUTSTATION', hint: 'The last station',
+    check: (g) => g.endingSeen },
+  // building
+  { id: 'twentyfive', name: 'Twenty-five stops', hint: 'Run twenty-five stations at once',
+    check: (g) => stationCount(g) >= 25 },
+  { id: 'fiftyfive', name: 'Nearly everything', hint: 'Run fifty-five stations at once',
+    check: (g) => stationCount(g) >= 55 },
+  { id: 'five-lines', name: 'Five colours', hint: 'Run five lines at once',
+    check: (g) => g.lines.length >= 5 },
+  { id: 'first-free', name: 'Your own stop', hint: 'Place a station of your own, off the plan',
+    check: (g) => g.freeSpots >= 1 },
+  { id: 'ten-free', name: 'City planner', hint: 'Place ten stations of your own',
+    check: (g) => g.freeSpots >= 10 },
+  { id: 'three-junctions', name: 'Weave', hint: 'Run three interchanges at once',
+    check: (g) => {
+      let n = 0;
+      for (let i = 0; i < ANCHORS.length && n < 3; i++) if (linesAtAnchor(g, i) > 1) n++;
+      return n >= 3;
+    } },
+  { id: 'hub-trio', name: 'Three Knutpunkter', hint: 'Build three hubs of your own',
+    check: (g) => {
+      const seen = new Set();
+      let n = 0;
+      for (const L of g.lines) for (const st of L.stations) {
+        const k = st.anchor !== null ? 'a' + st.anchor : st.name;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) n++;
+      }
+      return n >= 3;
+    } },
+  { id: 'long-line', name: 'The long way round', hint: 'Run a line of sixteen stops',
+    check: (g) => g.lines.some((L) => L.stations.length >= 16) },
+  { id: 'all-tier2', name: 'No mere stops', hint: 'Every station a Station, ten or more of them',
+    check: (g) => stationCount(g) >= 10 &&
+      g.lines.every((L) => L.stations.every((st) => st.tier >= 2)) },
+  { id: 'demolisher', name: 'Ombyggnad', hint: 'Some things must come down',
+    check: (g) => g.demolished >= 5 },
+  // riders
+  { id: 'first-thousand', name: 'The first thousand', hint: 'Carry 1 000 riders',
+    check: (g) => g.totalDelivered >= 1e3 },
+  { id: 'hundred-million', name: 'A hundred million', hint: 'Carry 100 000 000 riders',
+    check: (g) => g.totalDelivered >= 1e8, mult: { fare: 1.03 } },
+  { id: 'billion-riders', name: 'The city, forever', hint: 'Carry a billion riders',
+    check: (g) => g.totalDelivered >= 1e9 },
+  { id: 'per-min-1k', name: 'A thousand a minute', hint: 'Carry 1 000 riders in one minute',
+    check: (g) => g.records.riders >= 1000 },
+  { id: 'per-min-3k', name: 'Three thousand a minute', hint: 'Carry 3 000 riders in one minute',
+    check: (g) => g.records.riders >= 3000 },
+  { id: 'transfer-10k', name: 'Byten', hint: 'See 10 000 riders change lines',
+    check: (g) => g.transfers >= 1e4 },
+  { id: 'transfer-100k', name: 'The weave holds', hint: 'See 100 000 riders change lines',
+    check: (g) => g.transfers >= 1e5 },
+  // money
+  { id: 'hundred-k-kr', name: 'First savings', hint: 'Hold 100 000 kr at once',
+    check: (g) => g.money >= 1e5 },
+  { id: 'ten-million-kr', name: 'Ten million', hint: 'Hold 10 000 000 kr at once',
+    check: (g) => g.money >= 1e7 },
+  { id: 'hundred-million-kr', name: 'A city budget', hint: 'Hold 100 000 000 kr at once',
+    check: (g) => g.money >= 1e8 },
+  { id: 'turnover-million', name: 'Turned over a million', hint: 'Earn 1 000 000 kr, all told',
+    check: (g) => g.grossLife >= 1e6 },
+  { id: 'turnover-billion', name: 'Turned over a billion', hint: 'Earn 1 000 000 000 kr, all told',
+    check: (g) => g.grossLife >= 1e9, mult: { fare: 1.02 } },
+  { id: 'rent-500', name: 'Landlord of the underground', hint: 'Earn 500 kr/s from retail',
+    check: (g) => commerceRate(g) >= 500 },
+  // trust
+  { id: 'first-trust', name: 'The city notices', hint: 'Earn your first trust',
+    check: (g) => g.pk >= 1 },
+  { id: 'coverage-half', name: 'Half the region', hint: 'Serve half the region well',
+    check: (g) => coverage(g) >= 0.5 },
+  { id: 'coverage-80', name: 'Almost everyone', hint: 'Serve four fifths of the region well',
+    check: (g) => coverage(g) >= 0.8, add: { demand: 0.02 } },
+  { id: 'city-grows', name: 'ABC-stad', hint: 'Grow the city half again its size',
+    check: (g) => cityMult(g) >= 1.5 },
+  { id: 'city-max', name: 'The city you made', hint: 'Grow the city near its ceiling',
+    check: (g) => cityMult(g) >= 2.4 },
+  { id: 'own-line', name: 'Egen linje', hint: 'Found a line from a hub of your own',
+    check: (g) => g.founded >= 1 },
+  // service
+  { id: 'drivers-hired', name: 'Staffed', hint: 'Hire drivers',
+    check: (g) => !!g.owned.drivers },
+  { id: 'full-auto', name: 'Modern railway', hint: 'Own drivers, timetable, ATC and CBTC',
+    check: (g) => g.owned.drivers && g.owned.timetable && g.owned.atc && g.owned.cbtc,
+    mult: { dispatchInterval: 0.99 } },
+  { id: 'rush-a', name: 'A clean rush', hint: 'Grade an A at a peak',
+    check: (g) => (g.rushCount.A || 0) >= 1 },
+  { id: 'rush-a-10', name: 'Ten clean rushes', hint: 'Grade A at ten peaks',
+    check: (g) => (g.rushCount.A || 0) >= 10, add: { demand: 0.01 } },
+  { id: 'rush-a-50', name: 'The city never waits', hint: 'Fifty clean rushes',
+    check: (g) => (g.rushCount.A || 0) >= 50 },
+  { id: 'fixer', name: 'Repair crew', hint: 'Clear a signal failure',
+    check: (g) => g.incidentsFixed >= 1 },
+  { id: 'fixer-10', name: 'On call', hint: 'Clear ten signal failures',
+    check: (g) => g.incidentsFixed >= 10 },
+  { id: 'headway-15', name: 'Metronome', hint: 'Run a line at a headway under 15 s',
+    check: (g) => {
+      for (let li = 0; li < g.lines.length; li++) {
+        if (g.lines[li].stations.length >= 4 && lineHeadwayS(g, li) < 15) return true;
+      }
+      return false;
+    } },
+  { id: 'fleet-10', name: 'Ten trains', hint: 'Run ten trains',
+    check: (g) => g.trains.filter((t) => !t.mothballed).length >= 10 },
+  { id: 'fleet-20', name: 'Twenty trains', hint: 'Run twenty trains',
+    check: (g) => g.trains.filter((t) => !t.mothballed).length >= 20 },
+  { id: 'moves-10', name: 'Trafikledning', hint: 'Order ten depot transfers',
+    check: (g) => (g.trainMoves || 0) >= 10 },
+  { id: 'pattern-first', name: 'Your own timetable', hint: 'Set up a service pattern of your own',
+    check: (g) => g.patternsSet >= 1 },
+  // night
+  { id: 'night-10k', name: 'Nattöppet', hint: 'Carry 10 000 riders at night',
+    check: (g) => g.nightDelivered >= 1e4 },
+  { id: 'night-100k', name: 'While the city sleeps', hint: 'Carry 100 000 riders at night',
+    check: (g) => g.nightDelivered >= 1e5 },
+  { id: 'night-owner', name: 'Nattrafik', hint: 'Run the night service',
+    check: (g) => !!g.owned.nightservice },
+  { id: 'night-build', name: 'Nattarbete', hint: 'Extend a line in the middle of the night',
+    check: (g) => g.nightBuilds >= 1 },
+  // endgame
+  { id: 'seven-lines', name: 'Beyond the palette', hint: 'Run seven lines in the sandbox',
+    check: (g) => g.lines.length >= 7 },
+  { id: 'maxed-catalog', name: 'Nothing left to buy', hint: 'Max every upgrade in the shop',
+    check: (g) => CATALOG.every((item) => g.owned[item.id] >= maxFor(g, item)) },
+  { id: 'station-cap', name: 'Full map', hint: 'Build to the station limit',
+    check: (g) => stationCount(g) >= maxStationsNow(g) },
+  { id: 'ladder-full', name: 'A palace of a station', hint: 'Max all three axes at one station',
+    check: (g) => g.lines.some((L) => L.stations.some((st) =>
+      st.ent >= 8 && st.gates >= 8 && st.shop >= 8)) },
+  { id: 'bulk-25', name: 'Byggkontoret goes warm', hint: 'Place twenty-five bulk orders',
+    check: (g) => g.bulkOrders >= 25 },
+  { id: 'diagram-view', name: 'Se kartan', hint: 'Open the schematic map',
+    check: (g) => g.diaViews >= 1 },
+  { id: 'egg-first', name: 'Something in the fabric', hint: 'There are odd corners in this city',
+    check: (g) => g.eggsFound >= 1 },
+  { id: 'egg-all', name: 'Every odd corner', hint: 'Find them all',
+    check: (g) => g.eggsFound >= 6 },
 ];
+
+// Presentation metadata by id: category, hidden (shown as ??? with a tease
+// until earned), and tier families (rows the list draws as one aim with
+// dots). checkAchievements ignores all of this; earning is earning.
+export const ACH_CATS = [
+  { key: 'history', name: 'History' },
+  { key: 'building', name: 'Building' },
+  { key: 'riders', name: 'Riders' },
+  { key: 'money', name: 'Money' },
+  { key: 'trust', name: 'Trust' },
+  { key: 'service', name: 'Service' },
+  { key: 'night', name: 'Night' },
+  { key: 'endgame', name: 'Endgame' },
+];
+export const ACH_META = {
+  'first-departure': { cat: 'history' },
+  'full-1950': { cat: 'history' },
+  'vasterort': { cat: 'history' },
+  'genom-staden': { cat: 'history' },
+  'red-line': { cat: 'history' },
+  'red-complete': { cat: 'history' },
+  'blue-line': { cat: 'history' },
+  'blue-complete': { cat: 'history' },
+  'charters': { cat: 'history' },
+  'final-era': { cat: 'history' },
+  'whole-map': { cat: 'history' },
+  'slutstation': { cat: 'history', hidden: true, tease: 'The last station' },
+  'ten-stations': { cat: 'building' },
+  'twentyfive': { cat: 'building', family: 'stations' },
+  'forty': { cat: 'building', family: 'stations' },
+  'fiftyfive': { cat: 'building', family: 'stations' },
+  'first-junction': { cat: 'building' },
+  'three-junctions': { cat: 'building' },
+  'first-hub': { cat: 'building' },
+  'hub-trio': { cat: 'building' },
+  'three-lines': { cat: 'building', family: 'lines' },
+  'five-lines': { cat: 'building', family: 'lines' },
+  'under-water': { cat: 'building' },
+  'first-free': { cat: 'building' },
+  'ten-free': { cat: 'building' },
+  'long-line': { cat: 'building' },
+  'all-tier2': { cat: 'building' },
+  'demolisher': { cat: 'building', hidden: true, tease: 'Some things must come down' },
+  'first-thousand': { cat: 'riders', family: 'carried' },
+  'hundred-k': { cat: 'riders', family: 'carried' },
+  'million': { cat: 'riders', family: 'carried' },
+  'ten-million': { cat: 'riders', family: 'carried' },
+  'hundred-million': { cat: 'riders', family: 'carried' },
+  'billion-riders': { cat: 'riders', family: 'carried', hidden: true, tease: 'Past every counter' },
+  'rush-service': { cat: 'riders' },
+  'per-min-1k': { cat: 'riders', family: 'permin' },
+  'per-min-3k': { cat: 'riders', family: 'permin' },
+  'nobody-left': { cat: 'riders' },
+  'transfer-10k': { cat: 'riders', family: 'byten' },
+  'transfer-100k': { cat: 'riders', family: 'byten' },
+  'hundred-k-kr': { cat: 'money', family: 'held' },
+  'millionaire': { cat: 'money', family: 'held' },
+  'ten-million-kr': { cat: 'money', family: 'held' },
+  'hundred-million-kr': { cat: 'money', family: 'held' },
+  'billion': { cat: 'money', family: 'held' },
+  'turnover-million': { cat: 'money', family: 'turnover' },
+  'turnover-billion': { cat: 'money', family: 'turnover' },
+  'retailer': { cat: 'money', family: 'rent' },
+  'rent-500': { cat: 'money', family: 'rent' },
+  'first-trust': { cat: 'trust' },
+  'coverage-half': { cat: 'trust', family: 'coverage' },
+  'coverage-80': { cat: 'trust', family: 'coverage' },
+  'city-grows': { cat: 'trust', family: 'growth' },
+  'city-max': { cat: 'trust', family: 'growth' },
+  'own-line': { cat: 'trust' },
+  'drivers-hired': { cat: 'service' },
+  'full-auto': { cat: 'service' },
+  'punctual': { cat: 'service', family: 'headway' },
+  'headway-15': { cat: 'service', family: 'headway' },
+  'rush-a': { cat: 'service', family: 'rush' },
+  'rush-a-10': { cat: 'service', family: 'rush' },
+  'rush-a-50': { cat: 'service', family: 'rush', hidden: true, tease: 'Something about the rush' },
+  'fixer': { cat: 'service', family: 'repairs' },
+  'fixer-10': { cat: 'service', family: 'repairs' },
+  'depot-move': { cat: 'service', family: 'depot' },
+  'moves-10': { cat: 'service', family: 'depot' },
+  'fleet-10': { cat: 'service', family: 'fleet' },
+  'fleet-20': { cat: 'service', family: 'fleet' },
+  'pattern-first': { cat: 'service' },
+  'night-10k': { cat: 'night', family: 'nightriders' },
+  'night-100k': { cat: 'night', family: 'nightriders', hidden: true, tease: 'While the city sleeps' },
+  'night-owner': { cat: 'night' },
+  'night-build': { cat: 'night' },
+  'seven-lines': { cat: 'endgame' },
+  'maxed-catalog': { cat: 'endgame' },
+  'station-cap': { cat: 'endgame' },
+  'ladder-full': { cat: 'endgame' },
+  'bulk-25': { cat: 'endgame' },
+  'diagram-view': { cat: 'endgame' },
+  'egg-first': { cat: 'endgame', hidden: true, tease: 'There are odd corners in this city' },
+  'egg-all': { cat: 'endgame', hidden: true, tease: 'Every odd corner' },
+};
 
 // Checked once a second rather than every tick: eighteen predicates over a live
 // network is not free, and none of them needs sub-second latency.
@@ -582,6 +832,18 @@ export function newGame() {
     records: { riders: 0, gross: 0 },         // best riders/min and kr/s seen
     grossLife: 0,   // everything ever earned: the front page's "turned over"
     playedS: 0,     // active seconds across sessions: SLUTSTATION prints it
+    // Small lifetime counters the achievement set reads. eggsFound, diaViews
+    // and patternsSet are written by later 0.10 slices; they exist now so the
+    // aims that name them are legal from day one.
+    transfers: 0,
+    nightDelivered: 0,
+    nightBuilds: 0,
+    demolished: 0,
+    bulkOrders: 0,
+    founded: 0,
+    eggsFound: 0,
+    diaViews: 0,
+    patternsSet: 0,
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -1515,6 +1777,7 @@ function advancePhase(g, train) {
     run.onboard = Math.max(0, run.onboard - off);
     g.totalDelivered += off;
     L.delivered += off;
+    if (dayPhase(g) === 3) g.nightDelivered += off;
     g.deliv60 += off / 60;
     if (off >= 1) g.events.push({ type: 'alight', geo: L.stations[k].geo, n: Math.round(off) });
   }
@@ -1549,6 +1812,7 @@ function advancePhase(g, train) {
         const q = d2 === 'f' ? g.lines[l2].waitingF : g.lines[l2].waitingB;
         q[i2] += cont * (sh / total);
       }
+      g.transfers += cont;
       g.events.push({ type: 'transfer', geo: L.stations[k].geo, n: Math.round(cont) });
     }
   }
@@ -2091,6 +2355,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
   L.rev += 1;
   computeDemand(g);
   updatePlanDone(g);  // completing a corridor unlocks THIS instant, not next tick
+  if (dayPhase(g) === 3) g.nightBuilds += 1;
   g.events.push({ type: 'extend', geo: station.geo, name: station.name });
   return true;
 }
@@ -2151,6 +2416,7 @@ export function demolish(g, li, end) {
   }
   L.rev += 1;
   computeDemand(g);
+  g.demolished += 1;
   g.events.push({ type: 'demolish', geo: st.geo, name: st.name });
   return true;
 }
@@ -2264,6 +2530,7 @@ export function bulkUpgrade(g, kind) {
   for (const t of bulkTargets(g, kind)) {
     if (upgradeStation(g, t.li, t.i, kind)) bought++;
   }
+  if (bought > 0) g.bulkOrders += 1;
   return bought;
 }
 
@@ -2394,6 +2661,7 @@ export function foundLine(g, li, i) {
   L.waitingB = [0];
   g.lines.push(L);
   computeDemand(g);
+  g.founded += 1;
   g.events.push({ type: 'newline', geo: st.geo, name: st.name });
   return true;
 }
@@ -2612,6 +2880,11 @@ export function serialize(g) {
     rushCount: g.rushCount,
     totalLost: Math.round(g.totalLost),
     incidentsFixed: Math.round(g.incidentsFixed || 0),
+    counters: {
+      transfers: Math.round(g.transfers), nightDelivered: Math.round(g.nightDelivered),
+      nightBuilds: g.nightBuilds, demolished: g.demolished, bulkOrders: g.bulkOrders,
+      founded: g.founded, eggsFound: g.eggsFound, diaViews: g.diaViews, patternsSet: g.patternsSet,
+    },
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
@@ -2682,6 +2955,10 @@ export function hydrate(raw) {
   g.incidentsFixed = posInt(s.incidentsFixed, 1e6);
   g.grossLife = posInt(s.grossLife, 1e15);
   g.playedS = posInt(s.playedS, 1e9);
+  for (const k of ['transfers', 'nightDelivered', 'nightBuilds', 'demolished',
+                   'bulkOrders', 'founded', 'eggsFound', 'diaViews', 'patternsSet']) {
+    g[k] = posInt(s.counters?.[k], 1e12);
+  }
   g.records.riders = posInt(s.records?.riders, 1e9);
   g.records.gross = Math.min(1e12, Math.max(0, Number(s.records?.gross) || 0));
   if (s.hist && ['t', 'riders', 'gross'].every((k) => Array.isArray(s.hist[k]))) {
