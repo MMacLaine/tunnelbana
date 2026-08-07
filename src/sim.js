@@ -4,6 +4,7 @@
 // flows, never agents (plan §4). DOM-free so it runs under node for smoke tests.
 
 import { ANCHORS, CORRIDORS, DISTRICTS, START_BUILT, WEST_FIRST, WATER, kmBetween, crossesWater, inRing, densityAt } from './data.js';
+import { EGGS } from './facts.js';
 
 export const BAL = {
   startMoney: 900,  // enough that the opening minute ends in a build, not a wait
@@ -842,6 +843,7 @@ export function newGame() {
     bulkOrders: 0,
     founded: 0,
     eggsFound: 0,
+    eggs: {},        // curiosity id -> found (eggsFound stays the count)
     diaViews: 0,
     patternsSet: 0,
     owned,
@@ -1478,6 +1480,16 @@ export function odWeights(g, li, i) {
     const [l2, i2] = p.entries[0];
     return { name: g.lines[l2].stations[i2].name, share };
   });
+}
+
+// A curiosity is found by clicking it; once per save, achievement-counted.
+export function foundEgg(g, id) {
+  const egg = EGGS.find((e) => e.id === id);
+  if (!egg || g.eggs[id]) return null;
+  g.eggs[id] = true;
+  g.eggsFound = Object.keys(g.eggs).length;
+  g.events.push({ type: 'egg', id, name: egg.name, geo: egg.geo || g.lines[0].stations[0].geo });
+  return egg;
 }
 
 // A postcard: one journey somebody is taking right now, read from the same
@@ -2885,6 +2897,7 @@ export function serialize(g) {
       nightBuilds: g.nightBuilds, demolished: g.demolished, bulkOrders: g.bulkOrders,
       founded: g.founded, eggsFound: g.eggsFound, diaViews: g.diaViews, patternsSet: g.patternsSet,
     },
+    eggs: g.eggs,
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
@@ -2959,6 +2972,11 @@ export function hydrate(raw) {
                    'bulkOrders', 'founded', 'eggsFound', 'diaViews', 'patternsSet']) {
     g[k] = posInt(s.counters?.[k], 1e12);
   }
+  g.eggs = {};
+  if (s.eggs && typeof s.eggs === 'object') {
+    for (const e of EGGS) if (s.eggs[e.id]) g.eggs[e.id] = true;
+  }
+  g.eggsFound = Object.keys(g.eggs).length;
   g.records.riders = posInt(s.records?.riders, 1e9);
   g.records.gross = Math.min(1e12, Math.max(0, Number(s.records?.gross) || 0));
   if (s.hist && ['t', 'riders', 'gross'].every((k) => Array.isArray(s.hist[k]))) {
