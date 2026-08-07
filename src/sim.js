@@ -359,6 +359,10 @@ export const CATALOG = [
     mult: { speed: 0.9 } },
   { id: 'turnstiles', base: 1600, growth: 1,   max: 1, era: 1950,
     mult: { fare: 1.05 } },
+  // The statistics office: pure information, priced as a treat (owner ask
+  // 2026-08-07: stats are a thing incremental players BUY into). Not graded
+  // by the value gate, like atc: legibility purchases earn attention, not kr.
+  { id: 'stats',      base: 4000, growth: 1,   max: 1, era: 1952, kind: 'stats' },
   { id: 'westline',   base: 5,    growth: 1,   max: 1, era: 1952, currency: 'pk', kind: 'project' },
   // The campaign charters (owner direction 2026-08-04): each era's line can be
   // chartered as a megaproject seeding T-Centralen plus the corridor's first
@@ -534,6 +538,8 @@ function newLine(stations, colorIdx, identity) {
     stations,
     name: identity?.name || (colorIdx === 0 ? 'Gröna linjen' : 'Linje ' + (colorIdx + 1)),
     color: identity?.color || (typeof colorIdx === 'string' ? colorIdx : lineColor(colorIdx)),
+    delivered: 0,   // lifetime riders this line carried to their stop
+    earned: 0,      // lifetime fares booked at this line's platforms
     waitingF: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     waitingB: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     left60: stations.map(() => 0),
@@ -565,6 +571,11 @@ export function newGame() {
     nextIncidentAt: 0,
     incidentCounter: 0,
     incidentsFixed: 0,
+    // The statistics office reads these; they accrue whether or not it is
+    // ever bought, so the ledger is complete on the day it opens.
+    hist: { t: [], riders: [], gross: [] },   // sampled every 30 s, capped
+    histAt: 0,
+    records: { riders: 0, gross: 0 },         // best riders/min and kr/s seen
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -1394,6 +1405,7 @@ function board(g, train, i) {
   let amt = paxKm * BAL.farePerKm * effectMult(g, 'fare');
   if (surgedAt(g, li, i)) amt *= BAL.surgeFareMult;
   g.money += amt;
+  L.earned += amt;
   g.grossEma += amt / GROSS_TAU;
   g.gross60 += amt / 60;
   if (amt >= 0.5) g.events.push({ type: 'payout', geo: L.stations[i].geo, amt: Math.round(amt) });
@@ -1495,6 +1507,7 @@ function advancePhase(g, train) {
     run.dest[k] = 0;
     run.onboard = Math.max(0, run.onboard - off);
     g.totalDelivered += off;
+    L.delivered += off;
     g.deliv60 += off / 60;
     if (off >= 1) g.events.push({ type: 'alight', geo: L.stations[k].geo, n: Math.round(off) });
   }
@@ -1522,6 +1535,7 @@ function advancePhase(g, train) {
     }
     if (total <= 0) {
       g.totalDelivered += cont;
+      L.delivered += cont;
       g.deliv60 += cont / 60;
     } else {
       for (const [l2, i2, d2, sh] of options) {
@@ -1534,6 +1548,7 @@ function advancePhase(g, train) {
   const atTerminus = k === 0 || k === L.stations.length - 1;
   if (atTerminus) {
     g.totalDelivered += Math.max(0, run.onboard); // numerical dust only
+    L.delivered += Math.max(0, run.onboard);
     train.at = k;
     train.run = null;
     train.readyAt = g.clock + BAL.turnaroundS;
@@ -1727,6 +1742,24 @@ export function tick(g, dt) {
     g.achieveAt = g.clock;
     checkAchievements(g);
     updatePlanDone(g);
+    // Records: the best minute the network has ever run.
+    if (g.opened) {
+      g.records.riders = Math.max(g.records.riders, Math.round(g.deliv60 * 60));
+      g.records.gross = Math.max(g.records.gross, Math.round(g.gross60 * 10) / 10);
+    }
+  }
+
+  // The ledger's pulse: one sample every 30 s, a bounded window (~2 h).
+  if (g.opened && g.clock - g.histAt >= 30) {
+    g.histAt = g.clock;
+    g.hist.t.push(Math.round(g.clock));
+    g.hist.riders.push(Math.round(g.deliv60 * 60));
+    g.hist.gross.push(Math.round(g.gross60));
+    if (g.hist.t.length > 240) {
+      g.hist.t.shift();
+      g.hist.riders.shift();
+      g.hist.gross.shift();
+    }
   }
 
   // Trust accrues from coverage, up to the ceiling this era allows.
@@ -2490,7 +2523,11 @@ export function simulateOffline(g, seconds) {
   const delivered = g.deliv60 * BAL.offlineDiscount * s;
   g.money += earned;
   g.totalDelivered += delivered;
-  return { seconds: s, earned, delivered };
+  // The night report names the busiest line by its lifetime share: honest,
+  // since offline is closed-form and carries no per-line simulation.
+  let busiest = null;
+  for (const L of g.lines) if (!busiest || L.delivered > busiest.delivered) busiest = L;
+  return { seconds: s, earned, delivered, rate: net, busiest: busiest ? busiest.name : null };
 }
 
 // --- Save / load (saveVersion is monotonic; forward-only migrations) ---
@@ -2517,7 +2554,11 @@ export function serialize(g) {
       waitingB: L.waitingB.map((w) => Math.round(w)),
       name: L.name,
       color: L.color,
+      delivered: Math.round(L.delivered || 0),
+      earned: Math.round(L.earned || 0),
     })),
+    hist: g.hist,
+    records: g.records,
     trains: g.trains.map((t) => ({ line: t.line, mothballed: t.mothballed })),
     moves: g.moveQueue,
     trainMoves: Math.round(g.trainMoves || 0),
@@ -2593,6 +2634,16 @@ export function hydrate(raw) {
   g.trainMoves = posInt(s.trainMoves, 1e6);
   g.totalLost = posInt(s.totalLost, 1e12);
   g.incidentsFixed = posInt(s.incidentsFixed, 1e6);
+  g.records.riders = posInt(s.records?.riders, 1e9);
+  g.records.gross = Math.min(1e12, Math.max(0, Number(s.records?.gross) || 0));
+  if (s.hist && ['t', 'riders', 'gross'].every((k) => Array.isArray(s.hist[k]))) {
+    const n = Math.min(240, s.hist.t.length, s.hist.riders.length, s.hist.gross.length);
+    g.hist = {
+      t: s.hist.t.slice(-n).map((v) => posInt(v, 1e9)),
+      riders: s.hist.riders.slice(-n).map((v) => posInt(v, 1e9)),
+      gross: s.hist.gross.slice(-n).map((v) => posInt(v, 1e12)),
+    };
+  }
   g.rushCount = {};
   if (s.rushCount && typeof s.rushCount === 'object') {
     for (const r of RUSH_GRADES) {
@@ -2629,6 +2680,8 @@ export function hydrate(raw) {
       // Pre-identity saves fall back to the palette by founding order.
       name: typeof L.name === 'string' ? L.name : (idx === 0 ? 'Gröna linjen' : 'Linje ' + (idx + 1)),
       color: /^#[0-9a-f]{6}$/i.test(L.color || '') ? L.color : lineColor(idx),
+      delivered: posInt(L.delivered, 1e12),
+      earned: posInt(L.earned, 1e15),
       waitingF: [],
       waitingB: [],
       left60: [],

@@ -180,6 +180,34 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.hydrate(sim.serialize(ic)).incidentsFixed !== 1) err('incidentsFixed must survive a save');
 }
 
+// --- The ledger (0.10): per-line riders and earnings accrue, the history
+// window samples and stays bounded, records only rise, and it all survives
+// a save round-trip. ---
+{
+  const lg = sim.newGame();
+  lg.money = 1e6;
+  for (let k = 3; k < 8; k++) sim.extendTo(lg, 0, 'tail', ANCHORS[k].geo, k);
+  sim.buy(lg, 'drivers');
+  sim.buy(lg, 'train');
+  for (let t = 0; t < 120; t += 0.05) { sim.tick(lg, 0.05); lg.events.length = 0; }
+  if (!(lg.lines[0].delivered > 0)) err('a working line should log delivered riders');
+  if (!(lg.lines[0].earned > 0)) err('a working line should log earnings');
+  if (!(lg.hist.t.length >= 3)) err('the history window should sample, got ' + lg.hist.t.length);
+  if (lg.hist.t.length !== lg.hist.riders.length || lg.hist.t.length !== lg.hist.gross.length) {
+    err('history series must stay in step');
+  }
+  if (!(lg.records.riders > 0)) err('records should notice a working minute');
+  const backLg = sim.hydrate(sim.serialize(lg));
+  if (Math.abs(backLg.lines[0].delivered - Math.round(lg.lines[0].delivered)) > 1) err('line ledger must survive a save');
+  if (backLg.hist.t.length !== lg.hist.t.length) err('history must survive a save');
+  if (backLg.records.riders !== lg.records.riders) err('records must survive a save');
+  // The office itself is era-gated and single-level.
+  if (sim.canBuy(lg, 'stats')) err('the statistics office should wait for 1952');
+  lg.era = 1;
+  if (!sim.buy(lg, 'stats')) err('the statistics office should sell in 1952');
+  if (sim.canBuy(lg, 'stats')) err('one office is enough');
+}
+
 // --- Postcards (0.10): a journey read from the sim's own routes, any n. ---
 {
   const pcg = sim.newGame();
