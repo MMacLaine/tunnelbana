@@ -90,6 +90,7 @@ const STR = {
     max: 'The line is at its limit for now',
     needsTier2: 'A junction needs a Tier 2 station first',
     plan: 'The 1950 plan comes first · finish the line to build anywhere',
+    far: 'Outside the region plan (for now)',
   },
   planRepair: 'needs repair',
   planDoneFloat: 'line complete',
@@ -168,6 +169,7 @@ const STR = {
     stats:      { name: 'Statistics office', desc: 'Graphs, records and a ledger per line. Pays in knowing, not kronor.' },
     diagram:    { name: 'Linjekartan',       desc: 'The map on the platform wall: your network as a schematic diagram. Toggles in the map corner.' },
     patterns:   { name: 'Trafikledning',     desc: 'Run your own service patterns: mark stops for the express to skip, and trains alternate full and express. Set it per stop, in the station panel.' },
+    region:     { name: 'Regionplanen',      desc: 'Permission to build ' + CAT.region.add.buildRadius + ' km further from T-Centralen, per level. Stockholm does not end at the tullar.' },
     works:      { name: 'Works department',  desc: 'Bulk orders: raise entrances, gates or retail one level across every station in one click. The buttons appear in the Network panel.' },
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
     redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line as a Söder shuttle, Mariatorget to Zinkensdamm, with a train. Connect it to your network your way; Fruängen waits at the far end.' },
@@ -360,6 +362,10 @@ if (window.maplibregl) {
       zoom: 12.0,
       minZoom: 10.3,
       maxZoom: 14.5,
+      // The camera stays with the city (owner ruling 2026-08-08): the region
+      // plan's maximum radius plus margin, so nobody pans to open sea looking
+      // for a game that is not there.
+      maxBounds: [[17.5, 59.03], [18.65, 59.58]],
       attributionControl: false,
       dragRotate: false,
       pitchWithRotate: false,
@@ -834,7 +840,7 @@ function canvasPos(e) {
 function dragState(p) {
   const snap = render.nearAnchor(g, p, dragRef.li);
   const geo = snap !== null ? ANCHORS[snap].geo : geoAt(p);
-  const cost = sim.extensionCost(g, dragRef.li, dragRef.end, geo);
+  const cost = sim.extensionCost(g, dragRef.li, dragRef.end, geo, snap);
   const problem = sim.placementProblem(g, dragRef.li, dragRef.end, geo, snap);
   let label = !problem || problem === 'money'
     ? (problem === 'money' ? STR.problems.money + ' ' : '') + fmt(cost) + ' kr'
@@ -1514,6 +1520,7 @@ const SHOP_META = {
   works:       { icon: 'cap',   cat: 'Office' },
   diagram:     { icon: 'net',   cat: 'Office' },
   patterns:    { icon: 'time',  cat: 'Service' },
+  region:      { icon: 'net',   cat: 'Project' },
   westline:    { icon: 'net',   cat: 'Project' },
   redline:     { icon: 'net',   cat: 'Project' },
   blueline:    { icon: 'net',   cat: 'Project' },
