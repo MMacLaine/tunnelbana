@@ -1289,17 +1289,80 @@ function bonusText(a) {
   return bits.join(' · ');
 }
 
+// The pass-03 achievements page: categories with glyphs and progress, cards
+// with earned/locked/hidden states, and tier FAMILIES folded into one card
+// showing dots and the next unearned aim. Hidden entries read ??? with their
+// tease until the day they land.
+const ACH_GLYPHS = {
+  building: '<path d="M4 20V8l8-4 8 4v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M3 20h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>',
+  service: '<rect x="3.5" y="4.5" width="17" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="2"></rect><path d="M3.5 9.5h17M9 9.5v11" stroke="currentColor" stroke-width="2"></path>',
+  riders: '<circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>',
+  money: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M9 9v6M15 9l-4 3 4 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>',
+  trust: '<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M8.5 12h7" stroke="currentColor" stroke-width="2"></path>',
+  history: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>',
+  night: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>',
+  endgame: '<path d="M12 3l2.6 5.6 6 .7-4.4 4 1.2 6L12 16.9 6.6 19.3l1.2-6-4.4-4 6-.7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>',
+};
+
+function achCard(a, meta, dots) {
+  const has = !!g.achieved[a.id];
+  const hidden = meta.hidden && !has;
+  const state = has ? 'earned' : hidden ? 'hidden' : 'locked';
+  const name = hidden ? '???' : a.name;
+  const bonus = hidden ? '' : bonusText(a);
+  const hint = (hidden ? (meta.tease || '…') : a.hint) + (bonus ? ' · ' + bonus : '');
+  const tierRow = dots
+    ? '<span class="tb-ach__tier">' + dots.map((on) => '<i' + (on ? ' class="on"' : '') + '></i>').join('') + '</span>'
+    : '';
+  return '<div class="tb-ach" data-state="' + state + '">' +
+    '<span class="tb-ach__mark">' + (has ? '✓' : hidden ? '?' : '·') + '</span>' +
+    '<span class="tb-ach__txt"><span class="tb-ach__name">' + name + '</span>' +
+    '<span class="tb-ach__hint">' + hint + '</span>' + tierRow + '</span></div>';
+}
+
 function renderAchievements() {
   const got = sim.ACHIEVEMENTS.filter((a) => g.achieved[a.id]).length;
   $('ach-count').textContent = got + ' of ' + sim.ACHIEVEMENTS.length + ' earned';
-  $('ach-list').className = 'tb-ach';
-  $('ach-list').innerHTML = sim.ACHIEVEMENTS.map((a) => {
-    const has = !!g.achieved[a.id];
-    return '<div class="tb-ach__row' + (has ? ' tb-ach__row--got' : '') + '">' +
-      '<span class="tb-ach__name">' + a.name + '</span>' +
-      '<span class="tb-ach__hint">' + (has ? a.hint : a.hint) + '</span>' +
-      '<span class="tb-ach__bonus">' + bonusText(a) + '</span>' +
-      '</div>';
+  const byCat = new Map(sim.ACH_CATS.map((c) => [c.key, []]));
+  for (const a of sim.ACHIEVEMENTS) {
+    const meta = sim.ACH_META[a.id] || { cat: 'building' };
+    (byCat.get(meta.cat) || byCat.get('building')).push({ a, meta });
+  }
+  $('ach-list').className = 'tb-ach-page';
+  $('ach-list').innerHTML = sim.ACH_CATS.map((c) => {
+    const items = byCat.get(c.key);
+    if (!items.length) return '';
+    // Fold tier families: one card, dots for the ladder, the NEXT unearned
+    // aim as the face (or the last one, once the ladder is done).
+    const rows = [];
+    const fams = new Map();
+    for (const it of items) {
+      if (it.meta.family) {
+        if (!fams.has(it.meta.family)) {
+          fams.set(it.meta.family, []);
+          rows.push({ fam: it.meta.family });
+        }
+        fams.get(it.meta.family).push(it);
+      } else {
+        rows.push({ one: it });
+      }
+    }
+    const earnedN = items.filter((it) => g.achieved[it.a.id]).length;
+    const pct = Math.round((earnedN / items.length) * 100);
+    const cards = rows.map((r) => {
+      if (r.one) return achCard(r.one.a, r.one.meta, null);
+      const f = fams.get(r.fam);
+      const nextIdx = f.findIndex((it) => !g.achieved[it.a.id]);
+      const rep = nextIdx === -1 ? f[f.length - 1] : f[nextIdx];
+      return achCard(rep.a, rep.meta, f.map((it) => !!g.achieved[it.a.id]));
+    }).join('');
+    return '<div class="tb-ach-cat">' +
+      '<div class="tb-ach-cat__head">' +
+      '<span class="tb-ach-cat__glyph"><svg viewBox="0 0 24 24" width="18" height="18">' + (ACH_GLYPHS[c.key] || '') + '</svg></span>' +
+      '<span class="tb-ach-cat__name">' + c.name + '</span>' +
+      '<span class="tb-ach-cat__bar"><i style="width:' + pct + '%"></i></span>' +
+      '<span class="tb-ach-cat__count">' + earnedN + '/' + items.length + '</span>' +
+      '</div><div class="tb-ach-grid">' + cards + '</div></div>';
   }).join('');
 }
 
