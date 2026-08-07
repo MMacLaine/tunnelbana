@@ -547,6 +547,9 @@ export function newGame() {
     moveQueue: [],   // pending depot transfers: { from, to }, fee already paid
     trainMoves: 0,
     planDone: {},    // corridor id -> once completed (freedom stays earned)
+    rush: null,      // open peak window: { phase, delivered0, lost0 }
+    rushCount: {},   // grade letter -> times earned
+    totalLost: 0,
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -1209,6 +1212,60 @@ export function dayPhase(g) {
   return 3;
 }
 
+// The in-game clock (owner ask, 2026-08-07: "a real clock ingame"). The day
+// cycle maps to 24 in-game hours anchored so the phases read as a day:
+// morning peak 06-12, midday 12-18, evening peak 18-24, night 00-06.
+// Display only: nothing in the sim reads the clock face.
+export function clockHM(g) {
+  const f = (g.clock % BAL.dayLen) / BAL.dayLen;
+  const h24 = (6 + f * 24) % 24;
+  const h = Math.floor(h24);
+  const m = Math.floor((h24 - h) * 60);
+  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+
+// --- The rush, graded (owner direction 2026-08-07: rush hour is fun; make
+// the day cycle a rhythm the player looks up for). Each peak is scored on
+// the share of would-be riders the network actually carried: delivered
+// against delivered-plus-abandoned across the peak window. The grade is
+// INFORMATION plus a small capped trust nod for a clean rush; a bad grade
+// costs nothing (no fail state) and simply says where the ceiling is. ---
+export const RUSH_GRADES = [
+  { min: 0.97, grade: 'A', pk: 0.3 },
+  { min: 0.90, grade: 'B', pk: 0.15 },
+  { min: 0.75, grade: 'C', pk: 0 },
+  { min: 0.50, grade: 'D', pk: 0 },
+  { min: 0,    grade: 'E', pk: 0 },
+];
+const RUSH_MIN_RIDERS = 25; // a three-station toy earns no medals for an empty rush
+
+function rushTick(g) {
+  const ph = dayPhase(g);
+  const peak = ph === 0 || ph === 2;
+  if (peak && !g.rush) {
+    g.rush = { phase: ph, delivered0: g.totalDelivered, lost0: g.totalLost };
+    return;
+  }
+  if (!peak && g.rush) {
+    const carried = g.totalDelivered - g.rush.delivered0;
+    const lost = g.totalLost - g.rush.lost0;
+    const phase = g.rush.phase;
+    g.rush = null;
+    if (!g.opened || carried + lost < RUSH_MIN_RIDERS) return;
+    const share = carried / (carried + lost);
+    const r = RUSH_GRADES.find((x) => share >= x.min);
+    const granted = Math.min(r.pk, Math.max(0, pkCap(g) - g.pk));
+    g.pk += granted;
+    g.rushCount[r.grade] = (g.rushCount[r.grade] || 0) + 1;
+    const hub = networkCache(g).phys.get(networkCache(g).hubKey);
+    g.events.push({
+      type: 'rush-grade', phase, grade: r.grade, share,
+      carried: Math.round(carried), trust: granted,
+      geo: hub ? hub.geo : g.lines[0].stations[0].geo,
+    });
+  }
+}
+
 function dayMult(g) {
   const ph = dayPhase(g);
   if (ph === 3) return Math.min(1, BAL.nightMult * effectMult(g, 'night'));
@@ -1462,6 +1519,9 @@ export function tick(g, dt) {
     g.events.push({ type: 'surge', geo: g.lines[li].stations[i].geo, name: g.surge.name });
   }
 
+  // A peak opens or closes: the rush window is scored on the way out.
+  rushTick(g);
+
   // Passengers gather where the NETWORK says they should: each station's spawn
   // splits across its lines and directions by the first hop of real shortest
   // paths (peak variants bias destinations toward/away from the hub). Demand
@@ -1498,6 +1558,7 @@ export function tick(g, dt) {
         L.waitingB[i] -= L.waitingB[i] * leaveK;
         L.left60[i] += lost / 60;
         L.leaveAcc[i] += lost;
+        g.totalLost += lost;   // lifetime abandonment: the rush grade's denominator
         if (L.leaveAcc[i] >= 5) {
           g.events.push({ type: 'abandon', geo: s.geo, n: Math.round(L.leaveAcc[i]) });
           L.leaveAcc[i] = 0;
@@ -2366,6 +2427,8 @@ export function serialize(g) {
     moves: g.moveQueue,
     trainMoves: Math.round(g.trainMoves || 0),
     planDone: g.planDone,
+    rushCount: g.rushCount,
+    totalLost: Math.round(g.totalLost),
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
@@ -2432,6 +2495,13 @@ export function hydrate(raw) {
   g.gross60 = Math.max(0, Number(s.gross60) || 0);
   g.deliv60 = Math.max(0, Number(s.deliv60) || 0);
   g.trainMoves = posInt(s.trainMoves, 1e6);
+  g.totalLost = posInt(s.totalLost, 1e12);
+  g.rushCount = {};
+  if (s.rushCount && typeof s.rushCount === 'object') {
+    for (const r of RUSH_GRADES) {
+      if (s.rushCount[r.grade]) g.rushCount[r.grade] = posInt(s.rushCount[r.grade], 1e6);
+    }
+  }
   if (Array.isArray(s.srcW) && s.srcW.length === g.srcW.length) {
     g.srcW = s.srcW.map((w, j) => {
       const v = Number(w);
