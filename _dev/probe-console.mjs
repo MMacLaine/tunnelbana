@@ -28,7 +28,9 @@ function rpc(ws, method, params = {}) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function evaluate(ws, expression) {
-  const { result, exceptionDetails } = await rpc(ws, 'Runtime.evaluate', { expression, returnByValue: true });
+  // awaitPromise: an async probe expression otherwise serialises to {} and
+  // reads as success while testing nothing.
+  const { result, exceptionDetails } = await rpc(ws, 'Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
   if (exceptionDetails) return 'EVAL ERROR: ' + (exceptionDetails.exception?.description || exceptionDetails.text);
   return result.value;
 }
@@ -130,6 +132,39 @@ async function main() {
       document.getElementById('menu-help').click();
       const k = document.getElementById('icon-key');
       return k ? k.childElementCount + ' rows' : 'MISSING';
+    })()`));
+    // 0.10's purchased surfaces render only once owned, so no click-through
+    // reaches them by default and an exception there would ship silently
+    // (which is exactly how the empty station panel once shipped). Own
+    // everything, open everything, and let the exception hook do its job.
+    console.log('owned surfaces:', await evaluate(ws, `(async () => {
+      const t = window.__tb;
+      if (!t) return 'no handle';
+      const { sim, g } = t;
+      const { ANCHORS } = await import('./src/data.js');
+      document.getElementById('help-back').click();
+      document.getElementById('menu-resume').click();
+      g.money = 1e9; g.era = 3;
+      for (const k of g.lines[0].stations.length < 8 ? [3, 4, 5, 6, 7] : []) {
+        sim.extendTo(g, 0, 'tail', ANCHORS[k].geo, k);
+      }
+      for (const id of ['stats', 'works', 'patterns', 'diagram']) sim.buy(g, id);
+      sim.setSkip(g, 0, 3, true);
+      t.selectStation({ li: 0, i: 3 });   // the pattern button's home
+      t.updateUI();
+      const skipShown = !document.getElementById('sp-skip').hidden;
+      const bulkShown = !!document.querySelector('#line-rows [data-bulk]');
+      document.getElementById('menu-open').click();
+      document.getElementById('menu-stats').click();
+      const statsRows = document.getElementById('stats-records').childElementCount;
+      document.getElementById('stats-back').click();
+      document.getElementById('menu-resume').click();
+      document.getElementById('dia-toggle').click();
+      await new Promise((r) => setTimeout(r, 500));
+      const diaSvg = !!document.querySelector('#dia-mode svg');
+      document.getElementById('dia-toggle').click();
+      return 'skipBtn=' + skipShown + ' bulk=' + bulkShown +
+             ' statsRecords=' + statsRows + ' diagram=' + diaSvg;
     })()`));
   } finally {
     chrome.kill();
