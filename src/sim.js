@@ -627,6 +627,11 @@ export const CATALOG = [
     mult: { transfer: 1.5 } },
   { id: 'stock1957',  base: 3000, growth: 1,   max: 1, era: 1957,
     mult: { speed: 0.92 } },
+  // Trafikledning (owner ask 2026-08-07): the unlock for player-set service
+  // patterns. The pattern itself is free to edit; this buys the RIGHT to run
+  // your own timetable. An enabler, not value-graded; the pattern's economy
+  // is guarded by a smoke sanity rail instead.
+  { id: 'patterns',   base: 8000, growth: 1,   max: 1, era: 1957, kind: 'patterns' },
   // atc is HOLDING control priced as COMFORT, not throughput (report 638 §2:
   // terminus dispatch already regularises the service, so holding rarely fires
   // until event-driven turnaround lands in M5; a legibility purchase must not
@@ -636,6 +641,9 @@ export const CATALOG = [
   // upgrades, because clicking 59 stations three axes deep is a chore the
   // genre solved a decade ago. An enabler like stats: not value-gate graded.
   { id: 'works',      base: 30000, growth: 1,  max: 1, era: 1964, kind: 'works' },
+  // Linjekartan: the schematic map mode (owner: buyable, mid to end game,
+  // with an achievement for using it). Another enabler; not value-graded.
+  { id: 'diagram',    base: 12000, growth: 1,  max: 1, era: 1964, kind: 'diagram' },
   { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1964,
     mult: { speed: 0.9 } },
   // 'depot' removed pending M4: the fleet knee sits near 3 trains per line at
@@ -795,6 +803,8 @@ function newLine(stations, colorIdx, identity) {
     color: identity?.color || (typeof colorIdx === 'string' ? colorIdx : lineColor(colorIdx)),
     delivered: 0,   // lifetime riders this line carried to their stop
     earned: 0,      // lifetime fares booked at this line's platforms
+    skip: stations.map(() => false),  // the express pattern; termini never skip
+    expressNext: false,               // full/express alternator, transient
     waitingF: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     waitingB: stations.map((s) => BAL.seedWaiting * s.mult / 2),
     left60: stations.map(() => 0),
@@ -1482,6 +1492,30 @@ export function odWeights(g, li, i) {
   });
 }
 
+// --- Service patterns (Trafikledning, 0.10): toggle whether the express
+// service calls at an interior stop. Termini never skip, the unlock is a
+// purchase, and each SET is counted for the aim that teaches the feature. ---
+export function canSetSkip(g, li, i) {
+  const L = g.lines[li];
+  return !!g.owned.patterns && L.stations.length >= 5 &&
+    i > 0 && i < L.stations.length - 1;
+}
+
+export function setSkip(g, li, i, on) {
+  if (!canSetSkip(g, li, i)) return false;
+  const L = g.lines[li];
+  if (L.skip[i] === !!on) return false;
+  L.skip[i] = !!on;
+  if (on) g.patternsSet += 1;
+  g.events.push({ type: 'pattern', geo: L.stations[i].geo, name: L.stations[i].name, on: !!on });
+  return true;
+}
+
+// The diagram was opened: the Se kartan aim reads this.
+export function viewedDiagram(g) {
+  g.diaViews += 1;
+}
+
 // A curiosity is found by clicking it; once per save, achievement-counted.
 export function foundEgg(g, id) {
   const egg = EGGS.find((e) => e.id === id);
@@ -1669,15 +1703,25 @@ function board(g, train, i) {
   const variant = net.variants[phaseVariantIdx(g)];
   const bd = variant.boardDist.get(physKeyOf(L.stations[i]) + '|' + li + '|' + run.dir);
   if (!bd || !bd.sum) return 0;
+  // An EXPRESS train may not board anyone bound for a stop it skips: they
+  // stay on the platform for the full service behind it. The eligible share
+  // scales what this train takes; the rest of the queue simply waits.
+  let list = bd.list;
+  let eligShare = 1;
+  if (run.express) {
+    list = bd.list.filter((e) => !L.skip[e.alightI]);
+    eligShare = list.reduce((a, e) => a + e.share, 0);
+    if (eligShare <= 0) return 0;
+  }
   const queue = run.dir === 1 ? L.waitingF : L.waitingB;
   const room = trainCap(g) - run.onboard;
-  const take = Math.min(queue[i], room);
+  const take = Math.min(queue[i] * eligShare, room);
   if (take <= 0) return 0;
   queue[i] -= take;
   run.onboard += take;
   let paxKm = 0;
-  for (const e of bd.list) {
-    const cnt = take * e.share;
+  for (const e of list) {
+    const cnt = take * (e.share / eligShare);
     if (e.cont) run.destCont[e.alightI] += cnt;
     else run.dest[e.alightI] += cnt;
     paxKm += cnt * e.legKm;
@@ -1720,11 +1764,16 @@ export function dispatchFrom(g, li, end, ignoreReady) {
   const dir = idx === 0 ? 1 : -1;
   const next = L.stations[idx + dir];
   if (!next) return false;
+  // A patterned line alternates full and express departures, so a skipped
+  // stop is served by every second train rather than stranded.
+  const hasPattern = g.owned.patterns && L.skip.some(Boolean);
+  if (hasPattern) L.expressNext = !L.expressNext;
   train.run = {
     phase: 'dwell', dir, from: idx, t: 0, onboard: 0,
     dest: new Array(L.stations.length).fill(0),
     destCont: new Array(L.stations.length).fill(0),
     dur: 0,
+    express: hasPattern && L.expressNext,
   };
   const took = board(g, train, idx);
   train.run.dur = dwellFor(g, L.stations[idx], took);
@@ -1835,6 +1884,11 @@ function advancePhase(g, train) {
     train.at = k;
     train.run = null;
     train.readyAt = g.clock + BAL.turnaroundS;
+  } else if (run.express && L.skip[k]) {
+    // Express: straight through, doors shut. Nobody aboard is bound for here
+    // (boarding filtered them), so the saving is the whole dwell.
+    run.phase = 'move';
+    run.dur = moveTime(g, kmBetween(L.stations[k].geo, L.stations[k + run.dir].geo));
   } else {
     const took = board(g, train, k);
     run.phase = 'dwell';
@@ -2333,6 +2387,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.leaveAcc.unshift(0);
     L.lastPassF.unshift(-Infinity);
     L.lastPassB.unshift(-Infinity);
+    L.skip.unshift(false);
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at += 1;
@@ -2350,6 +2405,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.leaveAcc.push(0);
     L.lastPassF.push(-Infinity);
     L.lastPassB.push(-Infinity);
+    L.skip.push(false);
     for (const t of g.trains) if (t.line === li && t.run) { t.run.dest.push(0); t.run.destCont.push(0); }
   }
   // A parked train at the extended end is no longer at a terminus, and
@@ -2403,6 +2459,8 @@ export function demolish(g, li, end) {
     L.leaveAcc.shift();
     L.lastPassF.shift();
     L.lastPassB.shift();
+    L.skip.shift();
+    L.skip[0] = false; // the new head is a terminus: termini never skip
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at = Math.max(0, t.at - 1);
@@ -2420,6 +2478,8 @@ export function demolish(g, li, end) {
     L.leaveAcc.pop();
     L.lastPassF.pop();
     L.lastPassB.pop();
+    L.skip.pop();
+    L.skip[L.skip.length - 1] = false; // the new tail is a terminus
     for (const t of g.trains) {
       if (t.line !== li) continue;
       if (t.at >= L.stations.length) t.at = L.stations.length - 1;
@@ -2880,6 +2940,7 @@ export function serialize(g) {
       color: L.color,
       delivered: Math.round(L.delivered || 0),
       earned: Math.round(L.earned || 0),
+      skip: L.skip.map((s) => (s ? 1 : 0)),
     })),
     hist: g.hist,
     records: g.records,
@@ -3025,6 +3086,8 @@ export function hydrate(raw) {
       color: /^#[0-9a-f]{6}$/i.test(L.color || '') ? L.color : lineColor(idx),
       delivered: posInt(L.delivered, 1e12),
       earned: posInt(L.earned, 1e15),
+      skip: [],
+      expressNext: false,
       waitingF: [],
       waitingB: [],
       left60: [],
@@ -3035,6 +3098,9 @@ export function hydrate(raw) {
     computeDemand(g); // multipliers derive from the network, never the save
     for (const L of g.lines) {
       const src = s.lines[g.lines.indexOf(L)];
+      // The pattern: aligned to stations, termini forced to call.
+      L.skip = L.stations.map((_, i) =>
+        i > 0 && i < L.stations.length - 1 && !!(Array.isArray(src.skip) && src.skip[i]));
       L.waitingF = L.stations.map((st, i) => readQueue(src.waitingF, i, st, 0.5));
       L.waitingB = L.stations.map((st, i) => readQueue(src.waitingB, i, st, 0.5));
       L.left60 = L.stations.map(() => 0);
