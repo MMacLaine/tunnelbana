@@ -142,6 +142,44 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (Object.values(backR.rushCount).reduce((a, b) => a + b, 0) !== counted) err('rushCount must survive a save');
 }
 
+// --- Incidents (0.10): never before 1957 (owner: no early annoyance), then
+// a signal failure closes ONE physical station to boarding, expires on its
+// own, or the repair crew clears it for money. Counter survives a save. ---
+{
+  const ic = sim.newGame();
+  ic.money = 1e6;
+  for (let k = 3; k < 8; k++) sim.extendTo(ic, 0, 'tail', ANCHORS[k].geo, k);
+  sim.buy(ic, 'drivers');
+  sim.buy(ic, 'train');
+  for (let t = 0; t < 600; t += 0.05) {
+    sim.tick(ic, 0.05);
+    for (const e of ic.events) if (e.type === 'incident') err('no incidents before 1957');
+    ic.events.length = 0;
+  }
+  ic.era = 2; // 1957
+  let struck = null;
+  for (let t = 0; t < 600 && !struck; t += 0.05) {
+    sim.tick(ic, 0.05);
+    for (const e of ic.events) if (e.type === 'incident') struck = e;
+    ic.events.length = 0;
+  }
+  if (!struck) err('1957 should produce an incident within ten minutes');
+  if (!ic.incident) err('the incident should be live');
+  // The broken station refuses boarding on every line entry.
+  let broken = -1;
+  ic.lines[0].stations.forEach((st, i) => { if (sim.incidentAt(ic, 0, i)) broken = i; });
+  if (broken < 0) err('incidentAt should locate the broken station');
+  const cost = sim.incidentFixCost(ic);
+  if (!(cost >= sim.BAL.incidentFixMin)) err('repair cost should respect its floor');
+  ic.money = cost - 1;
+  if (sim.fixIncident(ic)) err('the repair crew must respect the fee');
+  ic.money = 1e9;
+  if (!sim.fixIncident(ic)) err('the repair crew should clear a live incident');
+  if (ic.incident) err('a repaired incident should be gone');
+  if (ic.incidentsFixed !== 1) err('repairs should count');
+  if (sim.hydrate(sim.serialize(ic)).incidentsFixed !== 1) err('incidentsFixed must survive a save');
+}
+
 // --- The cadence readout (owner ask, 2026-08-04): the number the player
 // watches must respond to the purchases that claim to improve it. ---
 {

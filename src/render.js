@@ -618,6 +618,22 @@ function drawSurge(g) {
   label('RUSH HOUR', p.x + 14, p.y + 14, COL.amber, 10, { weight: 600 });
 }
 
+// A failure is louder than a rush: faster pulse, red family, real signage
+// wording (SIGNALFEL is what the platform displays actually say).
+function drawIncident(g) {
+  if (!g.incident || g.clock >= g.incident.until) return;
+  const p = project(g.incident.geo);
+  const r = 13 + Math.sin(clockT * 6) * 2.5;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = COL.red;
+  ctx.globalAlpha = 0.9;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  label('SIGNALFEL', p.x + 14, p.y + 14, COL.red, 10, { weight: 600 });
+}
+
 function drawTrains(g) {
   for (const train of g.trains) {
     if (!train.run) continue;
@@ -701,6 +717,7 @@ export function draw(g) {
   drawStations(g);
   drawSelected(g);
   drawSurge(g);
+  drawIncident(g);
   drawTrains(g);
   drawFloats(dt);
 }
