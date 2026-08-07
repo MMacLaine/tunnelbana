@@ -6,7 +6,7 @@
 import { ANCHORS, CORRIDORS, LINE, WATER } from './data.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
-  endStation, waitingAt, trainPos, anchorRevealed, teaseVisible,
+  endStation, waitingAt, trainPos, anchorRevealed, teaseVisible, corridorOf,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -329,10 +329,16 @@ function drawTease(g) {
   }
 }
 
+// Every revealed unbuilt anchor is a STAKE: the one offer its corridor is
+// making right now (at most one per open corridor). It used to be a faint
+// dashed ghost, unlabeled below a zoom threshold, which is how players missed
+// that the game was pointing somewhere (live feedback, "the game should lead
+// you more"). It now breathes like the line-end handles do, keeps its name
+// on, and draws a dashed leader from the railhead, so the whole gesture --
+// grab here, drop there -- is on the map before the player touches anything.
 function drawAnchors(g) {
   const used = usedAnchorsAll(g);
   const hot = drag ? drag.snap : null;
-  const namesAtRest = pxPerKm() >= 60;
   ANCHORS.forEach((a, i) => {
     if ((used.has(i) || !anchorRevealed(g, i)) && i !== hot) return;
     const p = project(a.geo);
@@ -348,14 +354,32 @@ function drawAnchors(g) {
       ctx.fill();
       label(a.name, p.x + 14, p.y, COL.ink, 12, { plate: true });
     } else {
+      const c = corridorOf(i);
+      if (c && i > c.start && used.has(i - 1)) {
+        const q = project(ANCHORS[i - 1].geo);
+        ctx.beginPath();
+        ctx.moveTo(q.x, q.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.setLineDash([3, 6]);
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = COL.ghost;
+        ctx.globalAlpha = 0.7;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+      }
+      const pulse = 0.5 + 0.5 * Math.sin(clockT * 2.2);
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 5 + pulse * 2.5, 0, Math.PI * 2);
       ctx.setLineDash([2, 3]);
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = COL.ghost;
+      ctx.lineWidth = 1.5 + pulse * 0.8;
+      ctx.strokeStyle = COL.ink;
+      ctx.globalAlpha = 0.45 + 0.5 * pulse;
       ctx.stroke();
+      ctx.globalAlpha = 1;
       ctx.setLineDash([]);
-      if (namesAtRest) label(a.name, p.x + 12, p.y, COL.ghost, 11);
+      label(a.name, p.x + 13, p.y, COL.ink, 11);
     }
   });
 }
