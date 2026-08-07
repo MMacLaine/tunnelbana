@@ -98,6 +98,16 @@ const STR = {
   noteBoard: 'ON BOARD',
   notesOn: 'On',
   notesOff: 'Off',
+  statLost: 'gave up waiting, ever',
+  statLegend: 'riders/min in green, gross kr/s in grey · last two hours',
+  statPeakWindow: 'best in this window',
+  statNoData: 'The ledger fills as the network runs.',
+  statBestMin: 'Best minute ever',
+  statBestGross: 'Best income rate',
+  statRush: 'Rush grades',
+  statMoves: 'Depot transfers',
+  statFixed: 'Incidents repaired',
+  awayLed: 'led the night',
   freeUnlockedFloat: 'Build anywhere: the city approves your own stations',
   junction: 'Interchange',
   riders: 'riders',
@@ -138,6 +148,7 @@ const STR = {
     capacity:   { name: 'Longer trains',     desc: '+' + CAT.capacity.add.trainCap + ' passengers per train.' },
     bogies:     { name: 'C1 bogie service',  desc: 'Top speed and acceleration up ' + pct(CAT.bogies.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
+    stats:      { name: 'Statistics office', desc: 'Graphs, records and a ledger per line. Pays in knowing, not kronor.' },
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
     redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line as a Söder shuttle, Mariatorget to Zinkensdamm, with a train. Connect it to your network your way; Fruängen waits at the far end.' },
     blueline:   { name: 'Blå linjen',        desc: 'Megaproject: charter the deep blue line, T-Centralen to Rådhuset, with a train. Hjulsta waits beyond Järvafältet.' },
@@ -448,7 +459,9 @@ function menuView(which) {
   $('about-view').hidden = which !== 'about';
   $('help-view').hidden = which !== 'help';
   $('ach-view').hidden = which !== 'ach';
+  $('stats-view').hidden = which !== 'stats';
   if (which === 'ach') renderAchievements();
+  if (which === 'stats') renderStats();
   if (which === 'help') renderIconKey();
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
@@ -466,6 +479,7 @@ function settingsView(on) {
 function showMenu(mode) {
   paused = true;
   menu.hidden = false;
+  $('menu-stats').hidden = !g.owned.stats; // the office opens once it is bought
   settingsView(false);
   $('menu-resume').textContent =
     mode === 'pause' ? STR.menuResume : hasSave() ? STR.menuContinue : STR.menuStart;
@@ -481,6 +495,8 @@ $('menu-about').addEventListener('click', () => menuView('about'));
 $('about-back').addEventListener('click', () => menuView('main'));
 $('menu-help').addEventListener('click', () => menuView('help'));
 $('menu-ach').addEventListener('click', () => menuView('ach'));
+$('menu-stats').addEventListener('click', () => menuView('stats'));
+$('stats-back').addEventListener('click', () => menuView('main'));
 $('ach-back').addEventListener('click', () => menuView('main'));
 $('help-back').addEventListener('click', () => menuView('main'));
 $('about-mark').addEventListener('click', () => {
@@ -666,7 +682,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
-             !$('ach-view').hidden) menuView('main');
+             !$('ach-view').hidden || !$('stats-view').hidden) menuView('main');
     else closeMenu();
   }
 });
@@ -1200,6 +1216,60 @@ function renderAchievements() {
   }).join('');
 }
 
+// --- The statistics office (0.10): graphs, records, a ledger per line. The
+// numbers accrue whether or not the office is bought, so the day it opens the
+// history is already there. Provisional layout; pass 03 owns the treatment. ---
+function renderStats() {
+  $('stats-sub').textContent = fmt(g.totalDelivered) + ' ' + STR.ridersCarried +
+    ' · ' + fmt(g.totalLost) + ' ' + STR.statLost;
+  // The graph: riders/min (line colour) and gross kr/s (muted) over the
+  // sampled window, self-scaling.
+  const cv = $('stats-graph');
+  const ctx = cv.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const H = g.hist;
+  if (H.t.length >= 2) {
+    const draw = (series, colour) => {
+      const max = Math.max(1, ...series);
+      ctx.beginPath();
+      series.forEach((v, i) => {
+        const x = 4 + (cv.width - 8) * (i / (series.length - 1));
+        const y = cv.height - 6 - (cv.height - 14) * (v / max);
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = colour;
+      ctx.stroke();
+    };
+    draw(H.gross, css.getPropertyValue('--tb-ghost').trim() || '#5a6673');
+    draw(H.riders, css.getPropertyValue('--tb-green').trim() || '#35a86b');
+    $('stats-legend').textContent = STR.statLegend +
+      ' · ' + fmt(Math.max(...H.riders)) + STR.perMin + ' ' + STR.statPeakWindow;
+  } else {
+    $('stats-legend').textContent = STR.statNoData;
+  }
+  // The ledger: one row per line.
+  const row = (cells) => '<div class="tb-row">' + cells + '</div>';
+  $('stats-lines').innerHTML = g.lines.map((L, li) => {
+    const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
+    return row(
+      '<span class="tb-chip" style="background:' + L.color + '"></span><span>' + L.name + '</span>' +
+      '<span class="tb-row__v">' + fmt(L.delivered) + ' ' + STR.riders + ' · ' +
+      fmt(L.earned) + ' kr · ' + active + ' 🚆</span>'
+    );
+  }).join('');
+  // The record book.
+  const rushTxt = sim.RUSH_GRADES.map((r) => (g.rushCount[r.grade] ? r.grade + '×' + g.rushCount[r.grade] : ''))
+    .filter(Boolean).join(' ');
+  $('stats-records').innerHTML =
+    row(STR.statBestMin + '<span class="tb-row__v">' + fmt(g.records.riders) + STR.perMin + '</span>') +
+    row(STR.statBestGross + '<span class="tb-row__v">' + fmt(g.records.gross) + ' kr/s</span>') +
+    row(STR.statRush + '<span class="tb-row__v">' + (rushTxt || '—') + '</span>') +
+    row(STR.statMoves + '<span class="tb-row__v">' + fmt(g.trainMoves || 0) + '</span>') +
+    row(STR.statFixed + '<span class="tb-row__v">' + fmt(g.incidentsFixed || 0) + '</span>');
+}
+
 // --- Shop (pass 02, section 05) ---
 // Each card is icon + name + cost + description + a foot carrying either the
 // level pips or the reason it cannot be bought. The icon and the category come
@@ -1211,6 +1281,7 @@ const SHOP_META = {
   capacity:    { icon: 'cap',   cat: 'Capacity' },
   bogies:      { icon: 'speed', cat: 'Stock' },
   turnstiles:  { icon: 'fare',  cat: 'Fare' },
+  stats:       { icon: 'stats', cat: 'Office' },
   westline:    { icon: 'net',   cat: 'Project' },
   redline:     { icon: 'net',   cat: 'Project' },
   blueline:    { icon: 'net',   cat: 'Project' },
@@ -1247,6 +1318,7 @@ const ICON_KEY = {
   net:   ['Project', 'A new line, chartered outright'],
   thru:  ['Through-running', 'One line worked end to end instead of as two halves'],
   sig:   ['Signalling', 'Trains may follow each other more closely'],
+  stats: ['Statistics', 'Graphs and records: the network, measured'],
   art:   ['Comfort', 'A station people are glad to be in, which brings more of them'],
   night: ['Service', 'The network runs when the city sleeps'],
 };
@@ -1578,12 +1650,16 @@ $('btn-reactivate').textContent = STR.reactivateBtn;
 $('btn-mothball').addEventListener('click', () => { if (sim.mothball(g)) updateUI(); });
 $('btn-reactivate').addEventListener('click', () => { if (sim.reactivate(g)) updateUI(); });
 if (offline) {
+  // The night report (0.10): what the closed form actually knows, told
+  // fully: the take, the riders, the rate it ran at, and who led the night.
   const h = Math.floor(offline.seconds / 3600);
   const m = Math.floor((offline.seconds % 3600) / 60);
   $('offline-note').hidden = false;
   $('offline-note').textContent =
     STR.awayTitle + ' (' + (h ? h + ' h ' : '') + m + ' min): +' + fmt(offline.earned) +
-    ' kr, ' + fmt(offline.delivered) + ' ' + STR.riders + ' carried.';
+    ' kr · ' + fmt(offline.delivered) + ' ' + STR.riders + ' · ' +
+    offline.rate.toFixed(1) + ' kr/s net' +
+    (offline.busiest && g.lines.length > 1 ? ' · ' + offline.busiest + ' ' + STR.awayLed : '') + '.';
   save();
 }
 // A migrated save explains itself once, in the same place as the away summary,
