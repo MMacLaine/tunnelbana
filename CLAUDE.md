@@ -26,10 +26,14 @@ constructors (`sim.addTrain`), the smoke suite lints for literals.
    `index.html` (deploy asserts they match).
 2. **Changelog**: add the entry at index 0 of `updates.json`, unique
    `version` matching `VERSION` (deploy asserts this too), `title`,
-   `content` in Markdown. Written AS MATTHEW, to players: first person,
-   plain sentences, admit fault plainly, at most one wry aside, no dashes
-   as punctuation. Not a bullet list of features. Owner feedback
-   2026-08-07: "make it sound more human, less AI." Read it aloud first.
+   `content` in Markdown. Style: standard game patch notes. A one-line
+   context sentence if needed, then plain factual bullets: what changed,
+   what it means for the player. Objective and to the point. No jokes,
+   no asides, no marketing rhythm; the wry first-person voice belongs to
+   the itch STORE PAGE only (see ITCH.md), never to patch notes. Owner
+   feedback, both directions, 2026-08-07: the first draft was "AI"
+   marketing prose, the correction over-swung into inserted personality
+   ("no one speaks like this").
 3. Run the three gates above, then commit here and push.
 4. **maclaine.se**: `node _dev/deploy-to-site.mjs`, then in
    `/Users/matthewmaclaine/personal website` stage ONLY `tunnelbana/`
