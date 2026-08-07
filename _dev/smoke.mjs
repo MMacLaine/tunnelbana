@@ -208,6 +208,25 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.canBuy(lg, 'stats')) err('one office is enough');
 }
 
+// --- Bulk works (0.10): one order, one level everywhere it fits, cheapest
+// first, physical stations once, wallet respected, works required. ---
+{
+  const bw = sim.newGame();
+  bw.money = 1e9;
+  for (let k = 3; k < 8; k++) sim.extendTo(bw, 0, 'tail', ANCHORS[k].geo, k);
+  if (sim.bulkUpgrade(bw, 'ent') !== 0) err('bulk works must need the department');
+  bw.era = 3; // 1964: works sells, and the era cap is deep enough to matter
+  if (!sim.buy(bw, 'works')) err('works should sell in 1964');
+  const quote = sim.bulkUpgradeCost(bw, 'ent');
+  if (quote.n !== sim.stationCount(bw)) err('the quote should count every physical station, got ' + quote.n);
+  const m0 = bw.money;
+  const bought = sim.bulkUpgrade(bw, 'ent');
+  if (bought !== quote.n) err('a rich order should fill completely, got ' + bought);
+  if (Math.round(m0 - bw.money) !== quote.kr) err('the order should cost its quote');
+  bw.money = 300; // poorer than any single level
+  if (sim.bulkUpgrade(bw, 'gates') !== 0) err('a broke order should buy nothing');
+}
+
 // --- Postcards (0.10): a journey read from the sim's own routes, any n. ---
 {
   const pcg = sim.newGame();

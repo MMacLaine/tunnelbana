@@ -149,6 +149,7 @@ const STR = {
     bogies:     { name: 'C1 bogie service',  desc: 'Top speed and acceleration up ' + pct(CAT.bogies.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
     stats:      { name: 'Statistics office', desc: 'Graphs, records and a ledger per line. Pays in knowing, not kronor.' },
+    works:      { name: 'Works department',  desc: 'Bulk orders: raise entrances, gates or retail one level across every station in one click. The buttons appear in the Network panel.' },
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
     redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line as a Söder shuttle, Mariatorget to Zinkensdamm, with a train. Connect it to your network your way; Fruängen waits at the far end.' },
     blueline:   { name: 'Blå linjen',        desc: 'Megaproject: charter the deep blue line, T-Centralen to Rådhuset, with a train. Hjulsta waits beyond Järvafältet.' },
@@ -1002,6 +1003,7 @@ $('line-rows').addEventListener('pointerdown', (e) => {
   if (d.req !== undefined && sim.requestTrain(g, Number(d.req))) updateUI();
   if (d.send !== undefined && sim.sendTrain(g, Number(d.send))) updateUI();
   if (d.cancel !== undefined && sim.cancelMove(g, Number(d.cancel))) updateUI();
+  if (d.bulk !== undefined && sim.bulkUpgrade(g, d.bulk) > 0) updateUI();
   // Clicking a line's name finds it: the map flies to its first stop and
   // selects it, so "which one is that on the map" has an answer (owner,
   // 2026-08-04: a chartered line was hard to locate at all).
@@ -1051,6 +1053,19 @@ function updateLineRows() {
   if (g.lines.length > 1) {
     rows.push('<div class="tb-row" style="color: var(--tb-ghost); font-size: var(--tb-fs-caption)">' +
       STR.transferHint + '</div>');
+  }
+  // The works department's bulk orders live under the line rows: one click,
+  // one level of an axis across every station that can take it.
+  if (g.owned.works) {
+    for (const kind of ['ent', 'gates', 'shop']) {
+      const b = sim.bulkUpgradeCost(g, kind);
+      if (!b.n) continue;
+      rows.push(
+        '<div class="tb-row"><span>' + STR.upgRow[kind] + ' +1 × ' + b.n + '</span>' +
+        '<button class="tb-btn tb-btn--inline" data-bulk="' + kind + '" title="' + STR.upgWhat[kind] + '"' +
+        (g.money >= b.kr ? '' : ' disabled') + '>' + kr(b.kr) + ' kr</button></div>'
+      );
+    }
   }
   const html = rows.join('');
   if (html !== lineRowsHTML) {
@@ -1282,6 +1297,7 @@ const SHOP_META = {
   bogies:      { icon: 'speed', cat: 'Stock' },
   turnstiles:  { icon: 'fare',  cat: 'Fare' },
   stats:       { icon: 'stats', cat: 'Office' },
+  works:       { icon: 'cap',   cat: 'Office' },
   westline:    { icon: 'net',   cat: 'Project' },
   redline:     { icon: 'net',   cat: 'Project' },
   blueline:    { icon: 'net',   cat: 'Project' },

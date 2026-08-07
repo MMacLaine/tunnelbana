@@ -381,6 +381,10 @@ export const CATALOG = [
   // until event-driven turnaround lands in M5; a legibility purchase must not
   // be graded by the kr/s gate). Cheap on purpose.
   { id: 'atc',        base: 2,    growth: 1,   max: 1, era: 1964, currency: 'pk', kind: 'holding' },
+  // The works department (owner ask 2026-08-07): late-game bulk station
+  // upgrades, because clicking 59 stations three axes deep is a chore the
+  // genre solved a decade ago. An enabler like stats: not value-gate graded.
+  { id: 'works',      base: 30000, growth: 1,  max: 1, era: 1964, kind: 'works' },
   { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1964,
     mult: { speed: 0.9 } },
   // 'depot' removed pending M4: the fleet knee sits near 3 trains per line at
@@ -2222,6 +2226,40 @@ export function stationAffordableLevels(g, li, i, kind, want) {
   if (room <= 0) return 0;
   const can = geoMax(BAL.upgCostBase[kind], BAL.upgCostGrowth, st[kind], g.money);
   return Math.max(0, Math.min(room, can, want || room));
+}
+
+// --- Bulk works (0.10): one order raises an axis one level at EVERY station
+// that can take it, cheapest first, buying what the wallet covers. Physical
+// stations count once (upgradeStation already syncs the twins). ---
+
+function bulkTargets(g, kind) {
+  const seen = new Set();
+  const out = [];
+  for (let li = 0; li < g.lines.length; li++) {
+    g.lines[li].stations.forEach((st, i) => {
+      const key = physKeyOf(st);
+      if (seen.has(key)) return;
+      seen.add(key);
+      if (levelOf(g, li, i, kind) >= upgCapFor(g, st)) return;
+      out.push({ li, i, kr: upgradeCost(g, li, i, kind).kr });
+    });
+  }
+  return out.sort((a, b) => a.kr - b.kr);
+}
+
+// What the order would cost in full, for the button to say.
+export function bulkUpgradeCost(g, kind) {
+  const t = bulkTargets(g, kind);
+  return { n: t.length, kr: t.reduce((a, x) => a + x.kr, 0) };
+}
+
+export function bulkUpgrade(g, kind) {
+  if (!g.owned.works) return 0;
+  let bought = 0;
+  for (const t of bulkTargets(g, kind)) {
+    if (upgradeStation(g, t.li, t.i, kind)) bought++;
+  }
+  return bought;
 }
 
 export function upgradeStationN(g, li, i, kind, want) {
