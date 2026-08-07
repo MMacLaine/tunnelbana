@@ -135,7 +135,14 @@ export const BAL = {
   // constraint (0 levels of room left at t=3600 with 68k kr idle). This ladder
   // holds only where the complaint was, the opening era, and hands the depth
   // back fast enough that tier is the binding cap again from 1952 on.
-  upgMaxByEra: [1, 3, 5, 8, 8, 8],
+  // 1952 raised 3 -> 4 with the plan gate (2026-08-07): eras now demand their
+  // corridor complete, which stretched era 1952 from ~28 to ~45 active
+  // minutes, and probe-arc measured four dead zones (t=1868-2597, worst gap
+  // 244 s) with the catalog maxed and 0 ladder room on 24 tier-2 stations.
+  // One more level per axis is ~72 money-priced purchases exactly there.
+  // Tier-1 stations still cap at 3 (their tier binds first), so the opening
+  // fix this ladder exists for is untouched.
+  upgMaxByEra: [1, 4, 5, 8, 8, 8],
   offlineDiscount: 0.7,    // offline income earns this share of the measured online rate
   seedWaiting: 8,          // passengers on a platform when it opens
   // Building the network is the spine of a 20-hour arc, so it must cost real
@@ -201,9 +208,16 @@ export const BAL = {
 // counter while the player had nothing to buy. Thresholds now land shortly
 // after each corridor's content runs out (plan 2b), which is what puts the arc
 // on the player's building pace instead of on a rider tally.
+// 1952's rider threshold dropped 25000 -> 20000 with the plan gate
+// (2026-08-07): probe-arc's active player finished the 1950 line at t=1006
+// and crossed 25 000 riders at ~1031, a photo finish that put a counter
+// between the finished line and the era it earns. At 20 000 the plan is
+// cleanly the last gate: trust lands ~790 s, riders ~900 s, the line when
+// the money says so. An active early player waits on MONEY, never on trust
+// (owner direction, 2026-08-07).
 export const ERAS = [
   { year: 1950 },
-  { year: 1952, pk: 5,  delivered: 25000 },
+  { year: 1952, pk: 5,  delivered: 20000 },
   { year: 1957, pk: 12, delivered: 80000 },
   { year: 1964, pk: 25, delivered: 180000 },
   { year: 1975, pk: 50, delivered: 340000 },
@@ -532,6 +546,7 @@ export function newGame() {
     trains: [newTrain(0)],
     moveQueue: [],   // pending depot transfers: { from, to }, fee already paid
     trainMoves: 0,
+    planDone: {},    // corridor id -> once completed (freedom stays earned)
     owned,
     freeSpots: 0,
     deficitT: 0,
@@ -704,6 +719,68 @@ export function corridorBegun(g, c) {
   const used = usedAnchorsAll(g);
   for (let k = c.start; k < c.end; k++) if (used.has(k)) return true;
   return false;
+}
+
+// --- The plan (owner ruling 2026-08-07, see CORRIDORS in data.js): the
+// campaign asks for its lines back. Completion is PRESENT-state (a demolished
+// stop re-opens the corridor); planDone records that a corridor was once
+// finished, so freedom stays earned and the era panel can say "repair"
+// instead of pretending the line was never built. ---
+
+export function corridorProgress(g, c) {
+  const used = usedAnchorsAll(g);
+  let n = 0;
+  for (let k = c.start; k < c.end; k++) if (used.has(k)) n++;
+  return n;
+}
+
+export function corridorComplete(g, c) {
+  return corridorProgress(g, c) === c.end - c.start;
+}
+
+export function updatePlanDone(g) {
+  for (const c of CORRIDORS) {
+    if (g.planDone[c.id] || !corridorComplete(g, c)) continue;
+    g.planDone[c.id] = true;
+    // The city repays the charter when the promised line is delivered: a
+    // one-time trust grant, up to the ceiling, never down (a hand-set or
+    // banked balance above the cap is not clamped by being generous to).
+    const grant = Math.min(c.trust || 0, Math.max(0, pkCap(g) - g.pk));
+    g.pk += grant;
+    g.events.push({ type: 'plandone', id: c.id, name: c.name, geo: ANCHORS[c.end - 1].geo, trust: grant });
+  }
+}
+
+// Free spots unlock when the 1950 line is delivered, and stay unlocked: the
+// fence is a tutorial, not a leash, so it never comes back. Owning a free
+// spot ALSO proves freedom: a pre-0.9.2 save built its stations legally under
+// the old rules and must not be re-fenced mid-game (a new player cannot have
+// one, so this grants nothing early).
+export function freeBuildUnlocked(g) {
+  if (g.planDone['green-south']) return true;
+  for (const L of g.lines) for (const s of L.stations) if (s.anchor === null) return true;
+  return false;
+}
+
+// What stands between this era and the next, corridor-wise. Every corridor
+// the story has opened must be complete on the ground RIGHT NOW.
+export function planBlockers(g) {
+  const out = [];
+  for (const c of CORRIDORS) {
+    if (c.opensIn > eraYear(g)) continue;
+    const built = corridorProgress(g, c);
+    if (built === c.end - c.start) continue;
+    out.push({ id: c.id, name: c.name, built, total: c.end - c.start, repair: !!g.planDone[c.id] });
+  }
+  return out;
+}
+
+// The next stake along a corridor: the one anchor the reveal is offering.
+export function nextStakeOf(g, c) {
+  for (let k = c.start; k < c.end; k++) {
+    if (!usedAnchorsAll(g).has(k) && anchorRevealed(g, k)) return k;
+  }
+  return null;
 }
 
 // A corridor's dashed promise is worth drawing only when it is the story the
@@ -1489,10 +1566,11 @@ export function tick(g, dt) {
   // The city grows where it is served well.
   growCity(g, dt);
 
-  // Achievements, on a one-second cadence.
+  // Achievements and plan completion, on a one-second cadence.
   if (g.clock - g.achieveAt >= 1) {
     g.achieveAt = g.clock;
     checkAchievements(g);
+    updatePlanDone(g);
   }
 
   // Trust accrues from coverage, up to the ceiling this era allows.
@@ -1535,7 +1613,10 @@ export function pkCap(g) {
 
 export function canAdvanceEra(g) {
   const e = nextEra(g);
-  return !!e && g.totalDelivered >= e.delivered && g.pk >= e.pk;
+  // The story asks for its lines back (owner ruling 2026-08-07): riders,
+  // trust, AND every opened corridor complete on the ground right now.
+  return !!e && g.totalDelivered >= e.delivered && g.pk >= e.pk &&
+    planBlockers(g).length === 0;
 }
 
 export function advanceEra(g) {
@@ -1614,7 +1695,10 @@ export function maxStationsNow(g) {
   return BAL.maxStations + effectAdd(g, 'maxStations');
 }
 
-export function placementProblem(g, li, end, geo) {
+// anchorIdx distinguishes a stake from a free spot: null is a free spot, and
+// free spots are refused until the 1950 plan is delivered ('plan'). Checked
+// after water and spacing, so the label always names the harder refusal.
+export function placementProblem(g, li, end, geo, anchorIdx = null) {
   const share = shareTarget(g, li, geo);
   if (share && share !== 'own') {
     // A junction adds no station on the ground and sits on dry land already.
@@ -1623,6 +1707,7 @@ export function placementProblem(g, li, end, geo) {
     if (stationCount(g) >= maxStationsNow(g)) return 'max';
     for (const w of WATER) if (inRing(geo, w.ring)) return 'water';
     if (share === 'own') return 'tooClose';
+    if (anchorIdx === null && !freeBuildUnlocked(g)) return 'plan';
   }
   if (g.money < extensionCost(g, li, end, geo)) return 'money';
   return null;
@@ -1748,7 +1833,7 @@ export function freeSpotName(g, geo) {
 export function extendTo(g, li, end, geo, anchorIdx) {
   if (anchorIdx !== null && usedAnchorsOnLine(g, li).has(anchorIdx)) return false;
   if (anchorIdx !== null && !anchorRevealed(g, anchorIdx)) return false;
-  if (placementProblem(g, li, end, geo)) return false;
+  if (placementProblem(g, li, end, geo, anchorIdx)) return false;
   g.money -= extensionCost(g, li, end, geo);
   const share = shareTarget(g, li, geo); // 'own'/under-tier already refused above
   let station;
@@ -1807,6 +1892,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
   }
   L.rev += 1;
   computeDemand(g);
+  updatePlanDone(g);  // completing a corridor unlocks THIS instant, not next tick
   g.events.push({ type: 'extend', geo: station.geo, name: station.name });
   return true;
 }
@@ -2142,11 +2228,22 @@ function richestLine(g, notLi) {
   return best;
 }
 
-// Immediate move, kept for probes and as the fast path: an idle train on the
-// source (explicit, or the line with the most to spare) departs for toLi now.
+// Immediate move, kept for probes and as the fast path: an idle train departs
+// for toLi now. Without an explicit source, the pick is the line richest in
+// trains AMONG those with one parked right now; a rich line whose whole fleet
+// is mid-run cannot deliver immediately, and the queue exists for that case.
 export function moveTrain(g, toLi, fromLi) {
   if (g.money < BAL.moveTrainKr) return false;
-  const from = fromLi !== undefined ? fromLi : richestLine(g, toLi);
+  let from = fromLi;
+  if (from === undefined) {
+    from = -1;
+    let most = 0;
+    for (let li = 0; li < g.lines.length; li++) {
+      if (li === toLi || !idleOn(g, li)) continue;
+      const n = spareTrains(g, li);
+      if (n > most) { most = n; from = li; }
+    }
+  }
   if (from < 0 || from === toLi) return false;
   const t = idleOn(g, from);
   if (!t) return false;
@@ -2246,7 +2343,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.9.1';
+export const VERSION = '0.9.2';
 
 export function serialize(g) {
   return JSON.stringify({
@@ -2268,6 +2365,7 @@ export function serialize(g) {
     trains: g.trains.map((t) => ({ line: t.line, mothballed: t.mothballed })),
     moves: g.moveQueue,
     trainMoves: Math.round(g.trainMoves || 0),
+    planDone: g.planDone,
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
@@ -2401,6 +2499,15 @@ export function hydrate(raw) {
         m.from !== m.to &&
         m.from >= 0 && m.from < g.lines.length && m.to >= 0 && m.to < g.lines.length)
       .map((m) => ({ from: m.from, to: m.to }));
+    // The plan record: what the save says, then what the network proves (a
+    // pre-plan save with a finished corridor earned it retroactively). The
+    // derivation fires plandone events; a LOAD is not a moment, so drop them.
+    g.planDone = {};
+    if (s.planDone && typeof s.planDone === 'object') {
+      for (const c of CORRIDORS) if (s.planDone[c.id]) g.planDone[c.id] = true;
+    }
+    updatePlanDone(g);
+    g.events.length = 0;
     return g;
   }
 

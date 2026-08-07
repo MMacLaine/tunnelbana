@@ -1,6 +1,6 @@
 import * as sim from './sim.js';
 import * as render from './render.js';
-import { ANCHORS } from './data.js';
+import { ANCHORS, CORRIDORS } from './data.js';
 
 // UI copy interpolates from BAL and the CATALOG so a balance change can never
 // make the interface lie.
@@ -21,6 +21,18 @@ const STR = {
   tierDown: 'Downgrade tier (no refund)',
   tierEraGate: 'Hubs unlock in 1957',
   upgRow: { ent: 'Entrances', gates: 'Gates', shop: 'Retail' },
+  // What each station upgrade DOES, on hover (owner ask, 2026-08-07). The
+  // numbers come from BAL so a balance change cannot make a tooltip lie.
+  upgWhat: {
+    ent: 'Wider catchment: more of the neighbourhood rides from here, and the lit circle on the map grows.',
+    gates: 'Faster boarding: +' + B.gateRatePerLevel + ' passengers/s through the gates, so trains spend less time at this platform.',
+    shop: 'Retail rent: +' + B.shopKrPerLevel + ' kr/s per level, scaled by this station’s footfall. Income even when no train runs.',
+  },
+  tierWhat: [
+    '',
+    'Station: wider catchment, quicker doors, ladders to ' + B.upgMaxByTier[2] + ', and two lines may share it.',
+    'Knutpunkt: the widest catchment, the full ladders to ' + B.upgMaxByTier[3] + ', and it can found new lines.',
+  ],
   panelDemand: 'Demand',
   panelWaiting: 'Waiting',
   panelCrowd: 'Crowding',
@@ -45,6 +57,8 @@ const STR = {
     extend: 'Extend the line: drag its glowing end to the staked ring. Building is the game.',
     train: 'Buy a second train in the shop. One train cannot hold a headway alone.',
     drivers: 'Hire drivers: trains dispatch themselves, and the line earns while you build.',
+    plan: 'Extend to',        // + the stake's name + corridor progress
+    repair: 'Rebuild',        // a demolished plan stop blocks the era
     eraReady: 'The city is ready. Advance the era in the top-right panel.',
     trust: 'trust grows with coverage, so serve more of the city',
     riders: 'carry riders: longer lines, more trains',
@@ -72,7 +86,11 @@ const STR = {
     water: 'Cannot build in the water (yet)',
     max: 'The line is at its limit for now',
     needsTier2: 'A junction needs a Tier 2 station first',
+    plan: 'The 1950 plan comes first · finish the line to build anywhere',
   },
+  planRepair: 'needs repair',
+  planDoneFloat: 'line complete',
+  freeUnlockedFloat: 'Build anywhere: the city approves your own stations',
   junction: 'Interchange',
   riders: 'riders',
   // 'pk' (political capital) read as jargon to the owner. The shop already
@@ -705,7 +723,7 @@ function dragState(p) {
   const snap = render.nearAnchor(g, p, dragRef.li);
   const geo = snap !== null ? ANCHORS[snap].geo : geoAt(p);
   const cost = sim.extensionCost(g, dragRef.li, dragRef.end, geo);
-  const problem = sim.placementProblem(g, dragRef.li, dragRef.end, geo);
+  const problem = sim.placementProblem(g, dragRef.li, dragRef.end, geo, snap);
   let label = !problem || problem === 'money'
     ? (problem === 'money' ? STR.problems.money + ' ' : '') + fmt(cost) + ' kr'
     : STR.problems[problem];
@@ -756,7 +774,7 @@ wrap.addEventListener('pointerdown', (e) => {
       }
     }
     options.sort((x, y) => x.d - y.d);
-    dragRef = options.find((o) => !sim.placementProblem(g, o.li, o.end, ANCHORS[a].geo)) || options[0];
+    dragRef = options.find((o) => !sim.placementProblem(g, o.li, o.end, ANCHORS[a].geo, a)) || options[0];
     tryExtend(dragState(p));
     dragRef = null;
     e.stopPropagation();
@@ -848,7 +866,9 @@ function stationUpgRow(kind) {
   btn.textContent = STR.upgRow[kind] +
     ' ' + STR.lvl + ' ' + lvl + '/' + cap +
     (room <= 0 ? '' : ' · ' + (n > 1 ? '×' + n + ' ' : '') + kr(cost) + ' kr');
-  // A capped ladder says why, so "disabled" is information (pass 02, §03).
+  // A capped ladder says why, so "disabled" is information (pass 02, §03),
+  // and hover says what the level actually buys (owner ask, 2026-08-07).
+  btn.title = STR.upgWhat[kind];
   btn.disabled = room <= 0 || g.money < cost;
   const why = sim.upgCapReason(g, st, lvl);
   if (why === 'era') {
@@ -884,6 +904,7 @@ function updateStationPanel() {
       dirs.map((d) => d.name + ' ' + Math.round(d.share * 100) + '%').join(' · ') + '</span>'
     : '';
   const tierBtn = $('sp-tier-btn');
+  tierBtn.title = st.tier >= 3 ? '' : STR.tierWhat[st.tier];
   if (st.tier >= 3) {
     tierBtn.textContent = STR.tierMax;
     tierBtn.disabled = true;
@@ -1017,10 +1038,24 @@ $('aim-close').addEventListener('click', () => {
 
 function aimText() {
   if (!g.opened) return STR.aims.open;
-  if (sim.stationCount(g) < 6) return STR.aims.extend;
   // Fleet SIZE, not purchases: a chartered line's gift train counts too.
   if (g.trains.length < 2) return STR.aims.train;
   if (!g.owned.drivers) return STR.aims.drivers;
+  // The plan: name the actual stake, not a genre of action. "Extend to
+  // Medborgarplatsen · Söderort 3/13" is a map instruction; "extend the
+  // line" was a rule the stalled players never picked up.
+  const plan = sim.planBlockers(g);
+  if (plan.length) {
+    const b = plan[0];
+    const c = CORRIDORS.find((x) => x.id === b.id);
+    const k = c ? sim.nextStakeOf(g, c) : null;
+    if (k !== null) {
+      return (b.repair ? STR.aims.repair : STR.aims.plan) + ' ' + ANCHORS[k].name +
+        ' · ' + b.name + ' ' + b.built + '/' + b.total +
+        (b.repair ? ' · ' + STR.planRepair : '');
+    }
+  }
+  if (sim.stationCount(g) < 6) return STR.aims.extend;
   if (sim.canAdvanceEra(g)) return STR.aims.eraReady;
   const next = sim.nextEra(g);
   if (next) {
@@ -1316,8 +1351,14 @@ function updateShop() {
     const needPk = Math.max(0, next.pk - g.pk);
     const rate = sim.pkRate(g);
     const eta = needPk > 0 && rate > 0 ? Math.ceil(needPk / rate / 60) : 0;
+    // The plan is the era's third requirement: name the line and its count,
+    // and say "repair" when the player demolished it back open.
+    const plan = sim.planBlockers(g);
+    const planTxt = plan.map((b) =>
+      b.name + ' ' + b.built + '/' + b.total + (b.repair ? ' · ' + STR.planRepair : '')).join(' · ');
     $('era-needs').textContent = STR.advanceNeeds + ' ' + fmt(next.delivered) + ' ' + STR.riders +
       ' · ' + next.pk + ' ' + STR.trust +
+      (planTxt ? ' · ' + planTxt : '') +
       (eta > 0 ? ' (' + STR.about + ' ' + eta + ' min at this coverage)' : '') +
       ' · ' + STR.trustFrom;
   } else {
@@ -1412,6 +1453,11 @@ function frame(now) {
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
+    if (e.type === 'plandone') {
+      render.addFloatGeo(e.geo, e.name + ' · ' + STR.planDoneFloat +
+        (e.trust ? ' · +' + e.trust + ' ' + STR.trust : ''));
+      if (e.id === 'green-south') render.addFloatGeo(e.geo, STR.freeUnlockedFloat);
+    }
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
     if (e.type === 'achievement') showAchievement(e.name);
     if (e.type === 'open') render.addFloatGeo(e.geo, STR.ribbonCut);

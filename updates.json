@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.9.2",
+      "title": "The 1950 plan",
+      "content": "The early game now follows the city's plan, after two days of watching new players wander and stall.\n\n- Until the 1950 line is complete, only staked stations can be built. Finish the line and you can place your own stations anywhere, permanently.\n- Advancing an era now also requires its lines fully built. Demolishing a stop on a historic line blocks the next era until it is rebuilt.\n- The next staked station pulses, keeps its name visible, and draws a dashed guide from the end of the line. The NEXT panel names it.\n- Completing a line now grants trust (the city repays the charter that opened it), so an active builder is not left waiting on trust between the early eras.\n- Rebalanced against measurement: era 1952 asks for 20,000 riders instead of 25,000, and 1952 station upgrades go one level deeper.\n- Hovering a station upgrade now explains what it does."
+    },
+    {
       "version": "0.9.1",
       "title": "Mothballed transfers and missing water zones",
       "content": "Fixes from a player report on itch.\n\n- Mothballed trains can now be moved between lines. The transfer takes the mothballed train and reactivates it on arrival.\n- Added missing no-build water zones (Årstaviken, Ulvsundasjön, Lilla Värtan, Brunnsviken, Karlbergssjön). It was possible to build stations on open water in areas the warning did not cover. Stations already built there are unaffected."
@@ -8,7 +13,7 @@
     {
       "version": "0.9.0",
       "title": "Train management",
-      "content": "Focused on the fleet, based on the first week of player feedback.\n\n- Fixed: extending a line could permanently strand a train parked at the end of it.\n- Trains can be moved between lines with the + and − buttons on each line row. If no train is idle, the transfer queues and executes when one parks. Queued transfers can be cancelled for a full refund.\n- The fleet cap now grows each era (8 in 1950, up to 28 in the final era).\n- Added a NEXT panel that suggests what to do next, from the first departure through each era's requirements. Can be dismissed permanently.\n- Added 4 achievements.\n- How to play now covers fleet management."
+      "content": "Focused on the fleet, based on the first days of player feedback.\n\n- Fixed: extending a line could permanently strand a train parked at the end of it.\n- Trains can be moved between lines with the + and − buttons on each line row. If no train is idle, the transfer queues and executes when one parks. Queued transfers can be cancelled for a full refund.\n- The fleet cap now grows each era (8 in 1950, up to 28 in the final era).\n- Added a NEXT panel that suggests what to do next, from the first departure through each era's requirements. Can be dismissed permanently.\n- Added 4 achievements.\n- How to play now covers fleet management."
     },
     {
       "version": "0.8.2",

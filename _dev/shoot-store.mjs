@@ -68,35 +68,44 @@ const BUILD_POSE = `(async () => {
   for (let k = g.lines[0].stations.length; k < south.end; k++) {
     sim.extendTo(g, 0, 'tail', ANCHORS[k].geo, k);
   }
-  // Advance to 1975, so all three historic charters are legitimately open.
-  g.totalDelivered = 1e6;
-  for (let e = 0; e < 4; e++) { g.pk = 1e3; sim.advanceEra(g); }
-
   // T-Centralen becomes a Knutpunkt: the interchange the whole network hangs on.
+  g.totalDelivered = 1e6;
   g.pk = 1e3;
   sim.upgradeStation(g, 0, 0, 'tier');
   sim.upgradeStation(g, 0, 0, 'tier');
 
-  // The lines come from the CHARTERS, not from generic foundLine. Founding by
-  // hand paints them from the founding-order palette (the first pass of this
-  // script produced a pink line and a yellow one), while the megaprojects carry
-  // the reserved identities, so the shot shows the green, red and blue any
-  // Stockholmer would recognise.
-  for (const [id, ids] of [['westline', ['green-west']],
-                           ['redline', ['red-south', 'red-orn']],
-                           ['blueline', ['blue-main']]]) {
+  // Eras and charters INTERLEAVE: an era will not advance until its corridors
+  // are built (the plan gate, 2026-08-07), which also keeps the pose a state a
+  // player can actually reach. The lines come from the CHARTERS, not from
+  // generic foundLine. Founding by hand paints them from the founding-order
+  // palette (the first pass of this script produced a pink line and a yellow
+  // one), while the megaprojects carry the reserved identities, so the shot
+  // shows the green, red and blue any Stockholmer would recognise.
+  const advance = () => { g.pk = 1e3; return sim.advanceEra(g); };
+  const charter = (id, corridors) => {
     g.pk = 1e3; g.money = 1e9;
     const before = g.lines.length;
     if (!sim.buy(g, id)) return id + ' charter refused';
     const li = g.lines.length > before ? g.lines.length - 1 : before - 1;
-    for (const cid of ids) {
+    for (const [cid, end] of corridors) {
       const c = CORRIDORS.find((x) => x.id === cid);
       for (let k = c.start; k < c.end; k++) {
         g.money = 1e9;
-        sim.extendTo(g, li, 'tail', ANCHORS[k].geo, k);
+        sim.extendTo(g, li, end, ANCHORS[k].geo, k);
       }
     }
-  }
+    return null;
+  };
+  if (!advance()) return 'advance to 1952 refused';
+  let bad = charter('westline', [['green-west', 'tail']]);
+  if (bad) return bad;
+  if (!advance()) return 'advance to 1957 refused';
+  if (!advance()) return 'advance to 1964 refused';
+  bad = charter('redline', [['red-south', 'tail'], ['red-orn', 'tail'], ['red-ost', 'head']]);
+  if (bad) return bad;
+  if (!advance()) return 'advance to 1975 refused';
+  bad = charter('blueline', [['blue-main', 'tail']]);
+  if (bad) return bad;
 
   // A network this size needs a service to match, or the shot is of a railway
   // with nothing running on it.

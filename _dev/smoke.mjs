@@ -53,6 +53,7 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.freeSpotValue(g, [59.2000, 18.4000]) !== 0.15) err('nowhere should sit at the demand floor');
   const firstClaim = sim.freeSpotValue(g, [59.3140, 18.0700]);   // Södermalm, near existing line
   g.money = 1e9;
+  g.planDone['green-south'] = true; // this block tests demand claims, not the plan fence
   sim.extendTo(g, 0, 'tail', [59.3120, 18.0650], null);
   const secondClaim = sim.freeSpotValue(g, [59.3140, 18.0700]);
   if (!(secondClaim < firstClaim)) err('a second station must claim less from the same district');
@@ -72,6 +73,42 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.extendTo(g, 0, 'tail', ANCHORS[5].geo, 5)) err('extending to a hidden anchor must refuse');
   if (!sim.extendTo(g, 0, 'tail', ANCHORS[3].geo, 3)) err('extending to the revealed anchor should work');
   if (!sim.anchorRevealed(g, 4)) err('building the railhead should stake out the next stop');
+}
+
+// --- The plan (owner ruling 2026-08-07): free spots are fenced until the
+// 1950 line is delivered; an era demands its corridors, present-state, so a
+// demolished stop re-blocks it as a repair; freedom, once earned, stays. ---
+{
+  const pl = sim.newGame();
+  pl.money = 1e9;
+  if (sim.placementProblem(pl, 0, 'head', [59.3315, 18.0380]) !== 'plan') err('free spots must be fenced before the plan is done');
+  if (sim.extendTo(pl, 0, 'head', [59.3315, 18.0380], null)) err('extendTo must respect the plan fence');
+  pl.totalDelivered = 1e6;
+  pl.pk = 99;
+  if (sim.canAdvanceEra(pl)) err('era must not advance with the corridor incomplete');
+  while (pl.lines[0].stations.length < WEST_FIRST) {
+    const k = pl.lines[0].stations.length;
+    if (!sim.extendTo(pl, 0, 'tail', ANCHORS[k].geo, k)) err('plan build failed at ' + ANCHORS[k].name);
+  }
+  if (!pl.planDone['green-south']) err('completing the corridor should record planDone');
+  if (!pl.events.some((e) => e.type === 'plandone')) err('plan completion should announce itself');
+  if (sim.placementProblem(pl, 0, 'head', [59.3315, 18.0380]) !== null) err('free spots should unlock at completion');
+  if (!sim.canAdvanceEra(pl)) err('era should advance once the corridor is complete');
+  // Demolish a plan stop: the era re-blocks and reads as a repair; freedom stays.
+  if (!sim.demolish(pl, 0, 'tail')) err('demolish for the repair test failed');
+  if (sim.canAdvanceEra(pl)) err('a demolished plan stop must re-block the era');
+  const blockers = sim.planBlockers(pl);
+  if (!(blockers.length === 1 && blockers[0].repair && blockers[0].built === 12)) {
+    err('the blocker should read as a repair, got ' + JSON.stringify(blockers));
+  }
+  if (sim.placementProblem(pl, 0, 'head', [59.3315, 18.0380]) !== null) err('freedom must stay earned after demolition');
+  const backPl = sim.hydrate(sim.serialize(pl));
+  if (!backPl.planDone['green-south']) err('planDone must survive a save');
+  // Grandfather clause: a pre-plan save holding a free spot is never re-fenced.
+  const old = sim.newGame();
+  old.money = 1e9;
+  old.lines[0].stations[1].anchor = null; // a legacy free-spot entry
+  if (sim.placementProblem(old, 0, 'head', [59.3315, 18.0380]) !== null) err('a save with free spots must keep the ability');
 }
 
 // --- The cadence readout (owner ask, 2026-08-04): the number the player
@@ -130,7 +167,7 @@ for (let t = 0; t < 600; t += 0.05) {
   sim.tick(g, 0.05);
   if (Math.floor(t * 20) % 12 === 0) sim.dispatch(g);
   const nextIdx = g.lines[0].stations.length - (freeSpotPlaced ? 1 : 0);
-  if (nextIdx < WEST_FIRST && !sim.placementProblem(g, 0, 'tail', ANCHORS[nextIdx].geo)) {
+  if (nextIdx < WEST_FIRST && !sim.placementProblem(g, 0, 'tail', ANCHORS[nextIdx].geo, nextIdx)) {
     sim.extendTo(g, 0, 'tail', ANCHORS[nextIdx].geo, nextIdx);
     console.log(`t=${t.toFixed(0).padStart(3)}s  EXTEND ${ANCHORS[nextIdx].name.padEnd(16)} money=${Math.round(g.money)}  stations=${sim.stationCount(g)}`);
   } else if (t > 200 && !freeSpotPlaced && !sim.placementProblem(g, 0, 'head', [59.3315, 18.0380])) {
@@ -160,10 +197,12 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (n < 7) err('ten minutes of good play should still build a real line, got ' + n + ' stations');
 }
 
-// Free-spot naming is a naming rule, not an economy one: test it with money.
+// Free-spot naming is a naming rule, not an economy one: test it with money
+// (and past the plan fence, which is someone else's test).
 {
   const n = sim.newGame();
   n.money = 1e9;
+  n.planDone['green-south'] = true;
   sim.extendTo(n, 0, 'head', [59.3315, 18.0380], null);
   const free = n.lines[0].stations.find((s) => s.anchor === null);
   if (!free || free.name.indexOf('Kungsholmen') !== 0) err('free spot on Kungsholmen should take the district name, got ' + (free && free.name));
@@ -171,9 +210,16 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
 
 // --- Eras and the Västerort megaproject ---
 {
-  if (sim.canAdvanceEra(g) && g.pk >= 5) { /* possible if arc was generous */ }
   g.totalDelivered = Math.max(g.totalDelivered, 130000);
   g.pk = 10;
+  // The plan gate: riders and trust met, corridor incomplete, no advance.
+  if (sim.canAdvanceEra(g)) err('era must wait for the 1950 line (plan gate)');
+  g.money = 1e9;
+  while (g.lines[0].stations.length < WEST_FIRST) {
+    const k = g.lines[0].stations.length;
+    if (!sim.extendTo(g, 0, 'tail', ANCHORS[k].geo, k)) err('finishing the 1950 line failed at ' + ANCHORS[k].name);
+  }
+  if (!g.planDone['green-south']) err('completing the corridor should record planDone');
   if (!sim.advanceEra(g)) err('era advance to 1952 should succeed with reqs met');
   if (sim.eraYear(g) !== 1952) err('era should be 1952');
   if (g.pk !== 5) err('era advance should cost pk');
@@ -594,6 +640,10 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (sim.upgCapReason(c, c.lines[0].stations[0], 1) !== 'era') err('the refusal must name the era');
   // ...and the cap lifts with the era, never retroactively taking a level away.
   c.totalDelivered = 1e6; c.pk = 99;
+  c.money = 1e9;
+  while (c.lines[0].stations.length < WEST_FIRST) {
+    sim.extendTo(c, 0, 'tail', ANCHORS[c.lines[0].stations.length].geo, c.lines[0].stations.length);
+  }
   if (!sim.advanceEra(c)) err('era advance failed in the ceiling check');
   if (sim.upgCapFor(c, { tier: 1 }) !== 3) err('1952 should allow three levels on a Hållplats');
   if (c.lines[0].stations[0].ent !== 1) err('a bought level must survive the era change');
