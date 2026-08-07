@@ -2,6 +2,7 @@ import * as sim from './sim.js';
 import * as render from './render.js';
 import { ANCHORS, CORRIDORS } from './data.js';
 import { FACTS, NAMES } from './facts.js';
+import * as sfx from './sound.js';
 
 // UI copy interpolates from BAL and the CATALOG so a balance change can never
 // make the interface lie.
@@ -477,6 +478,7 @@ function menuView(which) {
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
     $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
     $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
+    $('settings-sound').textContent = soundOn ? STR.notesOn : STR.notesOff;
     $('settings-export').textContent = STR.exportBtn;
     $('settings-import').textContent = STR.importBtn;
     $('import-text').hidden = true;
@@ -769,6 +771,7 @@ function showFrontPage(key) {
   $('news-foot2').innerHTML = '<b style="color:var(--tb-ink);font-weight:400">' + STR.newsNext + '</b> ';
   $('news-foot2').append(e.next);
   $('moment').hidden = false;
+  sfx.eraSting(key === 'slut' ? 4 : Math.max(0, g.era - 1));
   save();
 }
 function showMoment(year) {
@@ -792,6 +795,7 @@ bell.querySelector('.tb-bell__t').textContent = STR.dispatch;
 function ringBell() {
   if (paused) return;
   if (sim.dispatch(g)) {
+    sfx.bell();
     bell.classList.remove('is-rung');
     void bell.offsetWidth; // restart the animation
     bell.classList.add('is-rung');
@@ -1159,6 +1163,20 @@ function updateLineRows() {
   }
 }
 
+// --- Sound: synthesized, so it needs no licence line; gated behind the
+// browser's user-gesture rule (unlock on any pointer) and a setting. ---
+const SOUND_KEY = 'tunnelbana_sound';
+let soundOn = store.get(SOUND_KEY) !== 'off';
+sfx.setOn(soundOn);
+window.addEventListener('pointerdown', () => sfx.unlock());
+$('settings-sound').addEventListener('click', () => {
+  soundOn = !soundOn;
+  sfx.setOn(soundOn);
+  store.set(SOUND_KEY, soundOn ? 'on' : 'off');
+  $('settings-sound').textContent = soundOn ? STR.notesOn : STR.notesOff;
+  if (soundOn) sfx.bell(); // the toggle demonstrates itself
+});
+
 // --- City notes: a fact about the real Stockholm, or a postcard from one
 // journey the sim is actually carrying, every couple of minutes. Ambience,
 // not information: one at a time, click to dismiss, off in Settings. Facts
@@ -1274,6 +1292,7 @@ function updateAim() {
 // --- Achievements: aims, stated plainly, with the bonus they carry ---
 let achToastAt = 0;
 function showAchievement(name) {
+  sfx.achievement();
   $('ach-toast-label').textContent = STR.achEarned;
   $('ach-toast-name').textContent = name;
   $('ach-toast-more').textContent = STR.achToastMore;
@@ -1755,7 +1774,7 @@ function frame(now) {
     }
   }
   for (const e of g.events) {
-    if (e.type === 'payout') render.addFloatGeo(e.geo, '+' + fmt(e.amt));
+    if (e.type === 'payout') { render.addFloatGeo(e.geo, '+' + fmt(e.amt)); sfx.fare(e.amt); }
     if (e.type === 'extend') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'demolish') render.addFloatGeo(e.geo, e.name + ' ' + STR.demolished);
     if (e.type === 'alight') render.addFloatGeo(e.geo, '↓' + fmt(e.n), 'muted');
@@ -1765,7 +1784,7 @@ function frame(now) {
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
     if (e.type === 'egg') render.addFloatGeo(e.geo, e.name);
-    if (e.type === 'incident') render.addFloatGeo(e.geo, STR.incidentName + ' · ' + e.name, 'red');
+    if (e.type === 'incident') { render.addFloatGeo(e.geo, STR.incidentName + ' · ' + e.name, 'red'); sfx.incident(); }
     if (e.type === 'incident-over') render.addFloatGeo(e.geo, STR.incidentOver, 'muted');
     if (e.type === 'rush-grade') {
       render.addFloatGeo(e.geo, STR.phases[e.phase] + ' · ' + e.grade + ' · ' +
