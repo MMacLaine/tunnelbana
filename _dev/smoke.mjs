@@ -227,6 +227,87 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.bulkUpgrade(bw, 'gates') !== 0) err('a broke order should buy nothing');
 }
 
+// --- Service patterns (0.10): the unlock gates the verb, termini refuse,
+// an express run boards nobody for a skipped stop and passes it without a
+// dwell, the alternating full service still calls, the pattern survives a
+// save, and a patterned line's throughput does not collapse (sanity rail:
+// this is a comfort/speed feature, not a trap). ---
+{
+  const sp = sim.newGame();
+  sp.money = 1e6;
+  for (let k = 3; k < 10; k++) sim.extendTo(sp, 0, 'tail', ANCHORS[k].geo, k);
+  if (sim.setSkip(sp, 0, 3, true)) err('patterns need the Trafikledning unlock');
+  sp.era = 2;
+  if (!sim.buy(sp, 'patterns')) err('Trafikledning should sell in 1957');
+  if (sim.setSkip(sp, 0, 0, true)) err('a terminus must refuse to be skipped');
+  if (!sim.setSkip(sp, 0, 3, true)) err('an interior stop should take a pattern');
+  if (!sim.setSkip(sp, 0, 4, true)) err('a second stop should take a pattern');
+  if (sp.patternsSet !== 2) err('pattern sets should count, got ' + sp.patternsSet);
+  sim.checkAchievements(sp);
+  if (!sp.achieved['pattern-first']) err('the first pattern should earn its aim');
+  // Alternation: consecutive departures from the same line flip express.
+  sim.buy(sp, 'drivers');
+  sim.buy(sp, 'train');
+  let sawExpress = false, sawFull = false, expressDwelt = false;
+  for (let t = 0; t < 240 && !(sawExpress && sawFull); t += 0.05) {
+    sim.tick(sp, 0.05);
+    sp.events.length = 0;
+    for (const tr of sp.trains) {
+      if (!tr.run) continue;
+      if (tr.run.express) {
+        sawExpress = true;
+        if (tr.run.phase === 'dwell' && (tr.run.from === 3 || tr.run.from === 4)) expressDwelt = true;
+        if ((tr.run.dest[3] || 0) > 0.01 || (tr.run.dest[4] || 0) > 0.01) err('an express boarded riders for a skipped stop');
+      } else {
+        sawFull = true;
+      }
+    }
+  }
+  if (!sawExpress || !sawFull) err('a patterned line should alternate full and express');
+  if (expressDwelt) err('an express must not dwell at a skipped stop');
+  const backSp = sim.hydrate(sim.serialize(sp));
+  if (!backSp.lines[0].skip[3] || !backSp.lines[0].skip[4]) err('the pattern must survive a save');
+  if (backSp.lines[0].skip[0]) err('a terminus skip must never load');
+  // The sanity rail: same network, with and without the pattern, similar money.
+  const runFor = (pattern) => {
+    const w = sim.newGame();
+    w.money = 1e6;
+    for (let k = 3; k < 10; k++) sim.extendTo(w, 0, 'tail', ANCHORS[k].geo, k);
+    w.era = 2;
+    sim.buy(w, 'patterns');
+    sim.buy(w, 'drivers');
+    sim.buy(w, 'train');
+    if (pattern) { sim.setSkip(w, 0, 3, true); sim.setSkip(w, 0, 6, true); }
+    w.money = 1e6;
+    for (let t = 0; t < 300; t += 0.05) { sim.tick(w, 0.05); w.events.length = 0; }
+    return w.totalDelivered;
+  };
+  const plain = runFor(false);
+  const patterned = runFor(true);
+  if (!(patterned > plain * 0.8)) {
+    err('a patterned line collapsed: ' + Math.round(patterned) + ' vs ' + Math.round(plain));
+  }
+}
+
+// --- The diagram (0.10): every anchor must carry dia coordinates (the
+// schematic draws from them), the purchase is era-gated, and viewing counts
+// toward its achievement. ---
+{
+  for (const [i, a] of ANCHORS.entries()) {
+    if (!Array.isArray(a.dia) || a.dia.length !== 2 || !a.dia.every(Number.isFinite)) {
+      err('anchor ' + i + ' (' + a.name + ') has no usable dia coordinates');
+    }
+  }
+  const dg = sim.newGame();
+  dg.money = 1e9;
+  if (sim.canBuy(dg, 'diagram')) err('Linjekartan should wait for 1964');
+  dg.era = 3;
+  if (!sim.buy(dg, 'diagram')) err('Linjekartan should sell in 1964');
+  sim.viewedDiagram(dg);
+  sim.checkAchievements(dg);
+  if (!dg.achieved['diagram-view']) err('opening the diagram should earn Se kartan');
+}
+
 // --- Curiosities (0.10): found once, counted, achievement-checked, saved. ---
 {
   const eg = sim.newGame(); // T-Centralen and Gamla stan exist: norrstrom is live
