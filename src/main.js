@@ -3,6 +3,7 @@ import * as render from './render.js';
 import { ANCHORS, CORRIDORS } from './data.js';
 import { FACTS, NAMES } from './facts.js';
 import * as sfx from './sound.js';
+import { diagramSVG, diagramTrains, diagramSig } from './diagram.js';
 
 // UI copy interpolates from BAL and the CATALOG so a balance change can never
 // make the interface lie.
@@ -117,6 +118,13 @@ const STR = {
   newsPlayed: 'played',
   newsCity: 'Staden.',
   newsNext: 'Nästa.',
+  diaToMap: 'KARTA',
+  diaToDiagram: 'DIAGRAM',
+  skipOn: 'Express skips this stop',
+  skipOff: 'Express calls here again',
+  skipWhat: 'On a patterned line, trains alternate: the full service calls everywhere, the express saves the dwell at skipped stops.',
+  patternOnFloat: 'express skips',
+  patternOffFloat: 'express calls',
   freeUnlockedFloat: 'Build anywhere: the city approves your own stations',
   junction: 'Interchange',
   riders: 'riders',
@@ -158,6 +166,8 @@ const STR = {
     bogies:     { name: 'C1 bogie service',  desc: 'Top speed and acceleration up ' + pct(CAT.bogies.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
     stats:      { name: 'Statistics office', desc: 'Graphs, records and a ledger per line. Pays in knowing, not kronor.' },
+    diagram:    { name: 'Linjekartan',       desc: 'The map on the platform wall: your network as a schematic diagram. Toggles in the map corner.' },
+    patterns:   { name: 'Trafikledning',     desc: 'Run your own service patterns: mark stops for the express to skip, and trains alternate full and express. Set it per stop, in the station panel.' },
     works:      { name: 'Works department',  desc: 'Bulk orders: raise entrances, gates or retail one level across every station in one click. The buttons appear in the Network panel.' },
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
     redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line as a Söder shuttle, Mariatorget to Zinkensdamm, with a train. Connect it to your network your way; Fruängen waits at the far end.' },
@@ -1044,6 +1054,15 @@ function updateStationPanel() {
     fb.textContent = STR.foundBtn + ' · ' + fmt(B.foundLineKr) + ' kr + ' + B.foundLinePk + ' ' + STR.trust;
     fb.disabled = !sim.canFoundLine(g, selected.li, selected.i);
   }
+  // The service pattern (Trafikledning): whether the express calls here.
+  const skipB = $('sp-skip');
+  const canPattern = sim.canSetSkip(g, selected.li, selected.i);
+  skipB.hidden = !canPattern;
+  if (canPattern) {
+    const skipped = L.skip[selected.i];
+    skipB.textContent = skipped ? STR.skipOff : STR.skipOn;
+    skipB.title = STR.skipWhat;
+  }
   // A signal failure here: the repair crew is one click and real money.
   const fixB = $('sp-fix');
   const broken = sim.incidentAt(g, selected.li, selected.i);
@@ -1070,6 +1089,11 @@ for (const kind of ['tier', 'ent', 'gates', 'shop']) {
 $('sp-close').addEventListener('click', () => selectStation(null));
 $('sp-fix').addEventListener('click', () => {
   if (sim.fixIncident(g)) updateUI();
+});
+$('sp-skip').addEventListener('click', () => {
+  if (!selected) return;
+  const L = g.lines[selected.li];
+  if (sim.setSkip(g, selected.li, selected.i, !L.skip[selected.i])) updateUI();
 });
 $('sp-down').addEventListener('click', () => {
   if (selected && sim.downgradeTier(g, selected.li, selected.i)) updateUI();
@@ -1162,6 +1186,22 @@ function updateLineRows() {
     $('line-rows').innerHTML = html;
   }
 }
+
+// --- The diagram (pass 03 section f): a purchased second way of seeing the
+// same railway. The static SVG rebuilds only when the network's shape
+// changes; the trains are their own thin layer, updated per frame. ---
+let diaOn = false;
+let diaSigLast = '';
+function setDiaMode(on) {
+  diaOn = on && !!g.owned.diagram;
+  $('dia-mode').hidden = !diaOn;
+  $('dia-toggle').textContent = diaOn ? STR.diaToMap : STR.diaToDiagram;
+  if (diaOn) {
+    sim.viewedDiagram(g);
+    diaSigLast = '';
+  }
+}
+$('dia-toggle').addEventListener('click', () => setDiaMode(!diaOn));
 
 // --- Sound: synthesized, so it needs no licence line; gated behind the
 // browser's user-gesture rule (unlock on any pointer) and a setting. ---
@@ -1465,6 +1505,8 @@ const SHOP_META = {
   turnstiles:  { icon: 'fare',  cat: 'Fare' },
   stats:       { icon: 'stats', cat: 'Office' },
   works:       { icon: 'cap',   cat: 'Office' },
+  diagram:     { icon: 'net',   cat: 'Office' },
+  patterns:    { icon: 'time',  cat: 'Service' },
   westline:    { icon: 'net',   cat: 'Project' },
   redline:     { icon: 'net',   cat: 'Project' },
   blueline:    { icon: 'net',   cat: 'Project' },
@@ -1743,6 +1785,9 @@ function updateUI() {
   $('btn-reactivate').disabled = mb === 0;
   // The bell states the service it runs: manual, automatic with its cadence,
   // or nothing idle to send (pass 02, section 03).
+  $('dia-toggle').hidden = !g.owned.diagram;
+  if (!g.owned.diagram && diaOn) setDiaMode(false);
+  if (!diaOn) $('dia-toggle').textContent = STR.diaToDiagram;
   const idleN = sim.idleTrains(g).length;
   const auto = !!g.owned.drivers;
   $('bell-sub').textContent = !idleN ? STR.noIdle
@@ -1784,6 +1829,7 @@ function frame(now) {
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
     if (e.type === 'egg') render.addFloatGeo(e.geo, e.name);
+    if (e.type === 'pattern') render.addFloatGeo(e.geo, e.name + ' · ' + (e.on ? STR.patternOnFloat : STR.patternOffFloat), e.on ? undefined : 'muted');
     if (e.type === 'incident') { render.addFloatGeo(e.geo, STR.incidentName + ' · ' + e.name, 'red'); sfx.incident(); }
     if (e.type === 'incident-over') render.addFloatGeo(e.geo, STR.incidentOver, 'muted');
     if (e.type === 'rush-grade') {
@@ -1810,7 +1856,16 @@ function frame(now) {
     $('ach-toast').hidden = true;
   }
   maybeNote();
-  if (map && basemapUp) {
+  if (diaOn) {
+    // The diagram replaces the map wholesale: no basemap repaints, no canvas.
+    const sig = diagramSig(g);
+    if (sig !== diaSigLast) {
+      diaSigLast = sig;
+      $('dia-mode').innerHTML = diagramSVG(g);
+    }
+    const layer = document.getElementById('dia-trains');
+    if (layer) layer.innerHTML = diagramTrains(g);
+  } else if (map && basemapUp) {
     map.triggerRepaint(); // drawing happens in the map's render event, never here
   } else {
     render.draw(g);

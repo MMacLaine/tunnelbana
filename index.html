@@ -280,6 +280,10 @@
     <div id="map-status" hidden></div>
   </div>
 
+  <!-- The platform-wall diagram (pass 03 section f): replaces the map when
+       toggled, because it IS a map. Sits under the HUD, over the geography. -->
+  <div id="dia-mode" hidden style="position: fixed; inset: 0; z-index: 4; background: var(--tb-dia-bg); padding: 10px"></div>
+
   <div class="hud" id="hud-tl">
     <div class="brand">
       <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
@@ -327,6 +331,7 @@
         <button class="tb-btn tb-btn--inline" id="sp-ent"></button>
         <button class="tb-btn tb-btn--inline" id="sp-gates"></button>
         <button class="tb-btn tb-btn--inline" id="sp-shop"></button>
+        <button class="tb-btn tb-btn--inline" id="sp-skip" hidden></button>
         <button class="tb-btn tb-btn--inline tb-btn--danger tb-btn--block" id="sp-fix" hidden></button>
         <button class="tb-btn tb-btn--inline tb-btn--danger" id="sp-down" hidden></button>
         <button class="tb-btn tb-btn--inline tb-btn--project tb-btn--block" id="sp-found" hidden></button>
@@ -417,6 +422,7 @@
         </div>
       </div>
     </div>
+    <button class="tb-btn tb-btn--inline tb-btn--onmap" id="dia-toggle" hidden></button>
     <button class="tb-btn tb-btn--inline tb-btn--onmap" id="menu-open"></button>
     <button class="tb-btn tb-btn--inline tb-btn--onmap" id="fb-open"></button>
     <button id="about-mark" aria-label="About and credits">&copy;</button>
