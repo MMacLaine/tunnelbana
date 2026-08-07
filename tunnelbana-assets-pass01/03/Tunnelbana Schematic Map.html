@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tunnelbana · Schematic map, pass 03</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="tokens-ui.css">
+<link rel="stylesheet" href="ui.css">
+<link rel="stylesheet" href="ui-pass03.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--tb-dia-bg); color: var(--tb-ink); font: 400 13px/1.5 var(--tb-mono); -webkit-font-smoothing: antialiased; overflow: hidden; }
+  html.theme-switching * { transition: none !important; }
+  a { color: var(--tb-amber); text-decoration: none; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; overflow: auto; padding: 16px; }
+  #dia { display: block; height: calc(100vh - 32px); width: auto; max-width: calc(100vw - 32px); }
+  /* HUD chrome, the pass-02 panel language, floating over the diagram */
+  .hud { position: fixed; z-index: 5; }
+  #title { top: 20px; left: 24px; display: flex; align-items: center; gap: 14px; }
+  #title svg { flex: none; }
+  #title h1 { font: 600 var(--tb-fs-lg)/1 var(--tb-mono); letter-spacing: .28em; margin: 0; }
+  #title p { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--tb-muted); margin: 5px 0 0; }
+  #legend { top: 20px; right: 24px; }
+  #legend .tb-panel__body { gap: .5rem; }
+  .leg { display: flex; align-items: center; gap: .55rem; font-size: var(--tb-fs-label); color: var(--tb-muted); }
+  .leg i { width: 20px; height: 5px; border-radius: 3px; flex: none; }
+  .leg .node { width: 14px; height: 14px; border-radius: 50%; background: var(--tb-dia-bg); }
+  #controls { bottom: 20px; left: 24px; display: flex; gap: 8px; align-items: center; }
+  .themepick { display: flex; border: 1px solid var(--tb-line); background: var(--tb-panel-t); -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur)); }
+  .themepick button { font: 600 10px/1 var(--tb-mono); letter-spacing: .1em; text-transform: uppercase; background: none; border: 0; color: var(--tb-muted); padding: 8px 12px; cursor: pointer; }
+  .themepick button[aria-pressed="true"] { background: var(--tb-amber); color: var(--tb-void); }
+  #back { bottom: 20px; right: 24px; font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--tb-muted); background: var(--tb-panel-t); border: 1px solid var(--tb-line); padding: 8px 12px; -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur)); }
+  #back:hover { color: var(--tb-ink); }
+  .note { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 5; font-size: var(--tb-fs-micro); color: var(--tb-ghost); letter-spacing: .04em; white-space: nowrap; }
+</style>
+</head>
+<body>
+  <div id="stage"><svg id="dia" aria-label="Schematic map of the network"></svg></div>
+
+  <div class="hud" id="title">
+    <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true"><path d="M9 39V22a15 15 0 0 1 30 0v17" fill="none" stroke="currentColor" stroke-width="5"></path><path d="M19 39V24a5 5 0 0 1 10 0v15" fill="none" stroke="var(--tb-green)" stroke-width="4.4"></path><path d="M5 41h38" stroke="currentColor" stroke-width="3"></path></svg>
+    <div><h1>TUNNELBANEKARTA</h1><p>Schematic mode · 1975</p></div>
+  </div>
+
+  <div class="hud tb-panel" id="legend"><div class="tb-panel__head"><span class="tb-panel__title">Lines</span></div><div class="tb-panel__body">
+    <div class="leg"><i style="background:var(--tb-net-green)"></i>Gröna linjen · 1950</div>
+    <div class="leg"><i style="background:var(--tb-net-red)"></i>Röda linjen · 1964</div>
+    <div class="leg"><i style="background:var(--tb-net-blue)"></i>Blå linjen · 1975</div>
+    <hr class="tb-divider">
+    <div class="leg"><span class="node" style="border:2.5px solid var(--tb-ink)"></span>Station</div>
+    <div class="leg"><span class="node" style="border:2.5px solid var(--tb-ink);width:16px;height:16px"></span>Interchange</div>
+    <div class="leg"><span class="node" style="border:2.5px solid var(--tb-ink);width:18px;height:18px;box-shadow:inset 0 0 0 3px var(--tb-dia-bg),inset 0 0 0 5px var(--tb-ink)"></span>Hub</div>
+  </div></div>
+
+  <div class="hud" id="controls">
+    <div class="themepick" role="group" aria-label="Theme">
+      <button data-theme-set="dark" aria-pressed="true">Dark</button>
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+    </div>
+  </div>
+  <a class="hud" id="back" href="Tunnelbana Moments.html">← Moments</a>
+  <div class="note">Drawn from the real dia[x,y] coordinates for all 59 stations · evokes the transit-diagram genre, not any operator's map</div>
+
+<script>
+// Real diagram coordinates and line membership, lifted verbatim from src/data.js.
+var ST = [
+  ['T-Centralen',5,-2],['Gamla stan',6,-1],['Slussen',6,0],['Medborgarplatsen',6,1],['Skanstull',6,2],
+  ['Gullmarsplan',7,3],['Skärmarbrink',8,4],['Blåsut',8,5],['Sandsborg',8,6],['Skogskyrkogården',8,7],
+  ['Tallkrogen',7,8],['Gubbängen',7,9],['Hökarängen',7,10],['Hötorget',4,-3],['Rådmansgatan',3,-4],
+  ['Odenplan',2,-5],['S:t Eriksplan',1,-5],['Fridhemsplan',0,-4],['Kristineberg',-1,-4],['Alvik',-2,-4],
+  ['Stora mossen',-3,-4],['Abrahamsberg',-4,-4],['Åkeshov',-5,-5],['Islandstorget',-6,-6],['Blackeberg',-7,-6],
+  ['Råcksta',-7,-7],['Vällingby',-8,-8],['Mariatorget',5,1],['Zinkensdamm',4,1],['Hornstull',3,1],
+  ['Liljeholmen',2,2],['Midsommarkransen',1,3],['Telefonplan',0,4],['Hägerstensåsen',-1,5],['Västertorp',-2,6],
+  ['Fruängen',-2,7],['Aspudden',1,2],['Örnsberg',0,2],['Östermalmstorg',6,-3],['Karlaplan',7,-4],
+  ['Gärdet',8,-5],['Ropsten',9,-6],['Rådhuset',4,-2],['Stadshagen',3,-3],['Västra skogen',2,-4],
+  ['Huvudsta',1,-4],['Solna strand',0,-5],['Sundbybergs centrum',-1,-6],['Duvbo',-2,-7],['Rissne',-3,-8],
+  ['Rinkeby',-4,-9],['Tensta',-5,-10],['Hjulsta',-6,-11],['Solna centrum',1,-6],['Näckrosen',0,-7],
+  ['Hallonbergen',-1,-8],['Kista',-2,-10],['Husby',-3,-11],['Akalla',-4,-12]
+];
+var LINES = [
+  { color: 'var(--tb-net-green)', paths: [[12,11,10,9,8,7,6,5,4,3,2,1,0,13,14,15,16,17,18,19,20,21,22,23,24,25,26]] },
+  { color: 'var(--tb-net-red)',   paths: [[35,34,33,32,31,30,29,28,27,2,1,0,38,39,40,41],[30,36,37]] },
+  { color: 'var(--tb-net-blue)',  paths: [[0,42,43,44,45,46,47,48,49,50,51,52],[44,53,54,55,56,57,58]] },
+];
+// Which stations carry more than one line (the trunk) — interchanges; T-Centralen is the hub.
+var INTERCHANGE = { 1: true, 2: true };
+var HUB = { 0: true };
+var TERMINI = { 12:1, 26:1, 35:1, 37:1, 41:1, 52:1, 58:1 };
+
+var U = 46, PAD = 78;
+var xs = ST.map(function (s) { return s[1]; }), ys = ST.map(function (s) { return s[2]; });
+var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+var W = (maxX - minX) * U + PAD * 2, H = (maxY - minY) * U + PAD * 2;
+function X(i) { return PAD + (ST[i][1] - minX) * U; }
+function Y(i) { return PAD + (ST[i][2] - minY) * U; }
+
+var svg = document.getElementById('dia');
+svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+function el(tag, attrs, kids) {
+  var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (kids) e.textContent = kids;
+  return e;
+}
+
+// Faint diagram grid, the platform-map paper.
+var grid = el('g', {});
+for (var gx = minX; gx <= maxX; gx++) grid.appendChild(el('path', { d: 'M' + (PAD + (gx - minX) * U) + ' 0V' + H, stroke: 'var(--tb-dia-grid)', 'stroke-width': 1 }));
+for (var gy = minY; gy <= maxY; gy++) grid.appendChild(el('path', { d: 'M0 ' + (PAD + (gy - minY) * U) + 'H' + W, stroke: 'var(--tb-dia-grid)', 'stroke-width': 1 }));
+svg.appendChild(grid);
+
+// Lines: thick, round-capped, drawn under the nodes. A soft casing (bg-coloured
+// under-stroke) lets crossing lines read cleanly where they overlap.
+LINES.forEach(function (L) {
+  L.paths.forEach(function (p) {
+    var d = p.map(function (i, k) { return (k ? 'L' : 'M') + X(i) + ' ' + Y(i); }).join(' ');
+    svg.appendChild(el('path', { d: d, fill: 'none', stroke: 'var(--tb-dia-bg)', 'stroke-width': 'var(--tb-dia-line-w)', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-opacity': 1, transform: '', style: 'stroke-width:calc(var(--tb-dia-line-w) + 5px)' }));
+  });
+});
+LINES.forEach(function (L) {
+  L.paths.forEach(function (p) {
+    var d = p.map(function (i, k) { return (k ? 'L' : 'M') + X(i) + ' ' + Y(i); }).join(' ');
+    svg.appendChild(el('path', { d: d, fill: 'none', stroke: L.color, 'stroke-width': 'var(--tb-dia-line-w)', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+  });
+});
+
+// Nodes + labels. Regular station a small ink dot; interchange an open ring;
+// hub a double ring. Labels radiate PERPENDICULAR to the local line direction
+// (the Beck rule), on the side away from the map centre, which is most of how a
+// diagram this dense stays readable.
+var adj = ST.map(function () { return []; });
+LINES.forEach(function (L) { L.paths.forEach(function (p) {
+  for (var k = 0; k < p.length; k++) { if (k > 0) adj[p[k]].push(p[k - 1]); if (k < p.length - 1) adj[p[k]].push(p[k + 1]); }
+}); });
+function norm(v) { var m = Math.hypot(v[0], v[1]) || 1; return [v[0] / m, v[1] / m]; }
+var cxg = (minX + maxX) / 2, cyg = (minY + maxY) / 2;
+
+var labels = el('g', {});
+var nodes = el('g', {});
+ST.forEach(function (s, i) {
+  var x = X(i), y = Y(i), term = TERMINI[i];
+  if (HUB[i]) {
+    nodes.appendChild(el('circle', { cx: x, cy: y, r: 10, fill: 'var(--tb-dia-bg)', stroke: 'var(--tb-dia-tick)', 'stroke-width': 'var(--tb-dia-tick-w)' }));
+    nodes.appendChild(el('circle', { cx: x, cy: y, r: 4.5, fill: 'var(--tb-dia-tick)' }));
+  } else if (INTERCHANGE[i]) {
+    nodes.appendChild(el('circle', { cx: x, cy: y, r: 7.5, fill: 'var(--tb-dia-bg)', stroke: 'var(--tb-dia-tick)', 'stroke-width': 'var(--tb-dia-tick-w)' }));
+  } else {
+    nodes.appendChild(el('circle', { cx: x, cy: y, r: term ? 5.2 : 4, fill: 'var(--tb-dia-bg)', stroke: 'var(--tb-dia-tick)', 'stroke-width': 'var(--tb-dia-tick-w)' }));
+  }
+  // Local line direction, then its perpendicular, flipped to point outward.
+  var ns = adj[i], lineDir;
+  if (ns.length >= 2) lineDir = [ST[ns[1]][1] - ST[ns[0]][1], ST[ns[1]][2] - ST[ns[0]][2]];
+  else if (ns.length === 1) lineDir = [ST[ns[0]][1] - s[1], ST[ns[0]][2] - s[2]];
+  else lineDir = [1, 0];
+  lineDir = norm(lineDir);
+  var perp = [-lineDir[1], lineDir[0]];
+  var outward = [s[1] - cxg, s[2] - cyg];
+  if (perp[0] * outward[0] + perp[1] * outward[1] < 0) perp = [-perp[0], -perp[1]];
+  var off = 12;
+  var lx = x + perp[0] * off, ly = y + perp[1] * off;
+  var anchor = perp[0] > 0.35 ? 'start' : perp[0] < -0.35 ? 'end' : 'middle';
+  var dy = perp[1] > 0.35 ? 8 : perp[1] < -0.35 ? -2 : 3;
+  labels.appendChild(el('text', {
+    x: lx.toFixed(1), y: (ly + dy).toFixed(1), 'text-anchor': anchor,
+    class: 'tb-dia__label' + (term || HUB[i] ? ' tb-dia__label--term' : '')
+  }, s[0]));
+});
+svg.appendChild(labels);
+svg.appendChild(nodes);
+
+// Theme toggle, the pass-02 no-animate flip.
+var root = document.documentElement;
+document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    root.classList.add('theme-switching');
+    root.setAttribute('data-theme', b.getAttribute('data-theme-set'));
+    document.querySelectorAll('[data-theme-set]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+    requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.remove('theme-switching'); }); });
+  });
+});
+</script>
+</body>
+</html>
