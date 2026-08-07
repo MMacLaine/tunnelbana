@@ -2091,13 +2091,23 @@ export function foundLine(g, li, i) {
 function execMove(g, t, toLi) {
   t.line = toLi;
   t.at = 0;
+  // An order means "bring me a WORKING train": a mothballed one wakes on
+  // arrival. Mothball-then-move is the natural way a player frees a train up
+  // (live itch report, 2026-08-07: "I mothballed one and press the + next to
+  // another line but that did not do anything"), so it has to just work.
+  t.mothballed = false;
   t.readyAt = g.clock + BAL.turnaroundS;
   g.trainMoves = (g.trainMoves || 0) + 1;   // the Omdisponering aim reads this
   g.events.push({ type: 'trainmove', geo: g.lines[toLi].stations[0].geo, name: g.lines[toLi].name });
 }
 
+// A movable train: active and idle first, else a mothballed one (parked by
+// definition). spareTrains counts mothballed trains, so a transfer must be
+// able to take them or an order could queue against a line whose only spare
+// is mothballed and wait forever.
 function idleOn(g, li) {
-  return g.trains.find((t) => t.line === li && !t.run && !t.mothballed);
+  return g.trains.find((t) => t.line === li && !t.run && !t.mothballed) ||
+    g.trains.find((t) => t.line === li && !t.run && t.mothballed);
 }
 
 // Trains a line can still promise away: what it has minus what is already
@@ -2236,7 +2246,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.9.0';
+export const VERSION = '0.9.1';
 
 export function serialize(g) {
   return JSON.stringify({

@@ -167,6 +167,33 @@ export const WATER = [
     label: 'Bällstaviken',
     ring: [[59.3560, 17.9760], [59.3560, 17.9830], [59.3490, 17.9830], [59.3490, 17.9760]],
   },
+  // The 2026-08-07 sweep (live itch report: "it tells me you cannot build in
+  // water (yet) but when I let go of the mouse IT DID build it"): six visible
+  // waters in the play area had no authored band, so the refusal label
+  // flickered across the gaps and a release in one built a floating station.
+  // Bands stay crude on purpose; the smoke suite now asserts no anchor ever
+  // sits inside one, which is the constraint that actually matters.
+  { // Årstaviken, south of Södermalm (west end at Liljeholmsbron)
+    label: 'Årstaviken',
+    ring: [[59.3095, 18.0100], [59.3095, 18.0560], [59.3040, 18.0560], [59.3040, 18.0100]],
+  },
+  { // Ulvsundasjön, north of Tranebergssund up to Bällstaviken
+    label: 'Ulvsundasjön',
+    ring: [[59.3490, 17.9760], [59.3490, 18.0000], [59.3360, 18.0000], [59.3360, 17.9760]],
+  },
+  { // Lilla Värtan, the open water east of Ropsten
+    label: 'Lilla Värtan',
+    ring: [[59.3700, 18.1060], [59.3700, 18.1500], [59.3400, 18.1500], [59.3400, 18.1060]],
+  },
+  { // Brunnsviken, between Haga and Norra Djurgården
+    label: 'Brunnsviken',
+    ring: [[59.3750, 18.0300], [59.3750, 18.0480], [59.3530, 18.0480], [59.3530, 18.0300]],
+  },
+  { // Karlbergssjön / Barnhusviken, north of Kungsholmen (S:t Eriksplan and
+    // Stadshagen both sit on its shores: the band is cut to miss them)
+    label: 'Karlbergssjön',
+    ring: [[59.3420, 18.0100], [59.3420, 18.0310], [59.3385, 18.0310], [59.3385, 18.0100]],
+  },
 ];
 
 // (The old standalone TEASE moved into CORRIDORS: teases are per corridor now.)
