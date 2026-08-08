@@ -67,6 +67,22 @@ unzip butler.zip && install -m 755 butler 7z.so libc7zip.dylib /opt/homebrew/bin
 
 `butler login` needs a real terminal (not the in-session `!` shell).
 
+## The two data streams (do not conflate)
+
+Both live in the site repo's `FEEDBACK` KV namespace, but they are different
+in kind and each reader labels itself with a `kind` field:
+
+- **Feedback** (`fb:` prefix, `/api/feedback?key=…`) is WORDS: a player typed
+  a note and chose to send it, with a game-context line. Read every one;
+  answer where there is somewhere to answer (itch comments).
+- **Telemetry** (`tm:` prefix, `/api/pulse?key=…`, added 0.12.0) is NUMBERS
+  the game sends by itself: start / era / ending milestones with seconds
+  played, version, surface, country. Nobody wrote it and no one is
+  identified. Read it as distributions (`eraMedianMin` is the headline
+  number, checked against probe-arc's predictions), never as individuals.
+
+A pulse can never contain player text; a feedback note is never pacing data.
+
 ## incrementaldb.com
 
 They poll `https://www.maclaine.se/tunnelbana/updates.json` daily around
