@@ -836,6 +836,79 @@ function setCouncilOpen(on) {
 $('council-toggle').addEventListener('click', () => setCouncilOpen(!councilOpen));
 $('council-close').addEventListener('click', () => setCouncilOpen(false));
 
+// --- Floating overlays (owner ask, 2026-08-08): the big overlays drag by
+// their head and resize from the corner, and remember where you put them.
+// Double click the head to snap back to centre. Geometry is stored per
+// overlay, clamped on load so an old position can never strand a panel
+// off screen after a window change. ---
+function makeFloating(id, onResize) {
+  const el = $(id);
+  const head = el.querySelector('.tb-panel__head');
+  const KEY = 'tunnelbana_float_' + id;
+  el.style.resize = 'both';
+  el.style.overflow = 'auto';
+  head.style.cursor = 'grab';
+  const unpin = () => { el.style.transform = 'none'; };
+  const save = () => {
+    const r = el.getBoundingClientRect();
+    store.set(KEY, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }));
+  };
+  const restore = () => {
+    let s = null;
+    try { s = JSON.parse(store.get(KEY)); } catch {}
+    if (!s || !Number.isFinite(s.x)) return;
+    unpin();
+    el.style.left = Math.max(0, Math.min(window.innerWidth - 120, s.x)) + 'px';
+    el.style.top = Math.max(0, Math.min(window.innerHeight - 60, s.y)) + 'px';
+    if (Number.isFinite(s.w)) el.style.width = Math.min(window.innerWidth, s.w) + 'px';
+    if (Number.isFinite(s.h)) el.style.height = Math.min(window.innerHeight, s.h) + 'px';
+  };
+  restore();
+  let grab = null;
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.tb-panel__close')) return; // the close button is a click, not a handle
+    const r = el.getBoundingClientRect();
+    unpin();
+    el.style.left = r.left + 'px';
+    el.style.top = r.top + 'px';
+    grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    head.setPointerCapture(e.pointerId);
+    head.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  head.addEventListener('pointermove', (e) => {
+    if (!grab) return;
+    el.style.left = Math.max(0, Math.min(window.innerWidth - 120, e.clientX - grab.dx)) + 'px';
+    el.style.top = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - grab.dy)) + 'px';
+  });
+  head.addEventListener('pointerup', () => {
+    if (!grab) return;
+    grab = null;
+    head.style.cursor = 'grab';
+    save();
+  });
+  head.addEventListener('dblclick', () => {
+    store.del(KEY);
+    el.style.left = '';
+    el.style.top = '';
+    el.style.width = '';
+    el.style.height = '';
+    el.style.transform = '';
+  });
+  // The corner resize has no end event of its own: observe and save.
+  if (window.ResizeObserver) {
+    let first = true;
+    new ResizeObserver(() => {
+      if (first) { first = false; return; } // the observer fires once on attach
+      if (el.hidden) return;
+      save();
+      if (onResize) onResize();
+    }).observe(el);
+  }
+}
+makeFloating('stats-overlay');
+makeFloating('council-overlay', () => drawCouncilWires()); // wires follow the cards
+
 // One glyph per category in the pass-01 grammar, plus the taken check.
 const COUNCIL_GLYPHS = {
   growth: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><path d="M8.5 12h7"></path></svg>',
