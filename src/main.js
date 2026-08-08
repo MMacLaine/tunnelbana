@@ -2540,9 +2540,10 @@ function updateUI() {
   $('stats-toggle').textContent = STR.statsToggle;
   $('council-toggle').hidden = !sim.councilOpen(g);
   $('council-toggle').textContent = STR.councilToggle;
-  // The opening coach's second beat: line extended, nothing has moved yet,
-  // so the bell wears the soft gold pulse until the first departure.
-  $('bell').classList.toggle('tb-goldcue', !g.opened && g.lines[0].stations.length > 3);
+  // The opening coach's FIRST beat (order follows the money): the bell
+  // pulses from boot until the first departure, because fares fund the
+  // first build, not the other way around.
+  $('bell').classList.toggle('tb-goldcue', !g.opened);
   const idleN = sim.idleTrains(g).length;
   // The depot bar: stabled (idle plus mothballed) in green against out
   // running, pass 04's anatomy, only once the hall exists.

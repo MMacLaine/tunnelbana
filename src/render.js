@@ -487,10 +487,12 @@ function drawAnchors(g) {
 
 // The first two minutes, hand held (live report + telemetry 2026-08-09:
 // nearly half of starts never finished the 1950 line, and the owner himself
-// had to hunt for the stake). True only in the untouched opening position;
-// one extension ends it forever.
+// had to hunt for the stake). The order FOLLOWS THE MONEY (owner catch,
+// same night): 900 kr in hand cannot pay a 1785 kr build, so beat one is
+// the bell and this, beat two, speaks only once fares are flowing. True
+// only in the untouched opening position; one extension ends it forever.
 export function coachBuild(g) {
-  return g.lines.length === 1 && g.lines[0].stations.length === 3 && !g.opened;
+  return g.opened && g.lines.length === 1 && g.lines[0].stations.length === 3;
 }
 
 function drawEndHandles(g) {
