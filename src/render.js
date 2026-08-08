@@ -196,6 +196,33 @@ export function nearEnd(g, p) {
   return best;
 }
 
+// --- Insert-station affordance (v12, pass 04 section e): a ghost node on a
+// segment midpoint, main.js decides legality and sets the hover. ---
+let insertHover = null; // { geo, label, ok } | null
+
+export function setInsertHover(h) {
+  insertHover = h;
+}
+
+// Nearest segment midpoint on any line, or null. A segment too short on
+// screen offers nothing: the ghost never crowds the nodes it sits between.
+export function nearInsert(g, p) {
+  const r = grabRadius();
+  let best = null, bestD = r;
+  for (let li = 0; li < g.lines.length; li++) {
+    const sts = g.lines[li].stations;
+    for (let seg = 0; seg < sts.length - 1; seg++) {
+      const a = project(sts[seg].geo);
+      const b = project(sts[seg + 1].geo);
+      const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (Math.hypot(m.x - a.x, m.y - a.y) < r * 1.6) continue;
+      const d = Math.hypot(p.x - m.x, p.y - m.y);
+      if (d < bestD) { best = { li, seg }; bestD = d; }
+    }
+  }
+  return best;
+}
+
 // Nearest built station on any line, for selection.
 export function nearStation(g, p) {
   const r = grabRadius();
@@ -882,5 +909,36 @@ export function draw(g) {
   drawIncident(g);
   drawTrains(g);
   drawGold(g);
+  drawInsert();
   drawFloats(dt);
+}
+
+// The ghost node per the pass-04 mock: a bg-filled amber ring with a plus,
+// a slow 2s pulse on an outer ring, the cost where the decision is.
+function drawInsert() {
+  if (!insertHover) return;
+  const m = project(insertHover.geo);
+  const col = insertHover.ok ? COL.amber : COL.red;
+  const pulse = 0.5 + 0.5 * Math.sin(clockT * Math.PI);
+  ctx.strokeStyle = col;
+  ctx.globalAlpha = 0.55 + 0.45 * pulse;
+  ctx.beginPath();
+  ctx.arc(m.x, m.y, 11 + pulse * 2, 0, Math.PI * 2);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(m.x, m.y, 5, 0, Math.PI * 2);
+  ctx.fillStyle = COL.bg;
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(m.x, m.y - 2.5);
+  ctx.lineTo(m.x, m.y + 2.5);
+  ctx.moveTo(m.x - 2.5, m.y);
+  ctx.lineTo(m.x + 2.5, m.y);
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+  if (insertHover.label) label(insertHover.label, m.x + 15, m.y + 13, col, 11, { weight: 600 });
 }

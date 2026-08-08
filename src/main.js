@@ -258,6 +258,7 @@ const STR = {
   slotRiders: 'riders carried',
   pulseOn: 'On',
   pulseOff: 'Off',
+  insertLabel: 'Add a stop here',
 };
 
 // itch serves the game from a sandboxed cross-origin iframe, where Safari and
@@ -584,6 +585,7 @@ function settingsView(on) {
 }
 function showMenu(mode) {
   paused = true;
+  render.setInsertHover(null); // no ghost under the veil
   menu.hidden = false;
   $('menu-stats').hidden = !g.owned.stats; // the office opens once it is bought
   settingsView(false);
@@ -1225,6 +1227,19 @@ wrap.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     return;
   }
+  // The midpoint ghost (v12): a click on it splices a stop into the segment.
+  const ins = insertSpot(p);
+  if (ins) {
+    if (ins.ok && sim.insertStation(g, ins.li, ins.seg)) {
+      updateUI();
+    } else {
+      render.addFloatGeo(ins.geo, ins.label);
+    }
+    render.setInsertHover(null);
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
   selectStation(null); // clicking empty map clears the panel (pan still works)
   // Click on a dashed anchor ring: extend from the nearest legal line end.
   const a = render.nearAnchor(g, p, null);
@@ -1253,11 +1268,33 @@ wrap.addEventListener('pointermove', (e) => {
   const p = canvasPos(e);
   if (dragRef) {
     render.setDrag(dragState(p));
+    render.setInsertHover(null);
   } else if (!paused) {
+    const ins = insertSpot(p);
+    render.setInsertHover(ins);
     wrap.style.cursor =
-      render.nearEnd(g, p) || render.nearAnchor(g, p, null) !== null ? 'pointer' : '';
+      render.nearEnd(g, p) || ins || render.nearAnchor(g, p, null) !== null ? 'pointer' : '';
+  } else {
+    render.setInsertHover(null);
   }
 });
+
+// Where the ghost may stand: shown when the splice is legal or merely
+// unaffordable (the pass-02 rule: unaffordable stays legible, the shortfall
+// named), silent when the ground itself refuses. Stations and line ends
+// outrank it, so the ghost never fights an existing click.
+function insertSpot(p) {
+  if (render.nearEnd(g, p) || render.nearStation(g, p) || render.nearGold(g, p)) return null;
+  const m = render.nearInsert(g, p);
+  if (!m) return null;
+  const problem = sim.insertProblem(g, m.li, m.seg);
+  if (problem && problem !== 'money') return null;
+  const cost = sim.insertCost(g, m.li);
+  return {
+    li: m.li, seg: m.seg, geo: sim.insertMidGeo(g, m.li, m.seg), ok: !problem,
+    label: (problem === 'money' ? STR.problems.money + ' ' : STR.insertLabel + ' · ') + fmt(cost) + ' kr',
+  };
+}
 
 function endDrag(e) {
   if (!dragRef) return;
