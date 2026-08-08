@@ -181,6 +181,27 @@ async function main() {
              ' statsRecords=' + statsRows + ' overlay=' + statsOverlay +
              ' toggle=' + statsAgain + ' diagram=' + diaSvg;
     })()`));
+    // Save slots (v12): the round trip is the test. Park the rich slot-1 game,
+    // start fresh in empty slot 2, come back, and the money must still be there.
+    console.log('save slots:', await evaluate(ws, `(async () => {
+      const t = window.__tb;
+      document.getElementById('menu-open').click();
+      document.getElementById('menu-slots').click();
+      const rows = document.querySelectorAll('#slot-list [data-slot]').length;
+      const current = document.querySelector('#slot-list [aria-current]')?.dataset.slot;
+      const richMoney = t.g.money;
+      document.querySelector('#slot-list [data-slot="2"]').click();
+      await new Promise((r) => setTimeout(r, 200));
+      const freshMoney = t.g.money;
+      const ptr = localStorage.getItem('tunnelbana_slot');
+      document.getElementById('menu-slots').click();
+      document.querySelector('#slot-list [data-slot="1"]').click();
+      await new Promise((r) => setTimeout(r, 200));
+      return 'rows=' + rows + ' current=' + current +
+             ' freshIsFresh=' + (freshMoney < richMoney) + ' ptrAfterSwitch=' + ptr +
+             ' moneyBack=' + (t.g.money === richMoney) +
+             ' ptrBack=' + localStorage.getItem('tunnelbana_slot');
+    })()`));
   } finally {
     chrome.kill();
     server.kill();
