@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.11.4",
+      "title": "The changelog, in the game",
+      "content": "- The version number on the menu is now a button. Clicking it opens the full changelog, every release newest first.\n- The notes are the same ones the update feed carries: written once, read everywhere."
+    },
+    {
       "version": "0.11.3",
       "title": "The save system, properly",
       "content": "- Saves are now written in a checksummed container, so damage is detected instead of silently starting you over. Every older save keeps loading.\n- Export now downloads a .tbsave file (and still copies to the clipboard). Import accepts a file or pasted text.\n- Backups now go three generations deep; Restore uses the newest one that reads.\n- The game asks the browser for persistent storage, and Settings shows whether it was granted. On Safari, the .tbsave export is the reliable backup."
