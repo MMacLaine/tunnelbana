@@ -3386,7 +3386,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.12.1';
+export const VERSION = '0.12.2';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
@@ -3590,7 +3590,10 @@ export function hydrate(raw) {
       ? Math.min(capMax * st.mult, Math.max(0, saved))
       : BAL.seedWaiting * st.mult * fallbackHalf;
   };
-  const okLine = (st) => Array.isArray(st) && st.length >= 2 && st.every(validStation);
+  // >= 1, not >= 2: a freshly FOUNDED line holds a single station until its
+  // first extension, and a save written in that window is a real save (live
+  // report 2026-08-08: one just-founded line retired a 29-station city).
+  const okLine = (st) => Array.isArray(st) && st.length >= 1 && st.every(validStation);
 
   if (s.saveVersion >= 6 && Array.isArray(s.lines) && s.lines.length >= 1 &&
       s.lines.every((L) => L && okLine(L.stations)) &&

@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.2",
+      "title": "A founded line could retire your save",
+      "content": "A serious save bug, found live and fixed within the hour.\n\n- If you founded a new line from a Hub and the game saved before you extended it, loading that save was refused and the game started fresh. The save itself was never touched or lost. Loading now accepts a one station line, because a just founded line is exactly that.\n- If a save truly cannot be read, the Saves screen now says so out loud when you click it. Before this it said nothing at all.\n- If this happened to you, your city is still there. Refresh and continue."
+    },
+    {
       "version": "0.12.1",
       "title": "Save slot fixes",
       "content": "Fixes from a live report within the hour of 0.12.0 going out.\n\n- Clicking a save now takes you straight into that network instead of bouncing back to the menu.\n- Starting a new network in an empty slot now asks you to click again first, so exploring the menu can never quietly move you off your city.\n- The Saves button now names the slot you are playing whenever more than one is in use.\n- If a save cannot be read, the Saves screen now says so instead of doing nothing."
