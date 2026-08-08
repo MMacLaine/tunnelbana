@@ -511,6 +511,25 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.hydrate(sim.serialize(co)).council['not-a-decision']) err('unknown decisions must not hydrate');
 }
 
+// --- A save written between founding a line and extending it (v12 live
+// loss): the one-station line is REAL, and it must never retire the city. ---
+{
+  const fl = sim.newGame();
+  fl.money = 1e9; fl.pk = 1e6; fl.era = 3;
+  for (let k = 3; k < 10; k++) sim.extendTo(fl, 0, 'tail', ANCHORS[k].geo, k);
+  if (!sim.canFoundLine(fl, 0, 0)) err('T-Centralen should found a line with funds in hand');
+  if (!sim.foundLine(fl, 0, 0)) err('founding should succeed');
+  if (fl.lines[fl.lines.length - 1].stations.length !== 1) err('a founded line starts with its hub alone');
+  const backFl = sim.hydrate(sim.serialize(fl));
+  if (backFl.hydrateFallback) err('a save with a just-founded line must load, not retire');
+  if (backFl.lines.length !== fl.lines.length) err('the founded line must survive the save');
+  if (backFl.lines[backFl.lines.length - 1].stations.length !== 1) err('its single station must survive too');
+  // And the loaded game must still run and extend that line.
+  sim.extendTo(backFl, backFl.lines.length - 1, 'tail', ANCHORS[10].geo, 10);
+  for (let t = 0; t < 60; t += 0.1) { sim.tick(backFl, 0.1); backFl.events.length = 0; }
+  if (!Number.isFinite(backFl.money)) err('the revived game went non-finite');
+}
+
 // --- Curiosities (0.10): found once, counted, achievement-checked, saved. ---
 {
   const eg = sim.newGame(); // T-Centralen and Gamla stan exist: norrstrom is live

@@ -727,10 +727,11 @@ function switchSlot(s) {
     return;
   }
   if (raw && h.hydrateFallback) {
-    // Damaged bytes stay untouched, and the refusal SAYS SO (the silent
-    // return here was half of the live report above).
-    $('slots-sub').textContent = STR.slotBadMeta;
+    // Damaged bytes stay untouched, and the refusal SAYS SO. Message AFTER
+    // the re-render: renderSlots resets the subtitle, so the first cut of
+    // this set the text and then wiped it one line later (live report).
     renderSlots();
+    $('slots-sub').textContent = STR.slotBadMeta;
     return;
   }
   activeSlot = s;
