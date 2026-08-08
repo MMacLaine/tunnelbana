@@ -9,6 +9,14 @@ import { diagramSVG, diagramTrains, diagramSig } from './diagram.js';
 // make the interface lie.
 const B = sim.BAL;
 const CAT = Object.fromEntries(sim.CATALOG.map((u) => [u.id, u]));
+
+// Which shop project CHARTERS each planned corridor: the bridge between "the
+// era wants Röda linjen" and the card that actually starts it.
+const PROJECT_OF_CORRIDOR = {
+  'green-west': 'westline',
+  'red-south': 'redline', 'red-orn': 'redline', 'red-ost': 'redline',
+  'blue-main': 'blueline', 'blue-akalla': 'blueline',
+};
 const pct = (x) => Math.round(Math.abs(1 - x) * 100);
 const FEEDBACK_TO_LABEL = 'matthew@maclaine.se';
 const STR = {
@@ -62,6 +70,8 @@ const STR = {
     drivers: 'Hire drivers: trains dispatch themselves, and the line earns while you build.',
     plan: 'Extend to',        // + the stake's name + corridor progress
     repair: 'Rebuild',        // a demolished plan stop blocks the era
+    charter: 'Charter',       // + the project's name, when the corridor has no line yet
+    charterWhere: 'its project card waits in the shop under Projects',
     eraReady: 'The city is ready. Advance the era in the top-right panel.',
     trust: 'trust grows with coverage, so serve more of the city',
     riders: 'carry riders: longer lines, more trains',
@@ -1932,6 +1942,15 @@ function aimText() {
   const plan = sim.planBlockers(g);
   if (plan.length) {
     const b = plan[0];
+    // A corridor with NO CHARTERED LINE has no stakes to point at, so the
+    // aim must name the ACTION, not the geography (live report 2026-08-09:
+    // "wants me to build the redline without telling me where the nodes
+    // are" — the nodes did not exist yet; the shop card did).
+    const proj = PROJECT_OF_CORRIDOR[b.id];
+    if (proj && !g.owned[proj]) {
+      return STR.aims.charter + ' ' + STR.shop[proj].name + ' · ' + STR.aims.charterWhere +
+        ' · ' + b.name + ' ' + b.built + '/' + b.total;
+    }
     const c = CORRIDORS.find((x) => x.id === b.id);
     const k = c ? sim.nextStakeOf(g, c) : null;
     if (k !== null) {
@@ -2316,6 +2335,13 @@ function pipsHTML(owned, max) {
 
 function updateShop() {
   const nextEra = sim.nextEra(g);
+  // The charter that unblocks the era plan wears the coach's pulse once
+  // trust can pay it (same grammar as the second-train beat).
+  const charterNeeded = new Set();
+  for (const b of sim.planBlockers(g)) {
+    const p = PROJECT_OF_CORRIDOR[b.id];
+    if (p && !g.owned[p]) charterNeeded.add(p);
+  }
   for (const item of sim.CATALOG) {
     const card = cards[item.id];
     const owned = g.owned[item.id];
@@ -2366,6 +2392,9 @@ function updateShop() {
     if (item.id === 'train') {
       card.classList.toggle('tb-goldcue',
         g.opened && g.era === 0 && !g.owned.train && affordable);
+    }
+    if (item.kind === 'project') {
+      card.classList.toggle('tb-goldcue', charterNeeded.has(item.id) && affordable);
     }
 
     card.querySelector('.tb-shop__cost').textContent =
