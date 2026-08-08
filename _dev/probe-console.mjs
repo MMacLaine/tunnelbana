@@ -133,6 +133,17 @@ async function main() {
       const k = document.getElementById('icon-key');
       return k ? k.childElementCount + ' rows' : 'MISSING';
     })()`));
+    // The changelog behind the version number (0.11.4): entries must render
+    // from the same updates.json the feed serves.
+    console.log('changelog:', await evaluate(ws, `(async () => {
+      document.getElementById('help-back').click();
+      document.getElementById('version-btn').click();
+      await new Promise((r) => setTimeout(r, 900));
+      const n = document.getElementById('log-list').childElementCount;
+      const state = document.getElementById('log-view').hidden ? 'HIDDEN' : 'shown';
+      document.getElementById('log-back').click();
+      return state + ', ' + n + ' entries';
+    })()`));
     // 0.10's purchased surfaces render only once owned, so no click-through
     // reaches them by default and an exception there would ship silently
     // (which is exactly how the empty station panel once shipped). Own

@@ -241,6 +241,7 @@ const STR = {
   restoreBad: 'Backup not readable',
   importFileBtn: 'Import from file',
   saveCorruptNote: 'Your saved game was damaged (the checksum does not match), so it has been left untouched and autosave is off. Try Restore backup in Settings, or import a .tbsave file.',
+  logOffline: 'The changelog could not be loaded right now.',
   saveLockedNote: 'Your saved game could not be read just now, so it has been left untouched and autosave is off. Try Restore backup in Settings, or refresh; starting fresh or importing turns saving back on.',
   owned: 'Owned',
   level: 'Level',
@@ -530,7 +531,9 @@ function menuView(which) {
   $('about-view').hidden = which !== 'about';
   $('help-view').hidden = which !== 'help';
   $('ach-view').hidden = which !== 'ach';
+  $('log-view').hidden = which !== 'log';
   if (which === 'ach') renderAchievements();
+  if (which === 'log') renderLog();
   if (which === 'help') renderIconKey();
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
@@ -569,6 +572,49 @@ $('menu-about').addEventListener('click', () => menuView('about'));
 $('about-back').addEventListener('click', () => menuView('main'));
 $('menu-help').addEventListener('click', () => menuView('help'));
 $('menu-ach').addEventListener('click', () => menuView('ach'));
+$('version-btn').addEventListener('click', () => menuView('log'));
+$('log-back').addEventListener('click', () => menuView('main'));
+
+// --- The changelog (0.11.4): the SAME updates.json the incrementaldb feed
+// reads, fetched lazily and rendered with a deliberately tiny subset of
+// Markdown (paragraphs, dashes, bold), because the notes only use that. ---
+let logLoaded = false;
+function mdLite(text) {
+  const escd = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const inline = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  return escd.split('\n\n').map((block) => {
+    let out = '';
+    let list = [];
+    const flush = () => {
+      if (list.length) out += '<ul>' + list.map((l) => '<li>' + inline(l) + '</li>').join('') + '</ul>';
+      list = [];
+    };
+    for (const line of block.split('\n')) {
+      if (line.startsWith('- ')) list.push(line.slice(2));
+      else { flush(); if (line.trim()) out += '<p>' + inline(line) + '</p>'; }
+    }
+    flush();
+    return out;
+  }).join('');
+}
+function renderLog() {
+  if (logLoaded) return;
+  $('log-list').textContent = '…';
+  fetch('updates.json?v=' + sim.VERSION)
+    .then((r) => r.json())
+    .then((feed) => {
+      logLoaded = true;
+      $('log-list').innerHTML = feed.updates.map((u) =>
+        '<div class="tb-log__entry"><div class="tb-log__head">' +
+        '<span class="tb-log__v">v' + u.version + '</span>' +
+        '<span class="tb-log__title">' + mdLite(u.title).replace(/<\/?p>/g, '') + '</span>' +
+        '</div>' + mdLite(u.content) + '</div>'
+      ).join('');
+    })
+    .catch(() => {
+      $('log-list').textContent = STR.logOffline;
+    });
+}
 // The statistics office lives on the MAP now (0.11.1): the menu button and
 // the corner toggle open the same overlay, and the game runs beneath it.
 let statsOpen = false;
@@ -834,7 +880,7 @@ window.addEventListener('keydown', (e) => {
     if (statsOpen) { setStatsOpen(false); return; }
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
-             !$('ach-view').hidden) menuView('main');
+             !$('ach-view').hidden || !$('log-view').hidden) menuView('main');
     else closeMenu();
   }
 });
