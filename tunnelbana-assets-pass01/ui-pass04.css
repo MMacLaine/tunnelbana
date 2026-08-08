@@ -1,0 +1,156 @@
+/* Tunnelbana UI · pass 04 component layer.
+   Extends ui.css (pass 02) and ui-pass03.css. Load order:
+   tokens.css → tokens-ui.css → ui.css → ui-pass03.css → ui-pass04.css.
+   Same rules: resolves only to token names, states are CSS, SVG single-colour
+   on currentColor in the pass-01 grammar. Pass 04 designs the surfaces where
+   the player and the city NEGOTIATE: the council, visible growth, the golden
+   train, the depot, and the small pieces.
+
+   Voice rule (2026-08-08): player-facing prose uses no colons, semicolons, or
+   dashes. All representative copy in the mockup obeys it.
+
+   New tokens live at the top here; fold into tokens-ui.css when convenient. */
+
+:root {
+  /* Growth: warm window light accumulating inside a lit circle. A single warm
+     hue, stepped by density, deliberately WARMER than anything on the night map
+     so "lived-in" reads at a glance without competing with lines or labels. */
+  --tb-glow-1: #3a2f1e;   /* just-served, a few windows */
+  --tb-glow-2: #6b4f24;   /* filling in */
+  --tb-glow-3: #a9772e;   /* busy district */
+  --tb-glow-4: #e8b64e;   /* at the growth cap, fully alight */
+  --tb-glow-core: rgba(232, 182, 78, 0.16);  /* the soft wash under a dense cluster */
+
+  --tb-gold: #e8b64e;         /* the golden train body */
+  --tb-gold-deep: #b8862c;    /* its shading / underside */
+  --tb-gold-glow: rgba(232, 182, 78, 0.5);
+  --tb-silver: #c8d2dc;       /* Silverpilen, for contrast reference only */
+
+  /* Council: trust's politic purple is the surface accent. */
+  --tb-council-line: var(--tb-line-hi);       /* prerequisite connectors, rest */
+  --tb-council-line-on: var(--tb-politic);    /* a satisfied prerequisite path */
+}
+
+:root[data-theme="light"] {
+  --tb-glow-1: #efe4cf;
+  --tb-glow-2: #e6c88a;
+  --tb-glow-3: #d9a63f;
+  --tb-glow-4: #b8862c;
+  --tb-glow-core: rgba(184, 134, 44, 0.18);
+}
+
+/* ============================================================================
+   a · THE COUNCIL
+   A decision tree, not a shop. Cards buy DECISIONS with trust (sometimes plus
+   money). The recommendation is an OVERLAY (like statistics), so .tb-council is
+   a scroll surface, not a full-bleed moment; the page frames it that way.
+   ========================================================================== */
+.tb-council { position: relative; display: grid; gap: 1rem 1.4rem;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); align-items: start; }
+.tb-council__col { display: flex; flex-direction: column; gap: 1rem; }
+.tb-council__tier { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; color: var(--tb-ghost); padding-bottom: .5rem; border-bottom: var(--tb-border) solid var(--tb-line); }
+
+/* A decision. Politic keyline is the family mark; state changes the fill/mark. */
+.tb-dec { position: relative; display: flex; flex-direction: column; gap: .45rem;
+  border: var(--tb-border) solid var(--tb-politic); border-radius: var(--tb-radius-panel);
+  background: var(--tb-panel-t); -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
+  padding: .7rem .75rem; cursor: pointer; text-align: left;
+  transition: border-color var(--tb-motion), background var(--tb-motion); }
+.tb-dec:hover { background: var(--tb-hover-politic); }
+.tb-dec:focus-visible { outline: none; box-shadow: var(--tb-focus); }
+.tb-dec__head { display: flex; align-items: flex-start; gap: .55rem; }
+.tb-dec__glyph { width: 30px; height: 30px; flex: none; border-radius: var(--tb-radius-pill);
+  border: var(--tb-border) solid var(--tb-politic); color: var(--tb-politic);
+  display: grid; place-items: center; }
+.tb-dec__glyph svg { width: 17px; height: 17px; }
+.tb-dec__name { font: var(--tb-weight-semi) var(--tb-fs-title)/1.2 var(--tb-mono); color: var(--tb-ink); flex: 1; }
+.tb-dec__cost { display: flex; align-items: center; gap: .3rem; font: var(--tb-weight-semi) var(--tb-fs-title)/1 var(--tb-mono);
+  color: var(--tb-politic); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tb-dec__cost .tb-num__unit { color: var(--tb-politic); }
+.tb-dec__desc { font: 400 var(--tb-fs-body)/1.5 var(--tb-mono); color: var(--tb-muted); }
+.tb-dec__foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-ghost); margin-top: .1rem; }
+/* an ongoing effect a taken decision keeps paying */
+.tb-dec__effect { display: inline-flex; align-items: center; gap: .4rem; font: 400 var(--tb-fs-caption)/1.3 var(--tb-mono);
+  color: var(--tb-politic); border-top: var(--tb-border) solid var(--tb-line); padding-top: .45rem; margin-top: .1rem; }
+.tb-dec__effect::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tb-politic); flex: none; }
+
+/* State: available (default above). */
+/* State: unaffordable — legible, the shortfall named, NOT faded (pass-02 rule). */
+.tb-dec[data-state="unaffordable"] { cursor: default; border-color: var(--tb-line); }
+.tb-dec[data-state="unaffordable"]:hover { background: var(--tb-panel-t); }
+.tb-dec[data-state="unaffordable"] .tb-dec__glyph { border-color: var(--tb-line); color: var(--tb-muted); }
+.tb-dec[data-state="unaffordable"] .tb-dec__cost,
+.tb-dec[data-state="unaffordable"] .tb-dec__cost .tb-num__unit { color: var(--tb-muted); }
+.tb-dec[data-state="unaffordable"] .tb-dec__name { color: var(--tb-muted); }
+/* State: taken — filled politic mark, the card recedes to a record of the choice. */
+.tb-dec[data-state="taken"] { cursor: default; background: var(--tb-hover-politic); }
+.tb-dec[data-state="taken"] .tb-dec__glyph { background: var(--tb-politic); color: var(--tb-void); border-color: var(--tb-politic); }
+.tb-dec[data-state="taken"] .tb-dec__cost { color: var(--tb-ghost); }
+.tb-dec[data-state="taken"] .tb-dec__cost .tb-num__unit { color: var(--tb-ghost); }
+/* State: locked — dashed, needs an earlier choice; the requirement is the point. */
+.tb-dec[data-state="locked"] { cursor: default; border-style: dashed; border-color: var(--tb-line); }
+.tb-dec[data-state="locked"]:hover { background: var(--tb-panel-t); }
+.tb-dec[data-state="locked"] .tb-dec__glyph { border-style: dashed; border-color: var(--tb-line); color: var(--tb-ghost); }
+.tb-dec[data-state="locked"] .tb-dec__name,
+.tb-dec[data-state="locked"] .tb-dec__desc,
+.tb-dec[data-state="locked"] .tb-dec__cost,
+.tb-dec[data-state="locked"] .tb-dec__cost .tb-num__unit { color: var(--tb-ghost); }
+.tb-dec[data-state="locked"] .tb-dec__need { color: var(--tb-politic); }
+
+/* Prerequisite connectors: an SVG layer sits behind the grid; these style it. */
+.tb-council__wires { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.tb-council__wires path { fill: none; stroke: var(--tb-council-line); stroke-width: 2; stroke-dasharray: 3 4; }
+.tb-council__wires path.on { stroke: var(--tb-council-line-on); stroke-dasharray: none; }
+
+/* ============================================================================
+   b · VISIBLE GROWTH  (a renderer treatment; these are the reference swatches
+   and the legend the mockup annotates over a real night-map mock)
+   ========================================================================== */
+.tb-growth-legend { display: flex; flex-direction: column; gap: .5rem; }
+.tb-growth-legend__row { display: flex; align-items: center; gap: .6rem; font: 400 var(--tb-fs-label)/1 var(--tb-mono); color: var(--tb-muted); }
+.tb-growth-legend__sw { width: 26px; height: 14px; border-radius: 2px; flex: none; border: var(--tb-border) solid var(--tb-line); }
+
+/* ============================================================================
+   c · THE GOLDEN TRAIN  (bonus toast extends the pass-03 toast)
+   ========================================================================== */
+.tb-toast--gold { border-color: var(--tb-gold-deep); }
+.tb-toast--gold .tb-toast__rail { background: var(--tb-gold); }
+.tb-toast--gold .tb-toast__who { color: var(--tb-gold); }
+.tb-goldcue { /* the attention cue: a slow, soft pulse, never a hard blink */
+  animation: tb-gold-pulse 2.4s ease-in-out infinite; transform-origin: center; }
+@keyframes tb-gold-pulse { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.12); } }
+
+/* ============================================================================
+   d · THE DEPOT  (a building glyph + a small panel; anatomy from pass 02)
+   ========================================================================== */
+.tb-depot-panel .tb-panel__body { gap: var(--tb-gap-row); }
+.tb-depot-bar { height: 6px; background: var(--tb-line); border-radius: 3px; overflow: hidden; display: flex; }
+.tb-depot-bar > i { height: 100%; }
+.tb-depot-bar > i.stabled { background: var(--tb-green-dim); }
+.tb-depot-bar > i.out { background: var(--tb-line-hi); }
+
+/* ============================================================================
+   e · SMALL PIECES
+   ========================================================================== */
+/* Save-slot row for the menu: three of these, the pass-02 button as the frame. */
+.tb-slot { display: flex; align-items: center; gap: .8rem; width: 100%; text-align: left;
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-panel);
+  background: var(--tb-panel-t); padding: .7rem .85rem; cursor: pointer;
+  transition: border-color var(--tb-motion), background var(--tb-motion); }
+.tb-slot:hover { border-color: var(--tb-green); background: var(--tb-hover-green); }
+.tb-slot:focus-visible { outline: none; box-shadow: var(--tb-focus); }
+.tb-slot__n { font: var(--tb-weight-semi) var(--tb-fs-hero)/1 var(--tb-mono); color: var(--tb-ghost); flex: none; width: 1.4em; text-align: center; }
+.tb-slot__body { flex: 1; display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.tb-slot__name { font: var(--tb-weight-semi) var(--tb-fs-title)/1 var(--tb-mono); color: var(--tb-ink); }
+.tb-slot__meta { font: 400 var(--tb-fs-caption)/1.3 var(--tb-mono); color: var(--tb-muted); }
+.tb-slot__meta b { color: var(--tb-ink); font-weight: 400; font-variant-numeric: tabular-nums; }
+.tb-slot--empty { border-style: dashed; }
+.tb-slot--empty .tb-slot__n { color: var(--tb-line-hi); }
+.tb-slot--empty .tb-slot__name { color: var(--tb-muted); }
+.tb-slot__stamp { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-ghost); flex: none; }
+
+/* Insert-station affordance: a ghost node on a segment midpoint. */
+.tb-insert { color: var(--tb-amber); }
+.tb-insert__ring { animation: tb-gold-pulse 2s ease-in-out infinite; transform-origin: center; }

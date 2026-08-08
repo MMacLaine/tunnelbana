@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tunnelbana · The city answers back, pass 04</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Libre+Caslon+Display&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="tokens-ui.css">
+<link rel="stylesheet" href="ui.css">
+<link rel="stylesheet" href="ui-pass03.css">
+<link rel="stylesheet" href="ui-pass04.css">
+<style>
+* { box-sizing: border-box; }
+html { background: var(--tb-void); }
+body { margin: 0; background: var(--tb-void); color: var(--tb-ink); font: 400 13px/1.5 var(--tb-mono); -webkit-font-smoothing: antialiased; }
+a { color: var(--tb-amber); text-decoration: none; border-bottom: 1px solid var(--tb-amber-dim); }
+a:hover { color: var(--tb-ink); border-bottom-color: var(--tb-ink); }
+::selection { background: var(--tb-amber); color: var(--tb-void); }
+h1,h2,h3,p { margin: 0; }
+html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after { transition: none !important; }
+.top { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--tb-void) 92%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--tb-line); }
+.top__in { max-width: 1280px; margin: 0 auto; padding: 12px 40px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.top__brand { font-weight: 600; font-size: 12px; letter-spacing: .34em; }
+.top__meta { font-size: 10px; letter-spacing: .14em; color: var(--tb-ghost); text-transform: uppercase; }
+.top__nav { display: flex; gap: 13px; flex-wrap: wrap; margin-left: auto; }
+.top__nav a { color: var(--tb-muted); border: 0; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.top__nav a:hover { color: var(--tb-ink); }
+.themepick { display: flex; border: 1px solid var(--tb-line); }
+.themepick button { font: 600 10px/1 var(--tb-mono); letter-spacing: .1em; text-transform: uppercase; background: none; border: 0; color: var(--tb-muted); padding: 7px 11px; cursor: pointer; }
+.themepick button[aria-pressed="true"] { background: var(--tb-amber); color: var(--tb-void); }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 40px; }
+.hero { padding: 60px 0 44px; border-bottom: 1px solid var(--tb-line); }
+.hero__eyebrow { font-size: 10px; letter-spacing: .2em; color: var(--tb-amber); text-transform: uppercase; margin-bottom: 18px; }
+.hero h1 { font-size: 30px; font-weight: 600; line-height: 1.28; max-width: 27ch; letter-spacing: .01em; }
+.hero p { color: var(--tb-muted); line-height: 1.75; max-width: 68ch; margin-top: 16px; text-wrap: pretty; font-size: 12px; }
+.sec { padding: 54px 0 8px; }
+.sec__head { display: flex; align-items: baseline; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--tb-line); margin-bottom: 20px; }
+.sec__num { font-weight: 600; font-size: 11px; color: var(--tb-amber); letter-spacing: .18em; }
+.sec__head h2 { font-size: 15px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.sec__head .sec__note { font-size: 11px; color: var(--tb-ghost); }
+.lead { color: var(--tb-muted); font-size: 12px; line-height: 1.7; max-width: 74ch; margin-bottom: 24px; text-wrap: pretty; }
+.subcap { font-size: 9px; letter-spacing: .16em; color: var(--tb-ghost); text-transform: uppercase; margin: 0 0 12px; }
+.pillnote { font-size: 11px; color: var(--tb-ghost); line-height: 1.7; max-width: 80ch; margin: 16px 0 0; text-wrap: pretty; }
+.pillnote b { color: var(--tb-ink); font-weight: 400; }
+.demo { background: var(--tb-panel); border: 1px solid var(--tb-line); padding: 20px; }
+.demo--map { background: linear-gradient(0deg, rgba(7,10,14,.5), rgba(7,10,14,.5)), repeating-linear-gradient(0deg, transparent 0 43px, rgba(44,61,80,.35) 43px 44px), repeating-linear-gradient(90deg, transparent 0 63px, rgba(44,61,80,.35) 63px 64px), var(--tb-bg); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
+.foot { margin-top: 22px; font-size: 10px; color: var(--tb-line-hi); line-height: 1.7; padding-bottom: 120px; }
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+.dbox { border: 1px solid var(--tb-line); } .dbox--flag { border-color: var(--tb-amber-dim); }
+.dbox__row { padding: 13px 15px; border-bottom: 1px solid var(--tb-line); } .dbox__row:last-child { border-bottom: 0; }
+.dbox__row h4 { font-size: 11px; font-weight: 600; margin-bottom: 4px; } .dbox--flag .dbox__row h4 { color: var(--tb-amber); }
+.dbox__row p { font-size: 10px; color: var(--tb-muted); line-height: 1.6; }
+@media (max-width: 820px) { .two { grid-template-columns: 1fr; } .wrap, .top__in { padding-left: 20px; padding-right: 20px; } }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="top__in">
+    <span class="top__brand">TUNNELBANA</span>
+    <span class="top__meta">The city answers back · pass 04</span>
+    <nav class="top__nav">
+      <a href="#a">a · Council</a>
+      <a href="#b">b · Growth</a>
+      <a href="#c">c · Golden train</a>
+      <a href="#d">d · Depot</a>
+      <a href="#e">e · Small pieces</a>
+      <a href="#dev">Dev</a>
+    </nav>
+    <div class="themepick" role="group" aria-label="Theme">
+      <button data-theme-set="dark" aria-pressed="true">Dark</button>
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero__eyebrow">Design response · pass 04 · negotiation</div>
+    <h1>The player has been building the city. Pass 04 is where the city starts building back.</h1>
+    <p>Five surfaces where the two negotiate: a council that spends trust on decisions rather than upgrades, districts that fill with warm light as they are served, a golden train worth catching, the depot a line calls home, and the small pieces that hold a session together. Everything extends the pass 02 and pass 03 layers in <a href="ui.css">ui.css</a> and <a href="ui-pass03.css">ui-pass03.css</a>; the new parts live in <a href="ui-pass04.css">ui-pass04.css</a>, states are CSS, the page re-themes live, and the copy obeys the 2026-08-08 voice rule. District names, the trust economy and Silverpilen are the real v12 build's.</p>
+  </div>
+
+  <!-- a · COUNCIL ---------------------------------------------------------->
+  <section class="sec" id="a">
+    <div class="sec__head"><span class="sec__num">a</span><h2>The council</h2><span class="sec__note">the flagship · a decision system, not a shop</span></div>
+    <p class="lead">The shop spends money on upgrades. The council spends trust on decisions, and a decision is different in kind: it is a choice the city remembers, it often rules out another, and it keeps paying an effect long after you take it. So the card is not a shop card. It wears trust's politic keyline as its family mark, it states its ongoing effect on its own face, and prerequisite decisions are wired together so a locked card shows you the choice that would open it. Four states carry the whole tree.</p>
+
+    <p class="subcap">The four states</p>
+    <div class="demo" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
+      <button class="tb-dec" data-state="available">
+        <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><path d="M8.5 12h7"></path></svg></span><span class="tb-dec__name">Subsidise Vällingby</span><span class="tb-dec__cost">4<span class="tb-num__unit">pk</span></span></div>
+        <span class="tb-dec__desc">The district grows faster while it stays well served. Good rail keeps paying you back.</span>
+        <div class="tb-dec__foot"><span>Available now</span><span>Growth</span></div>
+      </button>
+      <button class="tb-dec" data-state="unaffordable">
+        <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8l4 4-4 4M11 8l4 4-4 4M18 8l3 4-3 4"></path></svg></span><span class="tb-dec__name">Fast track the water crossing</span><span class="tb-dec__cost">9<span class="tb-num__unit">pk</span></span></div>
+        <span class="tb-dec__desc">The next line under the water opens in half the construction time.</span>
+        <div class="tb-dec__foot"><span class="tb-dec__need" style="color:var(--tb-muted)">Need 2 more trust</span><span>Corridor</span></div>
+      </button>
+      <button class="tb-dec" data-state="taken">
+        <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"></path></svg></span><span class="tb-dec__name">Commission art at T-Centralen</span><span class="tb-dec__cost">6<span class="tb-num__unit">pk</span></span></div>
+        <span class="tb-dec__desc">The world's longest art gallery begins under the city.</span>
+        <div class="tb-dec__effect">Demand raised 15 percent, everywhere, for good</div>
+      </button>
+      <button class="tb-dec" data-state="locked">
+        <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2.5" width="8" height="19" rx="4"></rect><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"></circle></svg></span><span class="tb-dec__name">Automatic operation</span><span class="tb-dec__cost">12<span class="tb-num__unit">pk</span></span></div>
+        <span class="tb-dec__desc">Trains run themselves across the whole network, day and night.</span>
+        <div class="tb-dec__foot"><span class="tb-dec__need">Needs Moving block signalling first</span><span>Service</span></div>
+      </button>
+    </div>
+
+    <p class="subcap" style="margin-top:26px">The tree, as an overlay · prerequisite paths light when satisfied</p>
+    <div class="demo" style="position:relative">
+      <svg class="tb-council__wires" id="wires" aria-hidden="true"></svg>
+      <div class="tb-council" id="tree" style="position:relative;z-index:1">
+        <div class="tb-council__col">
+          <div class="tb-council__tier">Charter · early</div>
+          <button class="tb-dec" data-node="n1" data-state="taken">
+            <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"></path></svg></span><span class="tb-dec__name">Charter the red line</span><span class="tb-dec__cost">5<span class="tb-num__unit">pk</span></span></div>
+            <div class="tb-dec__effect">A second line runs, Fruängen served</div>
+          </button>
+          <button class="tb-dec" data-node="n2" data-state="available">
+            <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><path d="M8.5 12h7"></path></svg></span><span class="tb-dec__name">Subsidise Söderort</span><span class="tb-dec__cost">4<span class="tb-num__unit">pk</span></span></div>
+            <span class="tb-dec__desc">Enskede, Farsta and Bandhagen grow faster while served.</span>
+            <div class="tb-dec__foot"><span>Available now</span><span>Growth</span></div>
+          </button>
+        </div>
+        <div class="tb-council__col" style="margin-top:34px">
+          <div class="tb-council__tier">Corridor · mid</div>
+          <button class="tb-dec" data-node="n3" data-state="available">
+            <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l6 6 6-6M12 12v6"></path><circle cx="6" cy="5" r="2" fill="currentColor" stroke="none"></circle><circle cx="18" cy="5" r="2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="20" r="2" fill="currentColor" stroke="none"></circle></svg></span><span class="tb-dec__name">Interchange at Gullmarsplan</span><span class="tb-dec__cost">7<span class="tb-num__unit">pk</span></span></div>
+            <span class="tb-dec__desc">Changing between the green and red lines gets easier here.</span>
+            <div class="tb-dec__foot"><span>Needs the red line</span><span>Corridor</span></div>
+          </button>
+          <button class="tb-dec" data-node="n4" data-state="locked">
+            <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20V8l8-4 8 4v12"></path><path d="M3 20h18" stroke-linecap="round"></path></svg></span><span class="tb-dec__name">Rezone Liljeholmen</span><span class="tb-dec__cost">8<span class="tb-num__unit">pk</span></span></div>
+            <span class="tb-dec__desc">A denser district, a higher ceiling, more riders to carry.</span>
+            <div class="tb-dec__foot"><span class="tb-dec__need">Needs Subsidise Söderort</span><span>Growth</span></div>
+          </button>
+        </div>
+        <div class="tb-council__col" style="margin-top:68px">
+          <div class="tb-council__tier">Mandate · late</div>
+          <button class="tb-dec" data-node="n5" data-state="locked">
+            <div class="tb-dec__head"><span class="tb-dec__glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="7" width="16" height="10" rx="4"></rect><path d="M8 17v3.5M16 17v3.5"></path></svg></span><span class="tb-dec__name">Night service, whole city</span><span class="tb-dec__cost">10<span class="tb-num__unit">pk</span></span></div>
+            <span class="tb-dec__desc">The network never fully sleeps. Night demand doubles.</span>
+            <div class="tb-dec__foot"><span class="tb-dec__need">Needs an interchange</span><span>Service</span></div>
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="pillnote"><b>Recommendation on where it lives:</b> an overlay, like statistics, not a full-bleed moment like the front pages. A front page is the city announcing something to you and then getting out of the way; the council is a place you sit and weigh things with the map still in mind, so it should dim the map rather than replace it, and close back to exactly where you were. <b>Prerequisite lines:</b> drawn behind the cards, dashed and muted while unmet, solid politic once satisfied, so a locked card always points at the decision that frees it. <b>Ongoing effects</b> live on the taken card itself, because trust decisions are the one thing in the game you cannot undo, and the record of what you chose should stay visible.</p>
+  </section>
+
+  <!-- b · GROWTH ----------------------------------------------------------->
+  <section class="sec" id="b">
+    <div class="sec__head"><span class="sec__num">b</span><h2>Visible growth</h2><span class="sec__note">a renderer treatment · the served city fills with light</span></div>
+    <p class="lead">Districts already grow in the sim toward a cap when service is good, and today the only sign is a number in the Network panel. Pass 04 makes it visible: warm window light accumulates inside the lit circles as a district fills, so the reward for good service is that the city you revealed becomes a city that is lived in. The rule that keeps it from fighting the map is that the light is warmer than anything else on the night map and it only ever appears inside an already-revealed circle, so it reads as depth, never as a new thing to chase. This is a renderer treatment, so the deliverable is this annotated reference plus the colour values.</p>
+
+    <div class="two">
+      <div>
+        <p class="subcap">Reference · the same three districts, unserved to fully alight</p>
+        <div class="demo demo--map" style="padding:0;overflow:hidden">
+          <svg viewBox="0 0 520 320" width="100%" style="display:block" id="growthref" aria-hidden="true"></svg>
+        </div>
+      </div>
+      <div>
+        <p class="subcap">The density ramp · four warm steps</p>
+        <div class="demo tb-growth-legend">
+          <div class="tb-growth-legend__row"><span class="tb-growth-legend__sw" style="background:var(--tb-glow-1)"></span>Just served, a few windows come on <span style="margin-left:auto;color:var(--tb-ghost)">glow-1</span></div>
+          <div class="tb-growth-legend__row"><span class="tb-growth-legend__sw" style="background:var(--tb-glow-2)"></span>Filling in as riders arrive <span style="margin-left:auto;color:var(--tb-ghost)">glow-2</span></div>
+          <div class="tb-growth-legend__row"><span class="tb-growth-legend__sw" style="background:var(--tb-glow-3)"></span>A busy district <span style="margin-left:auto;color:var(--tb-ghost)">glow-3</span></div>
+          <div class="tb-growth-legend__row"><span class="tb-growth-legend__sw" style="background:var(--tb-glow-4)"></span>At the growth cap, fully alight <span style="margin-left:auto;color:var(--tb-ghost)">glow-4</span></div>
+        </div>
+        <p class="pillnote">Rendered as scattered warm points, not a fill: the number of lit windows is the district's living population against its cap (the sim's <b>srcW</b> over authored <b>w × growthCap</b>), so the eye counts density the way it counts a passenger queue. A faint warm wash (<b>glow-core</b>) sits under a dense cluster to bind the points together. It sits beneath lines, labels and station glyphs in the draw order, so nothing legible is ever obscured. On the light theme the points darken to amber so they still read as lit windows against a bright ground rather than washing out.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- c · GOLDEN TRAIN ----------------------------------------------------->
+  <section class="sec" id="c">
+    <div class="sec__head"><span class="sec__num">c</span><h2>The golden train</h2><span class="sec__note">a rare visitor · spotting, not a popup</span></div>
+    <p class="lead">A gold train appears now and then on a line. Catch it for a small bonus, miss it and nothing is lost. It has to read as something you spot rather than something the game demands, which means two rules. It must be unmistakably gold, and clearly not Silverpilen (the silver ghost train from pass 03 that you also catch at night), so the two never blur into one mechanic. And its attention cue is a slow soft pulse, the same family as an incident but warm and calm, never a hard blink or a modal.</p>
+    <div class="two">
+      <div>
+        <p class="subcap">The two night visitors, side by side</p>
+        <div class="demo demo--map" style="display:flex;gap:40px;align-items:center;justify-content:center;min-height:170px;flex-wrap:wrap">
+          <div style="text-align:center">
+            <svg viewBox="0 0 96 64" width="150" height="100" aria-hidden="true">
+              <circle class="tb-goldcue" cx="48" cy="32" r="26" fill="none" stroke="var(--tb-gold)" stroke-width="2" opacity="0.6"></circle>
+              <g transform="translate(16 24)">
+                <rect x="0" y="0" width="64" height="16" rx="2.5" fill="var(--tb-gold)"></rect>
+                <rect x="0" y="0" width="64" height="5" rx="2.5" fill="var(--tb-gold-deep)" opacity="0.5"></rect>
+                <g fill="var(--tb-gold-deep)" opacity="0.6"><rect x="6" y="6" width="6" height="5"></rect><rect x="16" y="6" width="6" height="5"></rect><rect x="28" y="6" width="6" height="5"></rect><rect x="40" y="6" width="6" height="5"></rect><rect x="52" y="6" width="6" height="5"></rect></g>
+              </g>
+              <text x="48" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="var(--tb-gold)">GOLDEN · catch it</text>
+            </svg>
+          </div>
+          <div style="text-align:center">
+            <svg viewBox="0 0 96 64" width="150" height="100" aria-hidden="true">
+              <g transform="translate(16 24)" opacity="0.88">
+                <rect x="0" y="0" width="64" height="16" rx="2.5" fill="var(--tb-silver)"></rect>
+                <g fill="#8b95a0" opacity="0.6"><rect x="6" y="6" width="6" height="5"></rect><rect x="16" y="6" width="6" height="5"></rect><rect x="28" y="6" width="6" height="5"></rect><rect x="40" y="6" width="6" height="5"></rect><rect x="52" y="6" width="6" height="5"></rect></g>
+              </g>
+              <text x="48" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="var(--tb-muted)">SILVERPILEN · the ghost</text>
+            </svg>
+          </div>
+        </div>
+        <p class="pillnote">Both are the 1950 train shape from pass 01, so they belong to the same world. Gold gets a slow warm halo and rides any line; silver stays bare, unlit, cued by nothing, drifting the green line only. The halo is the whole difference in behaviour: the golden train wants to be seen, the ghost does not.</p>
+      </div>
+      <div>
+        <p class="subcap">The bonus toast · quieter than an achievement</p>
+        <div class="demo" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <div class="tb-toast tb-toast--gold"><div class="tb-toast__rail"></div><div class="tb-toast__body"><span class="tb-toast__who">Golden train</span><span class="tb-toast__trip">You caught it near Skanstull</span><span class="tb-toast__meta">+240 kr, a small windfall</span></div></div>
+          <div class="tb-toast tb-toast--fact"><div class="tb-toast__rail"></div><div class="tb-toast__body"><span class="tb-toast__who">Silverpilen</span><span class="tb-toast__trip">You saw the ghost train slip through Slussen</span></div></div>
+          <p class="pillnote" style="margin-top:4px">The bonus toast is the pass-03 toast with a gold rail and gold name, one notch busier than a fact and well below the achievement toast, so catching the train feels like a wink from the city rather than a prize screen. Missing it produces no toast at all, because a message about a thing you failed to click is exactly the nagging the brief rules out.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- d · DEPOT ------------------------------------------------------------>
+  <section class="sec" id="d">
+    <div class="sec__head"><span class="sec__num">d</span><h2>The depot</h2><span class="sec__note">a place the player sites · lowest-pressure item</span></div>
+    <p class="lead">A depot is home for a line's trains, with morning pull-outs. It is a building, not a stop, so its map glyph steps outside the station ring the way the pass-01 depot symbol already does (a rounded shed with rails), and its panel is the pass-02 anatomy with one thing the shop never needed: a stabled-versus-out bar, so you can see at a glance how much of the fleet is home. Siting one is a placement like a station, so it reuses the drag-and-snap language and the cost chip.</p>
+    <div class="two">
+      <div>
+        <p class="subcap">Map glyph · sited, and mid-placement</p>
+        <div class="demo demo--map" style="display:flex;gap:40px;align-items:center;justify-content:center;min-height:150px">
+          <div style="text-align:center">
+            <svg viewBox="0 0 48 48" width="52" height="52" aria-hidden="true"><rect x="9" y="14" width="30" height="22" rx="2" fill="var(--tb-bg)" stroke="var(--tb-ink)" stroke-width="2.5"></rect><path d="M9 20 24 12 39 20" fill="none" stroke="var(--tb-ink)" stroke-width="2.5" stroke-linejoin="round"></path><path d="M16 36V24M24 36V24M32 36V24" stroke="var(--tb-muted)" stroke-width="1.8"></path></svg>
+            <div style="font-size:10px;color:var(--tb-muted);margin-top:6px;text-transform:uppercase;letter-spacing:.1em">Sited</div>
+          </div>
+          <div style="text-align:center">
+            <svg viewBox="0 0 48 48" width="52" height="52" aria-hidden="true"><rect x="9" y="14" width="30" height="22" rx="2" fill="var(--tb-bg)" stroke="var(--tb-amber)" stroke-width="2.5" stroke-dasharray="4 3"></rect><path d="M9 20 24 12 39 20" fill="none" stroke="var(--tb-amber)" stroke-width="2.5" stroke-linejoin="round"></path><path d="M16 36V24M24 36V24M32 36V24" stroke="var(--tb-amber)" stroke-width="1.6" opacity="0.7"></path></svg>
+            <div style="font-size:10px;color:var(--tb-muted);margin-top:6px;text-transform:uppercase;letter-spacing:.1em">Placing</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="subcap">Panel · the pass-02 anatomy plus a fleet bar</p>
+        <div class="demo demo--map">
+          <div class="tb-panel tb-depot-panel" style="max-width:270px">
+            <div class="tb-panel__head"><span class="tb-panel__title">Hammarby depot</span><span class="tb-panel__tag">Green line</span><button class="tb-panel__close" aria-label="Close">×</button></div>
+            <div class="tb-panel__body">
+              <div class="tb-row">Home to <span class="tb-row__v">11 trains</span></div>
+              <div class="tb-row">Stabled now <span class="tb-row__v">4</span></div>
+              <div class="tb-depot-bar"><i class="stabled" style="width:36%"></i><i class="out" style="width:64%"></i></div>
+              <div class="tb-row" style="color:var(--tb-ghost);font-size:var(--tb-fs-caption)">Pull-outs begin at 05:00</div>
+            </div>
+            <div class="tb-panel__foot">
+              <button class="tb-btn tb-btn--inline">Assign a line</button>
+              <button class="tb-btn tb-btn--inline">Relocate · 100 kr</button>
+            </div>
+          </div>
+        </div>
+        <p class="pillnote">The bar is the only new part, and it reuses the passenger-green for stabled trains against a line-hi track for those out running. Relocating costs the build's real 100 kr transfer fee, shown on the button so the cost is where the decision is.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- e · SMALL PIECES ----------------------------------------------------->
+  <section class="sec" id="e">
+    <div class="sec__head"><span class="sec__num">e</span><h2>Small pieces</h2><span class="sec__note">save slots, and how to add a station mid-line</span></div>
+    <div class="two">
+      <div>
+        <p class="subcap">Save-slot row · three slots on the menu</p>
+        <div class="demo" style="display:flex;flex-direction:column;gap:10px">
+          <button class="tb-slot"><span class="tb-slot__n">1</span><span class="tb-slot__body"><span class="tb-slot__name">Stockholm</span><span class="tb-slot__meta"><b>1975</b> · blue line era · <b>4.1M</b> riders carried</span></span><span class="tb-slot__stamp">2 min ago</span></button>
+          <button class="tb-slot"><span class="tb-slot__n">2</span><span class="tb-slot__body"><span class="tb-slot__name">A second try</span><span class="tb-slot__meta"><b>1957</b> · 14 stations · <b>184k</b> riders carried</span></span><span class="tb-slot__stamp">yesterday</span></button>
+          <button class="tb-slot tb-slot--empty"><span class="tb-slot__n">3</span><span class="tb-slot__body"><span class="tb-slot__name">Empty slot</span><span class="tb-slot__meta">Start a new network here</span></span><span class="tb-slot__stamp">—</span></button>
+        </div>
+        <p class="pillnote">The slot is the pass-02 button frame with a big ghost numeral, the network's name, and the three facts that identify a save at a glance: the year reached, a landmark, and riders carried. The empty slot is dashed, the pass-02 promise state, so three slots read as one filled, one older, one waiting.</p>
+      </div>
+      <div>
+        <p class="subcap">Insert a station · the midpoint affordance</p>
+        <div class="demo demo--map" style="padding:0;overflow:hidden">
+          <svg viewBox="0 0 460 220" width="100%" style="display:block" aria-hidden="true">
+            <path d="M60 170 L180 120 L300 90 L410 50" fill="none" stroke="var(--tb-net-green)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <g fill="var(--tb-bg)" stroke="var(--tb-ink)" stroke-width="2.5"><circle cx="60" cy="170" r="5.5"></circle><circle cx="180" cy="120" r="5"></circle><circle cx="300" cy="90" r="5"></circle><circle cx="410" cy="50" r="6.5"></circle></g>
+            <g class="tb-insert" transform="translate(240 105)">
+              <circle class="tb-insert__ring" r="12" fill="none" stroke="var(--tb-amber)" stroke-width="1.5"></circle>
+              <circle r="5" fill="var(--tb-bg)" stroke="var(--tb-amber)" stroke-width="2.5"></circle>
+              <path d="M0 -2.5V2.5M-2.5 0H2.5" stroke="var(--tb-amber)" stroke-width="1.6" stroke-linecap="round"></path>
+            </g>
+            <rect x="255" y="118" width="150" height="18" rx="2" fill="var(--tb-void)" opacity="0.7"></rect>
+            <text x="263" y="131" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--tb-amber)">Add a stop here · 340 kr</text>
+          </svg>
+        </div>
+        <p class="pillnote">A ghost node with a plus sits at a segment midpoint when you hover the line, using the amber "value / act here" language and the pass-01 selected-station ticks, so the gesture reads as "act on the line" before any tooltip. It is a good first gesture. If playtests show players hunting for midpoints, the fallback is a small plus that rides the cursor along the whole segment rather than sitting only at its centre, which is a one-line change to where the affordance is anchored. Worth confirming before players are trained on the midpoint.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEV ------------------------------------------------------------------>
+  <section class="sec" id="dev">
+    <div class="sec__head"><span class="sec__num">·</span><h2>Back to the dev side</h2><span class="sec__note">adoption, and what needs a ruling</span></div>
+    <div class="grid-cards">
+      <div class="dbox">
+        <div class="dbox__row"><h4>Two files to take</h4><p><a href="ui-pass04.css">ui-pass04.css</a> (extends ui.css and ui-pass03.css, new tokens at its top) and this page's demos. Load order is tokens → tokens-ui → ui → ui-pass03 → ui-pass04.</p></div>
+        <div class="dbox__row"><h4>Council data</h4><p>Each card is markup plus a data-state. The tree here renders prerequisite wires from a small array in this page's script; swap it for the council's real graph and the card markup is unchanged. A decision needs an id, a cost, a state, a one-line effect, and its prerequisite ids.</p></div>
+        <div class="dbox__row"><h4>Growth is renderer, not DOM</h4><p>Section b is a reference plus four glow tokens and the draw-order rule (under lines and labels, inside revealed circles only, count of points tied to srcW over cap). Nothing to port as a component.</p></div>
+      </div>
+      <div class="dbox dbox--flag">
+        <div class="dbox__row"><h4>Rulings I need</h4><p><b>Council home.</b> I recommend an overlay over a full-bleed moment. Confirm and I lock the layout to it. <b>Insert gesture.</b> Midpoint click is good; approve it or the along-segment fallback before players learn it. <b>Council categories.</b> I used growth, corridor, service as the tiers; confirm the grammar before the tree grows over releases.</p></div>
+        <div class="dbox__row"><h4>Both themes</h4><p>Council, depot, slots and toasts re-theme with the toggle. Growth carries its own light-theme override so lit windows stay legible on a bright ground. The golden train is gold in both, since gold is the point.</p></div>
+        <div class="dbox__row"><h4>Not in this pass</h4><p>The golden train's spawn cadence and the depot's pull-out timing are sim balance, not design. The while-you-were-away report is still parked. Sound for the golden train would follow the pass-03 direction if you want it.</p></div>
+      </div>
+    </div>
+    <div style="margin-top:26px;padding:18px 20px;border:1px solid var(--tb-line);display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1 1 300px;font-size:11px;color:var(--tb-muted);line-height:1.7">Pass-04 section added to the design doc with the council card spec, the four states, the growth ramp values and draw-order rule, and the golden-train-versus-Silverpilen distinction.</div>
+      <a href="TUNNELBANA-DESIGN-DOC.md" style="font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--tb-void);background:var(--tb-ink);padding:11px 18px;border:0">Open the design doc</a>
+    </div>
+  </section>
+
+  <p class="foot">Tunnelbana, the city answers back, pass 04. Unofficial fan work. Not affiliated with any transit operator or Region Stockholm.</p>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      root.classList.add('theme-switching');
+      root.setAttribute('data-theme', b.getAttribute('data-theme-set'));
+      document.querySelectorAll('[data-theme-set]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.remove('theme-switching'); }); });
+    });
+  });
+
+  /* Council prerequisite wires: from-node → to-node, class .on when the source
+     is taken. Drawn as elbow paths behind the cards. */
+  var EDGES = [ ['n1','n3',true], ['n2','n4',false], ['n3','n5',false] ];
+  function drawWires() {
+    var svg = document.getElementById('wires'), tree = document.getElementById('tree');
+    if (!svg || !tree) return;
+    var box = tree.getBoundingClientRect();
+    svg.setAttribute('viewBox', '0 0 ' + box.width + ' ' + box.height);
+    var d = '';
+    EDGES.forEach(function (e) {
+      var a = tree.querySelector('[data-node="' + e[0] + '"]'), b = tree.querySelector('[data-node="' + e[1] + '"]');
+      if (!a || !b) return;
+      var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      var x1 = ra.right - box.left, y1 = ra.top - box.top + ra.height / 2;
+      var x2 = rb.left - box.left, y2 = rb.top - box.top + rb.height / 2;
+      var mx = (x1 + x2) / 2;
+      d = 'M' + x1 + ' ' + y1 + 'H' + mx + 'V' + y2 + 'H' + x2;
+      var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d);
+      if (e[2]) p.setAttribute('class', 'on');
+      svg.appendChild(p);
+    });
+  }
+  function resetWires() { var svg = document.getElementById('wires'); if (svg) svg.innerHTML = ''; drawWires(); }
+  window.addEventListener('resize', resetWires);
+  setTimeout(drawWires, 60);
+  document.fonts && document.fonts.ready.then(resetWires);
+
+  /* Growth reference: three districts, drawn unserved → fully alight, with
+     scattered warm window points whose count follows a density value. */
+  (function growth() {
+    var svg = document.getElementById('growthref'); if (!svg) return;
+    var glow = ['var(--tb-glow-1)','var(--tb-glow-2)','var(--tb-glow-3)','var(--tb-glow-4)'];
+    var districts = [ {x:120,y:150,r:64,d:0.15,n:'Årsta'}, {x:270,y:120,r:72,d:0.55,n:'Enskede'}, {x:400,y:175,r:60,d:0.95,n:'Farsta'} ];
+    var s = '<rect width="520" height="320" fill="var(--tb-bg)"></rect>';
+    s += '<g stroke="rgba(44,61,80,0.35)" stroke-width="1"><path d="M0 90h520M0 200h520M150 0v320M330 0v320"></path></g>';
+    s += '<rect width="520" height="320" fill="#070a0e" opacity="0.35"></rect>';
+    // veil with the three revealed circles punched, then the warm light inside
+    districts.forEach(function (D) {
+      s += '<circle cx="' + D.x + '" cy="' + D.y + '" r="' + D.r + '" fill="var(--tb-glow-core)" opacity="' + (0.25 + D.d * 0.75) + '"></circle>';
+      var n = Math.round(6 + D.d * 46);
+      var pts = '';
+      for (var i = 0; i < n; i++) {
+        var ang = i * 2.399963; var rad = D.r * 0.92 * Math.sqrt((i + 0.5) / n);
+        var px = D.x + Math.cos(ang) * rad, py = D.y + Math.sin(ang) * rad;
+        var step = Math.min(3, Math.floor((i / n) * 4 * D.d + D.d * 1.2));
+        pts += '<rect x="' + px.toFixed(1) + '" y="' + py.toFixed(1) + '" width="2.4" height="2.4" fill="' + glow[Math.max(0, Math.min(3, step))] + '"></rect>';
+      }
+      s += pts;
+      s += '<circle cx="' + D.x + '" cy="' + D.y + '" r="' + D.r + '" fill="none" stroke="var(--tb-line-hi)" stroke-width="1"></circle>';
+    });
+    // a line and stations on top, proving draw order
+    s += '<path d="M120 150 L270 120 L400 175" fill="none" stroke="var(--tb-net-green)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path>';
+    districts.forEach(function (D) {
+      s += '<circle cx="' + D.x + '" cy="' + D.y + '" r="5" fill="var(--tb-bg)" stroke="var(--tb-ink)" stroke-width="2.5"></circle>';
+      s += '<text x="' + (D.x + 10) + '" y="' + (D.y - 8) + '" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--tb-ink)" stroke="var(--tb-void)" stroke-width="3" paint-order="stroke" stroke-linejoin="round">' + D.n + '</text>';
+      var pct = Math.round(D.d * 100);
+      s += '<text x="' + (D.x + 10) + '" y="' + (D.y + 6) + '" font-family="IBM Plex Mono, monospace" font-size="8" fill="var(--tb-glow-4)">' + pct + '% of cap</text>';
+    });
+    svg.innerHTML = s;
+  })();
+})();
+</script>
+</body>
+</html>

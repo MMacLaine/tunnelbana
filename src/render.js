@@ -33,7 +33,7 @@ const THEMES = {
     glowAlpha: 0.09,
     politic: '#9b8cc9',
     silver: '#c9ced6',
-    gold: '#e5c15c',
+    gold: '#e8b64e',
   },
   light: {
     bg: '#f4f6f8',
@@ -54,7 +54,9 @@ const THEMES = {
     glowAlpha: 0.18,
     politic: '#6b5aa8',
     silver: '#8b93a1',
-    gold: '#a67c1b',
+    // Pass 04 ships one gold; on paper this is --tb-gold-deep, which follows
+    // the glow palette's rule that light theme takes the deeper step.
+    gold: '#b8862c',
   },
 };
 let COL = THEMES.dark;
@@ -743,12 +745,14 @@ export function nearGold(g, p) {
 function drawGold(g) {
   const m = goldScreenPos(g);
   if (!m) return;
-  const pulse = 0.5 + 0.5 * Math.sin(clockT * 3.4);
+  // Pass 04's cue timing (tb-gold-pulse): a 2.4s soft swell from .55 to full,
+  // never a hard blink.
+  const pulse = 0.5 + 0.5 * Math.sin(clockT * (Math.PI * 2 / 2.4));
   ctx.beginPath();
   ctx.arc(m.x, m.y, 15 + pulse * 3, 0, Math.PI * 2);
   ctx.lineWidth = 1.6;
   ctx.strokeStyle = COL.gold;
-  ctx.globalAlpha = 0.35 + 0.4 * pulse;
+  ctx.globalAlpha = 0.55 + 0.45 * pulse;
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.beginPath();

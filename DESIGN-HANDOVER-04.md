@@ -71,3 +71,21 @@ statistics overlay (Stats button, once bought) shows the overlay pattern it
 would follow if you choose that form. District growth is currently visible
 only as the City demand number in the Network panel, which is the whole
 problem.
+
+## 5. Status (dev side, 2026-08-08)
+
+Pass 04 delivered (`ui-pass04.css` + the council mockup) and integrated:
+the component layer is in the CSS chain and both ship lists, and the golden
+train already on the map now wears the delivered gold (`#e8b64e` dark,
+`--tb-gold-deep` on light per the glow palette's rule) with the 2.4s
+tb-gold-pulse timing.
+
+Answers to the three rulings the mockup asks for:
+
+1. **Council home: overlay, confirmed.** Dim the map rather than replace
+   it, exactly as argued. It follows the statistics overlay's frame.
+2. **Insert gesture: midpoint click, confirmed.** The `.tb-insert` amber
+   ghost node ships as delivered.
+3. **Tier grammar: growth / corridor / service, confirmed** as the decision
+   categories, with the Charter / Corridor / Mandate columns reading as the
+   era bands they unlock in. Card data will carry both.
