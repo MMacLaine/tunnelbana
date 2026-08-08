@@ -8,7 +8,7 @@ import { EGGS } from './facts.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
   endStation, waitingAt, trainPos, anchorRevealed, teaseVisible, corridorOf, dayPhase,
-  buildRadiusNow,
+  buildRadiusNow, stakeLine,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -360,6 +360,11 @@ function drawAnchors(g) {
       ctx.fill();
       label(a.name, p.x + 14, p.y, COL.ink, 12, { plate: true });
     } else {
+      // The stake wears its OWNING line's colour (live feedback 2026-08-08:
+      // players could not tell which line a stake continues), falling back
+      // to ink for a corridor's first, unowned anchor.
+      const ownerLi = stakeLine(g, i);
+      const colStake = ownerLi !== null ? g.lines[ownerLi].color : COL.ink;
       const c = corridorOf(i);
       if (c && i > c.start && used.has(i - 1)) {
         const q = project(ANCHORS[i - 1].geo);
@@ -369,8 +374,8 @@ function drawAnchors(g) {
         ctx.setLineDash([3, 6]);
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
-        ctx.strokeStyle = COL.ghost;
-        ctx.globalAlpha = 0.7;
+        ctx.strokeStyle = colStake;
+        ctx.globalAlpha = 0.55;
         ctx.stroke();
         ctx.globalAlpha = 1;
         ctx.setLineDash([]);
@@ -380,7 +385,7 @@ function drawAnchors(g) {
       ctx.arc(p.x, p.y, 5 + pulse * 2.5, 0, Math.PI * 2);
       ctx.setLineDash([2, 3]);
       ctx.lineWidth = 1.5 + pulse * 0.8;
-      ctx.strokeStyle = COL.ink;
+      ctx.strokeStyle = colStake;
       ctx.globalAlpha = 0.45 + 0.5 * pulse;
       ctx.stroke();
       ctx.globalAlpha = 1;
