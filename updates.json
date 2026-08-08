@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.11.3",
+      "title": "The save system, properly",
+      "content": "- Saves are now written in a checksummed container, so damage is detected instead of silently starting you over. Every older save keeps loading.\n- Export now downloads a .tbsave file (and still copies to the clipboard). Import accepts a file or pasted text.\n- Backups now go three generations deep; Restore uses the newest one that reads.\n- The game asks the browser for persistent storage, and Settings shows whether it was granted. On Safari, the .tbsave export is the reliable backup."
+    },
+    {
       "version": "0.11.2",
       "title": "Save protection",
       "content": "Hardening after a save was lost on refresh.\n\n- If a stored save fails to load for any reason, the game now refuses to autosave over it: the file stays untouched, a notice explains, and autosave stays off until you restore, import, or deliberately start fresh.\n- The game keeps a one-generation backup of your save, taken at each successful load. Settings has a Restore backup button.\n- If the browser's storage errors while reading, the session runs in memory and never writes over the stored file."
