@@ -812,6 +812,26 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (back.trains.length !== g.trains.length) err('save round-trip lost trains');
 }
 
+// --- The save container (0.11.3): checksummed round trip, tamper detected
+// as CORRUPT (a distinct flag from mere unreadability), and bare legacy
+// JSON loading forever. ---
+{
+  const cg = sim.newGame();
+  cg.money = 54321;
+  cg.totalDelivered = 777;
+  const packed = sim.pack(cg);
+  if (!packed.startsWith('TBSAVE1:')) err('pack should write the TBSAVE1 container');
+  const back = sim.hydrate(packed);
+  if (back.hydrateFallback) err('a packed save must hydrate cleanly');
+  if (Math.round(back.money) !== 54321) err('the container must round-trip the game');
+  const tampered = packed.replace('54321', '99999');
+  const bad = sim.hydrate(tampered);
+  if (!bad.hydrateFallback || !bad.hydrateCorrupt) err('a tampered container must read as CORRUPT');
+  const legacy = sim.hydrate(sim.serialize(cg));
+  if (legacy.hydrateFallback) err('bare legacy JSON must load forever');
+  if (Math.round(legacy.money) !== 54321) err('legacy round trip lost the game');
+}
+
 // --- The save fuse (0.11.2, after a live loss): whenever stored bytes exist
 // but do not load, hydrate FLAGS it, so the UI can refuse to autosave over
 // them. Null raw is a genuine fresh start and flags nothing. ---
