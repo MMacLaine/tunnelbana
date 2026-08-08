@@ -8,7 +8,7 @@ import { EGGS } from './facts.js';
 import {
   stationCap, usedAnchorsOnLine, usedAnchorsAll, linesAtAnchor,
   endStation, waitingAt, trainPos, anchorRevealed, teaseVisible, corridorOf, dayPhase,
-  buildRadiusNow, stakeLine,
+  buildRadiusNow, stakeLine, growthView,
 } from './sim.js';
 
 // Pass-01 design tokens (tokens.css is the CSS source of truth; canvas needs
@@ -34,6 +34,10 @@ const THEMES = {
     politic: '#9b8cc9',
     silver: '#c9ced6',
     gold: '#e8b64e',
+    // Pass 04 growth ramp: warm window light, four density steps, WARMER
+    // than anything else on the night map so lived-in reads at a glance.
+    glowRamp: ['#3a2f1e', '#6b4f24', '#a9772e', '#e8b64e'],
+    glowCore: 'rgba(232, 182, 78, 0.16)',
   },
   light: {
     bg: '#f4f6f8',
@@ -57,6 +61,10 @@ const THEMES = {
     // Pass 04 ships one gold; on paper this is --tb-gold-deep, which follows
     // the glow palette's rule that light theme takes the deeper step.
     gold: '#b8862c',
+    // The light ramp darkens to amber so lit windows read against a bright
+    // ground instead of washing out (pass 04's explicit light-theme override).
+    glowRamp: ['#efe4cf', '#e6c88a', '#d9a63f', '#b8862c'],
+    glowCore: 'rgba(184, 134, 44, 0.18)',
   },
 };
 let COL = THEMES.dark;
@@ -342,6 +350,51 @@ function drawGlow(g) {
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+}
+
+// Visible growth (v12, pass 04 section b): warm window light accumulating
+// where districts have grown. Scattered points, not a fill, so the eye
+// counts density the way it counts a queue; the count and the colour step
+// both follow srcW against its cap. Drawn right after the reveal glow, so
+// lines, labels and glyphs always sit above. The scatter is a HASH of the
+// source and point index, never Math.random: windows must not rearrange
+// between frames.
+function hash01(a, b) {
+  const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+}
+
+function drawGrowth(g) {
+  const view = growthView(g);
+  if (!view.length) return;
+  const ppk = pxPerKm();
+  for (const s of view) {
+    const c = project(s.geo);
+    const rPx = Math.max(10, s.reach * 0.85 * ppk);
+    const step = Math.min(3, Math.floor(s.p * 4));
+    // A faint warm wash binds a dense cluster together before the points.
+    if (s.p > 0.6) {
+      const grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, rPx);
+      grad.addColorStop(0, COL.glowCore);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, rPx, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const pts = Math.round(s.p * 10 * Math.min(2, s.w)) + 2;
+    for (let k = 0; k < pts; k++) {
+      const ang = hash01(s.j, k) * Math.PI * 2;
+      const rad = Math.sqrt(hash01(s.j, k + 100)) * rPx;
+      // Each window keeps its own step so a district brightens window by
+      // window instead of all at once.
+      const tone = Math.min(step, Math.floor(hash01(s.j, k + 200) * (step + 1.6)));
+      ctx.fillStyle = COL.glowRamp[tone];
+      ctx.globalAlpha = 0.85;
+      ctx.fillRect(c.x + Math.cos(ang) * rad - 1, c.y + Math.sin(ang) * rad - 1, 2, 2);
+    }
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -897,6 +950,7 @@ export function draw(g) {
   if (basemap === 'off') drawWaterFallback();
   if (basemap === 'on') drawVeil(g);
   drawGlow(g);
+  drawGrowth(g);
   drawTease(g);
   drawAnchors(g);
   drawAllLines(g);

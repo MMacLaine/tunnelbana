@@ -181,6 +181,30 @@ async function main() {
              ' statsRecords=' + statsRows + ' overlay=' + statsOverlay +
              ' toggle=' + statsAgain + ' diagram=' + diaSvg;
     })()`));
+    // The council (v12): the toggle appears with era one beaten, the tree
+    // renders all decisions, an available card takes on click and re-renders
+    // taken, and the trust is actually spent.
+    console.log('council:', await evaluate(ws, `(async () => {
+      const t = window.__tb;
+      t.g.pk = 30;
+      t.closeMenu();
+      t.updateUI();
+      const toggle = document.getElementById('council-toggle');
+      if (toggle.hidden) return 'toggle hidden at era ' + t.g.era;
+      toggle.click();
+      await new Promise((r) => setTimeout(r, 100));
+      const cards = document.querySelectorAll('#council-tree [data-dec]').length;
+      const wires = document.querySelectorAll('#council-wires path').length;
+      const avail = document.querySelector('#council-tree [data-state="available"]');
+      if (!avail) return 'no available card with 30 pk';
+      const pk0 = t.g.pk;
+      avail.click();
+      await new Promise((r) => setTimeout(r, 100));
+      const taken = document.querySelectorAll('#council-tree [data-state="taken"]').length;
+      document.getElementById('council-close').click();
+      return 'cards=' + cards + ' wires=' + wires + ' taken=' + taken +
+             ' spent=' + (t.g.pk < pk0) + ' overlayClosed=' + document.getElementById('council-overlay').hidden;
+    })()`));
     // Save slots (v12): the round trip is the test. Park the rich slot-1 game,
     // start fresh in empty slot 2, come back, and the money must still be there.
     console.log('save slots:', await evaluate(ws, `(async () => {

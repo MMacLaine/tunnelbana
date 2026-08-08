@@ -495,6 +495,11 @@ export const ACHIEVEMENTS = [
     check: (g) => g.eggsFound >= 1 },
   { id: 'egg-all', name: 'Every odd corner', hint: 'Find them all',
     check: (g) => g.eggsFound >= 6 },
+  // v12: the council. Recognition only, like the 0.11 top-up.
+  { id: 'first-decision', name: 'The chamber nods', hint: 'Take a council decision',
+    check: (g) => g.decisions >= 1 },
+  { id: 'full-mandate', name: 'A standing majority', hint: 'Take every council decision',
+    check: (g) => g.decisions >= COUNCIL.length },
   // --- The 0.11 top-up: past one hundred (owner: "ideally 100+, some easy,
   // some very hard"). All recognition, no modifiers: the reward budget from
   // pass 01 stays where it is. ---
@@ -672,6 +677,8 @@ export const ACH_META = {
   'diagram-view': { cat: 'endgame' },
   'egg-first': { cat: 'endgame', hidden: true, tease: 'There are odd corners in this city' },
   'egg-all': { cat: 'endgame', hidden: true, tease: 'Every odd corner' },
+  'first-decision': { cat: 'trust', family: 'council' },
+  'full-mandate': { cat: 'trust', family: 'council' },
   'era-1964': { cat: 'history' },
   'era-1975': { cat: 'history' },
   'plan-all': { cat: 'history' },
@@ -812,6 +819,80 @@ export const CATALOG = [
     add: { buildRadius: 4 } },
 ];
 
+// --- The council (v12, pass 04 section a): trust buys DECISIONS, not
+// upgrades. A decision is permanent, often rules something out, and keeps
+// paying an effect long after it is taken. Data-driven like the catalog and
+// built to grow over releases: an entry needs an id, a name, a category
+// (growth / corridor / service, the confirmed grammar), a tier (Charter /
+// Corridor / Mandate, era-gated), a pk cost, prose, and a named modifier the
+// economy already understands. Nothing here duplicates a catalog item: art
+// and night service are money sinks in the shop; these are the city's
+// POLICIES. desc/effectText obey the voice rule (no colons, semicolons,
+// dashes). ---
+export const COUNCIL_TIERS = [
+  { name: 'Charter', era: 1 },
+  { name: 'Corridor', era: 2 },
+  { name: 'Mandate', era: 3 },
+];
+
+export const COUNCIL = [
+  { id: 'subsidise-suburbs', name: 'Subsidise the suburbs', cat: 'growth', tier: 0, pk: 4,
+    desc: 'Served districts grow half again as fast. Good rail keeps paying you back.',
+    effectText: 'Districts grow 50 percent faster while served',
+    mult: { growthRate: 1.5 } },
+  { id: 'works-permit', name: 'Standing works permit', cat: 'corridor', tier: 0, pk: 3,
+    desc: 'The council pre approves your works. Every station you build costs a little less.',
+    effectText: 'Station works 8 percent cheaper, for good',
+    mult: { buildCost: 0.92 } },
+  { id: 'fast-track-water', name: 'Fast track the water crossings', cat: 'corridor', tier: 1, pk: 9,
+    desc: 'Crossing under the water costs nearly half as much track to build.',
+    effectText: 'Water crossings 45 percent cheaper to build',
+    mult: { waterCost: 0.55 } },
+  { id: 'rezone-inner', name: 'Rezone the inner suburbs', cat: 'growth', tier: 1, pk: 8, needs: ['subsidise-suburbs'],
+    desc: 'A denser city, a higher ceiling, more riders to carry.',
+    effectText: 'Districts may grow 20 percent past their old cap',
+    mult: { growthCap: 1.2 } },
+  // Measured THIN at 1.3 (+0.36/s) and still thin at 2.2 (+0.84/s, 0.37% of
+  // base): the transfer lever saturates in the probe's two-line network,
+  // exactly as 'through' does (0.64%, also shipping THIN). The mechanism
+  // binds hardest in junction-heavy player networks the bot never builds,
+  // so 2.2 stands and the live watch item is whether it reads as real.
+  { id: 'easy-transfer', name: 'One ticket, every line', cat: 'corridor', tier: 2, pk: 10, needs: ['fast-track-water'],
+    desc: 'Changing lines gets easier everywhere. A journey with a change loses fewer riders.',
+    effectText: 'Transfer friction cut by more than half',
+    mult: { transfer: 2.2 } },
+  { id: 'automatic-operation', name: 'Automatic operation', cat: 'service', tier: 2, pk: 12,
+    desc: 'Trains run themselves across the whole network, day and night.',
+    effectText: 'Every train runs 10 percent faster',
+    mult: { speed: 0.9 } },
+];
+
+// 'taken' | 'era' (the tier has not arrived) | 'locked' (needs an earlier
+// choice) | 'unaffordable' | 'available'. The pass-04 card states, with 'era'
+// rendering as locked whose need names the year.
+export function councilState(g, d) {
+  if (g.council[d.id]) return 'taken';
+  if (g.era < COUNCIL_TIERS[d.tier].era) return 'era';
+  for (const n of d.needs || []) if (!g.council[n]) return 'locked';
+  if (g.pk < d.pk) return 'unaffordable';
+  return 'available';
+}
+
+export function councilOpen(g) {
+  return g.era >= COUNCIL_TIERS[0].era;
+}
+
+export function decide(g, id) {
+  const d = COUNCIL.find((x) => x.id === id);
+  if (!d || councilState(g, d) !== 'available') return false;
+  g.pk -= d.pk;
+  g.council[d.id] = true;
+  g.decisions += 1;
+  computeDemand(g); // a demand-shaped decision applies this instant
+  g.events.push({ type: 'council', name: d.name, geo: ANCHORS[0].geo });
+  return true;
+}
+
 export function effectMult(g, key) {
   let m = 1;
   for (const u of CATALOG) {
@@ -822,6 +903,10 @@ export function effectMult(g, key) {
   // never mean something the economy does not already understand.
   for (const a of ACHIEVEMENTS) {
     if (g.achieved && g.achieved[a.id] && a.mult && a.mult[key] !== undefined) m *= a.mult[key];
+  }
+  // Council decisions too: one modifier grammar for every source of power.
+  for (const d of COUNCIL) {
+    if (g.council && g.council[d.id] && d.mult && d.mult[key] !== undefined) m *= d.mult[key];
   }
   return m;
 }
@@ -834,6 +919,9 @@ export function effectAdd(g, key) {
   }
   for (const ac of ACHIEVEMENTS) {
     if (g.achieved && g.achieved[ac.id] && ac.add && ac.add[key] !== undefined) a += ac.add[key];
+  }
+  for (const d of COUNCIL) {
+    if (g.council && g.council[d.id] && d.add && d.add[key] !== undefined) a += d.add[key];
   }
   return a;
 }
@@ -1005,6 +1093,8 @@ export function newGame() {
     founded: 0,
     eggsFound: 0,
     eggs: {},        // curiosity id -> found (eggsFound stays the count)
+    council: {},     // decision id -> taken; permanent, never refunded
+    decisions: 0,
     diaViews: 0,
     patternsSet: 0,
     owned,
@@ -1402,12 +1492,29 @@ function growCity(g, dt) {
     if (!local.length) return;
     let q = 0;
     for (const [key, frac] of local) q += frac * (1 - crowdOf.get(key));
-    const wMax = SOURCES[j].w * BAL.growthCap;
+    // Council policy reaches the city here: subsidy raises the pace, the
+    // rezoning raises the ceiling itself.
+    const wMax = SOURCES[j].w * BAL.growthCap * effectMult(g, 'growthCap');
     const before = g.srcW[j];
-    g.srcW[j] = Math.min(wMax, g.srcW[j] + (wMax - g.srcW[j]) * (dt / BAL.growthTau) * q);
+    g.srcW[j] = Math.min(wMax, g.srcW[j] + (wMax - g.srcW[j]) * (dt / BAL.growthTau) * q * effectMult(g, 'growthRate'));
     if (g.srcW[j] - before > 1e-6) moved = true;
   });
   if (moved) computeDemand(g);
+}
+
+// The renderer's window into growth (v12, pass 04 section b): one entry per
+// district that has actually grown, with p = how far along the road from its
+// authored size to its cap it stands. Growth only happens under service, so
+// p > 0 is itself the proof the district sits inside a revealed circle.
+export function growthView(g) {
+  const capMult = BAL.growthCap * effectMult(g, 'growthCap');
+  const out = [];
+  for (let j = 0; j < SOURCES.length; j++) {
+    const s = SOURCES[j];
+    const p = (g.srcW[j] / s.w - 1) / (capMult - 1);
+    if (p > 0.02) out.push({ geo: s.geo, reach: s.reach, w: s.w, p: Math.min(1, p), j });
+  }
+  return out;
 }
 
 // What a NEW station at geo would earn, given who already drinks from each
@@ -2444,8 +2551,10 @@ export function extensionCost(g, li, end, geo, anchorIdx = null) {
   const share = shareFor(g, li, geo, anchorIdx);
   // A junction shares a station that already exists: track is the only build.
   const station = share && share !== 'own' ? 0
-    : BAL.stationBase * Math.pow(BAL.stationGrowth, Math.max(0, g.lines[li].stations.length - 2));
-  const track = km * BAL.trackPerKm * (crossesWater(from.geo, geo) ? BAL.waterMult : 1);
+    : BAL.stationBase * Math.pow(BAL.stationGrowth, Math.max(0, g.lines[li].stations.length - 2)) *
+      effectMult(g, 'buildCost');
+  const track = km * BAL.trackPerKm *
+    (crossesWater(from.geo, geo) ? BAL.waterMult * effectMult(g, 'waterCost') : 1);
   return Math.round(station + track);
 }
 
@@ -2743,7 +2852,8 @@ export function insertMidGeo(g, li, seg) {
 }
 
 export function insertCost(g, li) {
-  return Math.round(BAL.stationBase * Math.pow(BAL.stationGrowth, Math.max(0, g.lines[li].stations.length - 2)));
+  return Math.round(BAL.stationBase * Math.pow(BAL.stationGrowth, Math.max(0, g.lines[li].stations.length - 2)) *
+    effectMult(g, 'buildCost'));
 }
 
 // Same refusal grammar as placementProblem, hardest reason first. An inserted
@@ -3332,6 +3442,7 @@ export function serialize(g) {
       goldTaken: g.goldTaken,
     },
     eggs: g.eggs,
+    council: g.council,
     freeSpots: g.freeSpots,
     owned: g.owned,
     endingSeen: g.endingSeen,
@@ -3422,6 +3533,11 @@ export function hydrate(raw) {
     for (const e of EGGS) if (s.eggs[e.id]) g.eggs[e.id] = true;
   }
   g.eggsFound = Object.keys(g.eggs).length;
+  g.council = {};
+  if (s.council && typeof s.council === 'object') {
+    for (const d of COUNCIL) if (s.council[d.id]) g.council[d.id] = true;
+  }
+  g.decisions = Object.keys(g.council).length;
   g.records.riders = posInt(s.records?.riders, 1e9);
   g.records.gross = Math.min(1e12, Math.max(0, Number(s.records?.gross) || 0));
   if (s.hist && ['t', 'riders', 'gross'].every((k) => Array.isArray(s.hist[k]))) {

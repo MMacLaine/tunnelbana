@@ -71,13 +71,27 @@ is ruled out.
 
 ## v12 slate (planned 2026-08-08, owner-approved)
 
-The council (a trust tree framework, mixed currencies, data-driven and
-built to grow) · visible city growth · insert a station mid-line · anonymous
-milestone telemetry ("within reason") · golden trains (click for a small
-bonus) · the schematic map becomes a reward for beating era one · depots as
-places · platform length · save slots · the ambient sound bed (sound stays
-a small part, not a large one). Dropped from the ten: Swedish localisation,
-the Steam spike.
+Dropped from the ten: Swedish localisation, the Steam spike.
+
+Built (unreleased, on main, as of 2026-08-08):
+- Golden trains and the schematic-as-era-reward (slice 1).
+- Design pass 04 integrated (ui-pass04.css in the chain and ship lists);
+  the three rulings answered in DESIGN-HANDOVER-04.md section 5 (overlay,
+  midpoint click, growth/corridor/service).
+- Save slots: three, on the 0.11.3 container, slot 1 keeps the live key,
+  per-slot backups, away report on switch.
+- Milestone telemetry: start/era/ending to /api/pulse (site repo commit
+  UNPUSHED, rides the next deploy), Settings off switch, About discloses.
+- Insert a station mid-line: midpoint ghost, station-works price, full
+  splice safety in smoke.
+- The council: six decisions across Charter/Corridor/Mandate, one modifier
+  grammar with catalog and achievements, overlay UI with prerequisite
+  wires, income-shaped decisions value-gated (transfer lever raised 1.3 →
+  2.2 after measuring THIN), cost-shaped ones asserted in smoke.
+- Visible growth: the pass-04 window-light treatment, hash-stable scatter,
+  count and colour stepped by srcW against cap, drawn under lines.
+
+Still open from the slate: platform length, depots, the ambient bed.
 
 ## Watch items (from measurement, awaiting live feedback)
 
