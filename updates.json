@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.5",
+      "title": "The opening coach follows the money",
+      "content": "- The new opening cues now come in the right order. The bell pulses first, because fares fund your first build. Once your train is out and earning, the line end and the staked ring take over and show you where to build.\n- Before this, the game asked for a 1785 kr build while handing you 900 kr."
+    },
+    {
       "version": "0.12.4",
       "title": "The first minute holds your hand",
       "content": "Player feedback said the opening was too quiet, and the numbers agreed.\n\n- Until your first build, the line's working end now says what to do and the staked ring answers it. The connector between them is drawn louder and the ring is bigger.\n- After your first build the departure bell pulses gently until your first train leaves.\n- Both cues retire themselves the moment they are obeyed and never return."
