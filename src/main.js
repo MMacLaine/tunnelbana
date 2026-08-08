@@ -503,7 +503,6 @@ function menuView(which) {
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
     $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
     $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
-    $('settings-sound').textContent = soundOn ? STR.notesOn : STR.notesOff;
     $('settings-export').textContent = STR.exportBtn;
     $('settings-import').textContent = STR.importBtn;
     $('import-text').hidden = true;
@@ -694,6 +693,8 @@ $('settings-import').addEventListener('click', () => {
   }
   g = sim.hydrate(ta.value);
   save();
+  $('offline-note').hidden = true; // the note described the OLD save's absence
+  offline = null;
   updateUI();
   homeCamera();
   ta.hidden = true;
@@ -709,6 +710,10 @@ $('settings-reset').addEventListener('click', () => {
   }
   store.del(sim.SAVE_KEY);
   g = sim.hydrate(null);
+  // A reset clears the PREVIOUS life's notes too (live report, 2026-08-08:
+  // the away-report survived a reset and read as the new game's).
+  $('offline-note').hidden = true;
+  offline = null;
   updateUI();
   homeCamera();
   settingsView(false);
@@ -1220,19 +1225,28 @@ function setDiaMode(on) {
 }
 $('dia-toggle').addEventListener('click', () => setDiaMode(!diaOn));
 
-// --- Sound: synthesized, so it needs no licence line; gated behind the
-// browser's user-gesture rule (unlock on any pointer) and a setting. ---
-const SOUND_KEY = 'tunnelbana_sound';
-let soundOn = store.get(SOUND_KEY) !== 'off';
-sfx.setOn(soundOn);
+// --- The mixer (0.11): master, music, effects, persisted; the old on/off
+// toggle migrates to master zero. Unlock on any pointer per the browser's
+// gesture rule. ---
+const VOL_KEY = 'tunnelbana_vol';
+let vols = { master: 0.8, music: 0.5, effects: 0.8 };
+try {
+  const savedVols = JSON.parse(store.get(VOL_KEY));
+  if (savedVols && typeof savedVols === 'object') vols = { ...vols, ...savedVols };
+} catch {}
+if (store.get('tunnelbana_sound') === 'off' && store.get(VOL_KEY) === null) vols.master = 0;
+sfx.setVolumes(vols);
 window.addEventListener('pointerdown', () => sfx.unlock());
-$('settings-sound').addEventListener('click', () => {
-  soundOn = !soundOn;
-  sfx.setOn(soundOn);
-  store.set(SOUND_KEY, soundOn ? 'on' : 'off');
-  $('settings-sound').textContent = soundOn ? STR.notesOn : STR.notesOff;
-  if (soundOn) sfx.bell(); // the toggle demonstrates itself
-});
+for (const [id, key] of [['vol-master', 'master'], ['vol-music', 'music'], ['vol-effects', 'effects']]) {
+  const el = $(id);
+  el.value = Math.round(vols[key] * 100);
+  el.addEventListener('input', () => {
+    vols[key] = el.value / 100;
+    sfx.setVolumes(vols);
+    store.set(VOL_KEY, JSON.stringify(vols));
+    if (key !== 'music') sfx.bell(); // the slider demonstrates itself
+  });
+}
 
 // --- City notes: a fact about the real Stockholm, or a postcard from one
 // journey the sim is actually carrying, every couple of minutes. Ambience,
@@ -1812,9 +1826,29 @@ function updateShop() {
   }
 }
 
+// --- The numbers ceremony: one beat when a counter crosses a power of ten
+// upward (from 10 000 on). Downward crossings pass silently: spending is
+// not a un-milestone. ---
+let moneyMag = -1;
+let ridersMag = -1;
+function magOf(n) {
+  return n < 1e4 ? 0 : Math.floor(Math.log10(n));
+}
+function popNum(el) {
+  el.classList.remove('tb-num--pop');
+  void el.offsetWidth;
+  el.classList.add('tb-num--pop');
+}
+
 // --- Stats ---
 function updateUI() {
   $('money').innerHTML = numHTML(g.money, ' kr');
+  const mMag = magOf(g.money);
+  if (moneyMag >= 0 && mMag > moneyMag) popNum($('money'));
+  moneyMag = Math.max(moneyMag === -1 ? mMag : moneyMag, mMag);
+  const rMag = magOf(g.totalDelivered);
+  if (ridersMag >= 0 && rMag > ridersMag) popNum($('stat-delivered'));
+  ridersMag = Math.max(ridersMag === -1 ? rMag : ridersMag, rMag);
   const gross = sim.grossRate(g);
   const upkeep = sim.upkeepRate(g);
   const net = gross - upkeep;
@@ -1907,7 +1941,11 @@ let last = performance.now();
 let acc = 0;
 
 function frame(now) {
-  if (paused || momentOpen) {
+  // The menu no longer pauses the city (owner ruling 2026-08-08: "having it
+  // run in the background is good"). Only an era front page holds time: it
+  // is a deliberate read, and `paused` lives on purely as the input lock
+  // while a menu covers the map.
+  if (momentOpen) {
     last = now;
     acc = 0;
   } else {

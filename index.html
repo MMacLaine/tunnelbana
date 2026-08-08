@@ -230,6 +230,23 @@
   }
   #fact-toast:hover .tb-toast__trip { color: var(--tb-ink); }
 
+  /* The numbers ceremony (0.11, pass-02 item e finally): a counter crossing
+     a power of ten gets one beat. Watching a number rise is the genre; the
+     number should notice its own milestones. */
+  @keyframes tb-milestone {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.14); color: var(--tb-amber); }
+    100% { transform: scale(1); }
+  }
+  .tb-num--pop { display: inline-block; animation: tb-milestone 0.9s ease; }
+
+  /* The mixer sliders (0.11). */
+  .tb-slider {
+    width: 150px;
+    accent-color: var(--tb-green);
+    background: transparent;
+  }
+
   /* Shop category headers (0.11): a quiet caps label over each group. */
   .tb-shopcat {
     font: var(--tb-weight-semi) var(--tb-fs-micro)/1 var(--tb-mono);
@@ -677,6 +694,7 @@
         <div class="tb-setting"><span>Map tiles</span><span class="tb-setting__v"><a href="https://openfreemap.org">OpenFreeMap</a></span></div>
         <div class="tb-setting"><span>Map engine</span><span class="tb-setting__v"><a href="https://maplibre.org">MapLibre GL JS</a> (BSD-3)</span></div>
         <div class="tb-setting"><span>Typefaces</span><span class="tb-setting__v">IBM Plex Mono · Libre Caslon (both SIL OFL)</span></div>
+        <div class="tb-setting"><span>Music</span><span class="tb-setting__v">"Morning Rain" &amp; "Countryside" by TAD (<a href="https://opengameart.org/content/lofi-compilation">OpenGameArt</a>, CC0)</span></div>
         <div class="tb-setting"><span>Visual system</span><span class="tb-setting__v">Tunnelbana pass 03</span></div>
         <div class="tb-setting"><span>A game by</span><span class="tb-setting__v">Matthew MacLaine</span></div>
         <div class="tb-setting"><span>Analytics</span><span class="tb-setting__v">anonymous page counts, cookieless</span></div>
@@ -689,7 +707,9 @@
         <div class="tb-setting"><span>Theme</span><button class="tb-btn tb-btn--inline" id="settings-theme">Dark</button></div>
         <div class="tb-setting"><span>Numbers</span><button class="tb-btn tb-btn--inline" id="settings-numfmt">Short</button></div>
         <div class="tb-setting"><span>City notes</span><button class="tb-btn tb-btn--inline" id="settings-notes">On</button></div>
-        <div class="tb-setting"><span>Sound</span><button class="tb-btn tb-btn--inline" id="settings-sound">On</button></div>
+        <div class="tb-setting"><span>Master</span><input type="range" class="tb-slider" id="vol-master" min="0" max="100"></div>
+        <div class="tb-setting"><span>Music</span><input type="range" class="tb-slider" id="vol-music" min="0" max="100"></div>
+        <div class="tb-setting"><span>Effects</span><input type="range" class="tb-slider" id="vol-effects" min="0" max="100"></div>
         <div class="tb-setting"><span>Language</span><span class="tb-setting__v">English</span></div>
         <div class="tb-setting"><span>Save</span><span class="tb-setting__v" style="color: var(--tb-muted)">automatic, local</span></div>
         <button class="tb-btn tb-btn--std tb-btn--block" id="settings-export" style="margin-top: 0.7rem">Export save</button>
