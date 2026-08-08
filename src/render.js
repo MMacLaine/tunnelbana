@@ -33,6 +33,7 @@ const THEMES = {
     glowAlpha: 0.09,
     politic: '#9b8cc9',
     silver: '#c9ced6',
+    gold: '#e5c15c',
   },
   light: {
     bg: '#f4f6f8',
@@ -53,6 +54,7 @@ const THEMES = {
     glowAlpha: 0.18,
     politic: '#6b5aa8',
     silver: '#8b93a1',
+    gold: '#a67c1b',
   },
 };
 let COL = THEMES.dark;
@@ -717,6 +719,48 @@ function drawEggs(g) {
   }
 }
 
+// --- The golden train (v12): glides its line end to end over the visible
+// window, glowing softly. Spotting it is the game; the glow says LOOK, the
+// click is the catch, and missing it costs nothing. ---
+
+function goldScreenPos(g) {
+  if (!g.gold || g.clock >= g.gold.until) return null;
+  const L = g.lines[g.gold.line];
+  if (!L || L.stations.length < 2) return null;
+  const f = Math.min(1, (g.clock - g.gold.from) / (g.gold.until - g.gold.from)) * (L.stations.length - 1);
+  const i = Math.min(L.stations.length - 2, Math.floor(f));
+  const a = project(L.stations[i].geo);
+  const b = project(L.stations[i + 1].geo);
+  const t = f - i;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+export function nearGold(g, p) {
+  const m = goldScreenPos(g);
+  return !!(m && Math.hypot(p.x - m.x, p.y - m.y) < 22);
+}
+
+function drawGold(g) {
+  const m = goldScreenPos(g);
+  if (!m) return;
+  const pulse = 0.5 + 0.5 * Math.sin(clockT * 3.4);
+  ctx.beginPath();
+  ctx.arc(m.x, m.y, 15 + pulse * 3, 0, Math.PI * 2);
+  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = COL.gold;
+  ctx.globalAlpha = 0.35 + 0.4 * pulse;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.roundRect(m.x - 14, m.y - 8, 28, 16, 2.5);
+  ctx.fillStyle = COL.gold;
+  ctx.fill();
+  ctx.fillStyle = COL.trainDetail;
+  ctx.fillRect(m.x - 9, m.y - 5, 4, 3);
+  ctx.fillRect(m.x - 2, m.y - 5, 4, 3);
+  ctx.fillRect(m.x + 5, m.y - 5, 4, 3);
+}
+
 // The incident marker per pass 03 section e: AMBER family, a pulsing halo
 // with a warning tick — attention, never alarm (the first cut was red, which
 // the design explicitly rules out). Real signage wording: SIGNALFEL is what
@@ -833,5 +877,6 @@ export function draw(g) {
   drawSurge(g);
   drawIncident(g);
   drawTrains(g);
+  drawGold(g);
   drawFloats(dt);
 }
