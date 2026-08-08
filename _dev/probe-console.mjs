@@ -155,16 +155,20 @@ async function main() {
       const skipShown = !document.getElementById('sp-skip').hidden;
       const bulkShown = !!document.querySelector('#line-rows [data-bulk]');
       document.getElementById('menu-open').click();
-      document.getElementById('menu-stats').click();
+      document.getElementById('menu-stats').click();   // closes the menu, opens the overlay (0.11.1)
       const statsRows = document.getElementById('stats-records').childElementCount;
-      document.getElementById('stats-back').click();
-      document.getElementById('menu-resume').click();
+      const statsOverlay = !document.getElementById('stats-overlay').hidden;
+      document.getElementById('stats-close').click();
+      document.getElementById('stats-toggle').click(); // the corner path opens it too
+      const statsAgain = !document.getElementById('stats-overlay').hidden;
+      document.getElementById('stats-close').click();
       document.getElementById('dia-toggle').click();
       await new Promise((r) => setTimeout(r, 500));
       const diaSvg = !!document.querySelector('#dia-mode svg');
       document.getElementById('dia-toggle').click();
       return 'skipBtn=' + skipShown + ' bulk=' + bulkShown +
-             ' statsRecords=' + statsRows + ' diagram=' + diaSvg;
+             ' statsRecords=' + statsRows + ' overlay=' + statsOverlay +
+             ' toggle=' + statsAgain + ' diagram=' + diaSvg;
     })()`));
   } finally {
     chrome.kill();

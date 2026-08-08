@@ -122,6 +122,7 @@ const STR = {
   diaToMap: 'KARTA',
   diaToDiagram: 'DIAGRAM',
   fleetGrows: 'The fleet cap rises with the next era',
+  statsToggle: 'Stats',
   skipOn: 'Express skips this stop',
   skipOff: 'Express calls here again',
   skipWhat: 'On a patterned line, trains alternate: the full service calls everywhere, the express saves the dwell at skipped stops.',
@@ -495,9 +496,7 @@ function menuView(which) {
   $('about-view').hidden = which !== 'about';
   $('help-view').hidden = which !== 'help';
   $('ach-view').hidden = which !== 'ach';
-  $('stats-view').hidden = which !== 'stats';
   if (which === 'ach') renderAchievements();
-  if (which === 'stats') renderStats();
   if (which === 'help') renderIconKey();
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
@@ -531,8 +530,24 @@ $('menu-about').addEventListener('click', () => menuView('about'));
 $('about-back').addEventListener('click', () => menuView('main'));
 $('menu-help').addEventListener('click', () => menuView('help'));
 $('menu-ach').addEventListener('click', () => menuView('ach'));
-$('menu-stats').addEventListener('click', () => menuView('stats'));
-$('stats-back').addEventListener('click', () => menuView('main'));
+// The statistics office lives on the MAP now (0.11.1): the menu button and
+// the corner toggle open the same overlay, and the game runs beneath it.
+let statsOpen = false;
+let statsRenderedAt = 0;
+function setStatsOpen(on) {
+  statsOpen = on && !!g.owned.stats;
+  $('stats-overlay').hidden = !statsOpen;
+  if (statsOpen) {
+    renderStats();
+    statsRenderedAt = performance.now();
+  }
+}
+$('menu-stats').addEventListener('click', () => {
+  closeMenu();
+  setStatsOpen(true);
+});
+$('stats-toggle').addEventListener('click', () => setStatsOpen(!statsOpen));
+$('stats-close').addEventListener('click', () => setStatsOpen(false));
 $('ach-back').addEventListener('click', () => menuView('main'));
 $('help-back').addEventListener('click', () => menuView('main'));
 $('about-mark').addEventListener('click', () => {
@@ -722,9 +737,10 @@ $('settings-reset').addEventListener('click', () => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
+    if (statsOpen) { setStatsOpen(false); return; }
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
-             !$('ach-view').hidden || !$('stats-view').hidden) menuView('main');
+             !$('ach-view').hidden) menuView('main');
     else closeMenu();
   }
 });
@@ -1931,6 +1947,8 @@ function updateUI() {
   $('dia-toggle').hidden = !g.owned.diagram;
   if (!g.owned.diagram && diaOn) setDiaMode(false);
   if (!diaOn) $('dia-toggle').textContent = STR.diaToDiagram;
+  $('stats-toggle').hidden = !g.owned.stats;
+  $('stats-toggle').textContent = STR.statsToggle;
   const idleN = sim.idleTrains(g).length;
   const auto = !!g.owned.drivers;
   $('bell-sub').textContent = !idleN ? STR.noIdle
@@ -2004,6 +2022,12 @@ function frame(now) {
     $('ach-toast').hidden = true;
   }
   maybeNote();
+  // The open stats overlay is ALIVE: the graph and ledger refresh once a
+  // second while the game runs beneath (the menu version never could).
+  if (statsOpen && performance.now() - statsRenderedAt > 1000) {
+    renderStats();
+    statsRenderedAt = performance.now();
+  }
   if (diaOn) {
     // The diagram replaces the map wholesale: no basemap repaints, no canvas.
     const sig = diagramSig(g);
