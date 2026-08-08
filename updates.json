@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.6",
+      "title": "The coach's third beat",
+      "content": "- Once your first train is running and a second one is affordable, its card in the shop pulses gently, the same cue the bell used. It stops the moment you buy."
+    },
+    {
       "version": "0.12.5",
       "title": "The opening coach follows the money",
       "content": "- The new opening cues now come in the right order. The bell pulses first, because fares fund your first build. Once your train is out and earning, the line end and the staked ring take over and show you where to build.\n- Before this, the game asked for a 1785 kr build while handing you 900 kr."

@@ -2359,6 +2359,14 @@ function updateShop() {
       : !affordable ? 'unaffordable'
       : isPk ? 'project'
       : 'affordable';
+    // The opening coach's third beat (owner ask, 2026-08-09): once the
+    // first train runs and a second is actually AFFORDABLE, its card takes
+    // the same gold pulse the bell had. Retires on the purchase, and the
+    // era guard keeps it from nagging a deliberate one-train purist.
+    if (item.id === 'train') {
+      card.classList.toggle('tb-goldcue',
+        g.opened && g.era === 0 && !g.owned.train && affordable);
+    }
 
     card.querySelector('.tb-shop__cost').textContent =
       maxed ? STR.max : (nLevels > 1 ? '×' + nLevels + '  ' : '') + kr(cost) + unit;
