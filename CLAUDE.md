@@ -27,13 +27,16 @@ constructors (`sim.addTrain`), the smoke suite lints for literals.
 2. **Changelog**: add the entry at index 0 of `updates.json`, unique
    `version` matching `VERSION` (deploy asserts this too), `title`,
    `content` in Markdown. Style: standard game patch notes. A one-line
-   context sentence if needed, then plain factual bullets: what changed,
-   what it means for the player. Objective and to the point. No jokes,
-   no asides, no marketing rhythm; the wry first-person voice belongs to
-   the itch STORE PAGE only (see ITCH.md), never to patch notes. Owner
-   feedback, both directions, 2026-08-07: the first draft was "AI"
-   marketing prose, the correction over-swung into inserted personality
-   ("no one speaks like this").
+   context sentence if needed, then plain factual bullets stating what
+   changed and what it means for the player. Objective and to the point.
+   No jokes, no asides, no marketing rhythm. The wry first-person voice
+   belongs to the itch STORE PAGE only (see ITCH.md), never to patch
+   notes. Owner feedback, both directions, 2026-08-07: the first draft
+   was "AI" marketing prose, the correction over-swung into inserted
+   personality ("no one speaks like this"). Owner rule 2026-08-08: no
+   colons, semicolons, or dashes as punctuation in change notes or any
+   in-game flavour text. Write "Fixed the X" rather than "Fixed: X".
+   Markdown "- " list markers are structure and stay.
 3. Run the three gates above, then commit here and push.
 4. **maclaine.se**: `node _dev/deploy-to-site.mjs`, then in
    `/Users/matthewmaclaine/personal website` stage ONLY `tunnelbana/`
