@@ -69,9 +69,11 @@ world expansion as the possible **paid** version. That decision shapes what
 
 ## Watch items (from measurement, awaiting live feedback)
 
-- The era-1957 → 1964 trust climb (25 pk at ~30% coverage) is slow for an
-  active player; red-corridor grants pay only at delivery. Candidate lever is
-  trust-rate shaping — measured, not guessed.
+- ~~The era-1957 → 1964 trust climb~~ RESOLVED in 0.11.0 (two live reports
+  plus the probe forced the call): the proven-operator bonus, trust rate
+  x(1 + 0.4 x era). Measured: the 1950 opening unchanged to the second, the
+  1964 wall down from 12+ minutes to ~3 for a maximally hub-greedy player.
+  Watch whether trust now feels too cheap late.
 - How new players take the 1950 plan fence (0.9.2's biggest personality
   change; softening lever is pricing, not removal).
 - Whether rush grades read as fun or pressure.
