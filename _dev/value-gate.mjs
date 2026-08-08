@@ -179,6 +179,10 @@ const CASES = [
   // shows up in steady-state kr/s. Subsidy needs room to grow ('low'), the
   // rezoning needs a city already AT its cap ('high'), transfers need a
   // second line to change to.
+  // v12 late pair: platforms hold queues the caps were dropping ('high' is
+  // where waiting caps bind); the depot pays through the night phase.
+  { id: 'platforms',  demand: 'high', base: { drivers: 1, train: 2 },               buy: { platforms: 1 } },
+  { id: 'depot',      demand: 'high', base: { drivers: 1, train: 4, timetable: 1 }, buy: { depot: 1 } },
   { id: 'co subsidy',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 1 }, buy: { 'council:subsidise-suburbs': 1 } },
   { id: 'co rezone',   demand: 'high', base: { drivers: 1, train: 4, timetable: 1 }, buy: { 'council:rezone-inner': 1 } },
   { id: 'co transfer', demand: 'high', base: { drivers: 1, train: 3, westline: 1 },  buy: { 'council:easy-transfer': 1 } },

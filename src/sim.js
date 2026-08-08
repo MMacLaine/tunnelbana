@@ -812,6 +812,18 @@ export const CATALOG = [
     mult: { dispatchInterval: 0.8, speed: 0.93 } },
   { id: 'nightservice', base: 80000, growth: 1, max: 1, era: 1975,
     mult: { night: 2 } },
+  // v12 late pair. Platforms raise the WAITING cap (the queue the platform
+  // physically holds), the axis crowding and abandonment bite on; capacity
+  // stays the train axis. The depot pays at night: a stabled fleet is not a
+  // running fleet, so train upkeep falls while the city sleeps.
+  { id: 'platforms',  base: 30000, growth: 2.2, max: 3, era: 1957, unlock: { stations: 12 },
+    add: { stationCap: 30 } },
+  // Measured +1.20/s flat (sd 0.00, THIN at 0.44% of base): the saving is
+  // pure upkeep arithmetic and exactly what the card claims. The depot is
+  // also a PLACE (the hall on the map, the stabled bar), so it ships thin
+  // by the same ruling as atc's comfort.
+  { id: 'depot',      base: 55000, growth: 1, max: 1, era: 1957, unlock: { delivered: 60000 },
+    mult: { nightUpkeep: 0.4 } },
   // Regionplanen: permission to build beyond the city's edge, the first
   // upgrade whose product is SPACE. Late, steep, two levels (13 -> 17 -> 21
   // km), so "outside Stockholm, within reason" stays within reason.
@@ -1138,7 +1150,8 @@ export function cityMult(g) {
 }
 
 export function stationCap(g) {
-  return BAL.stationCapBase; // per-station caps scale via each station's mult
+  // Per-station caps scale via each station's mult; platforms lengthen all.
+  return BAL.stationCapBase + effectAdd(g, 'stationCap');
 }
 
 export function trainCap(g) {
@@ -1214,7 +1227,10 @@ export function pkRate(g) {
 
 export function upkeepRate(g) {
   let r = 0;
-  for (const t of g.trains) r += BAL.upkeepPerTrainPerSec * (t.mothballed ? BAL.mothballShare : 1);
+  // The depot stables the fleet overnight (v12): train upkeep falls through
+  // the night phase. Mothballing still beats stabling, they do not stack.
+  const nightShare = dayPhase(g) === 3 ? effectMult(g, 'nightUpkeep') : 1;
+  for (const t of g.trains) r += BAL.upkeepPerTrainPerSec * (t.mothballed ? BAL.mothballShare : nightShare);
   // Stations cost money to run: tier upkeep plus per upgrade level, counted
   // once per physical station (interchanges are one station on the ground).
   const seen = new Set();
@@ -3370,7 +3386,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.11.4';
+export const VERSION = '0.12.0';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a

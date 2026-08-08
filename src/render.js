@@ -961,10 +961,35 @@ export function draw(g) {
   drawEggs(g);
   drawSurge(g);
   drawIncident(g);
+  drawDepots(g);
   drawTrains(g);
   drawGold(g);
   drawInsert();
   drawFloats(dt);
+}
+
+// The depot (v12, pass 04 section d): a building beside each line's home
+// terminus once the hall is bought. Station grammar but NOT a stop: a shed
+// with a pitched roof in the line's colour, offset off the platform.
+function drawDepots(g) {
+  if (!g.owned.depot) return;
+  for (const L of g.lines) {
+    if (!L.stations.length) continue;
+    const p = project(L.stations[0].geo);
+    const x = p.x - 14, y = p.y - 14;
+    ctx.beginPath();
+    ctx.rect(x - 5, y - 3, 10, 7);
+    ctx.fillStyle = COL.bg;
+    ctx.fill();
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = L.color || LINE.color;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y - 3);
+    ctx.lineTo(x, y - 7);
+    ctx.lineTo(x + 5, y - 3);
+    ctx.stroke();
+  }
 }
 
 // The ghost node per the pass-04 mock: a bg-filled amber ring with a plus,
