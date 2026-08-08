@@ -32,6 +32,15 @@ upgrade) was CUT by the value gate at −19.96 kr/s in its own regime; the
 lesson is recorded in the catalog. Remaining dominant wait is the 1964
 trust wall (11.6/25 pk at t=3600), already a watch item below.
 
+Second 0.11 slice (owner asks, 2026-08-08): the menu no longer pauses the
+game (era front pages still do); MUSIC — "Morning Rain" and "Countryside"
+by TAD, OpenGameArt, CC0, vendored, credited in About, lazy-loaded — with a
+Master/Music/Effects mixer in Settings (old sound toggle migrates);
+achievements topped up to 104 (the 100+ ask closed); the numbers ceremony
+(counters beat on upward power-of-ten crossings — pass-02 item e closed);
+and a live-report fix: reset/import now clears the previous life's
+away-report note.
+
 ## Agreed, not yet built
 
 | Item | Ruling | Status |

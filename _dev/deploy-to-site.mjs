@@ -28,7 +28,7 @@ const CHECK = process.argv.includes('--check');
 // release and its changelog ship in the same push.
 const SHIP_FILES = ['index.html', 'favicon.svg', 'tokens.css', 'tokens-ui.css', 'ui.css',
                     'ui-pass03.css', 'incrementaldb.txt', 'updates.json'];
-const SHIP_DIRS = ['src', 'basemap', 'fonts', 'vendor'];
+const SHIP_DIRS = ['src', 'basemap', 'fonts', 'vendor', 'audio'];
 
 function walk(dir, base = dir, out = []) {
   for (const name of readdirSync(dir)) {
