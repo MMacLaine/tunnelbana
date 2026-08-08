@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.3",
+      "title": "Overlays you can move",
+      "content": "- The statistics and council overlays now drag by their title bar and resize from their corner, and they remember where you put them.\n- Double click a title bar to send that overlay back to the centre."
+    },
+    {
       "version": "0.12.2",
       "title": "A founded line could retire your save",
       "content": "A serious save bug, found live and fixed within the hour.\n\n- If you founded a new line from a Hub and the game saved before you extended it, loading that save was refused and the game started fresh. The save itself was never touched or lost. Loading now accepts a one station line, because a just founded line is exactly that.\n- If a save truly cannot be read, the Saves screen now says so out loud when you click it. Before this it said nothing at all.\n- If this happened to you, your city is still there. Refresh and continue."
