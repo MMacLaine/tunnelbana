@@ -481,6 +481,82 @@ export const ACHIEVEMENTS = [
     check: (g) => g.eggsFound >= 1 },
   { id: 'egg-all', name: 'Every odd corner', hint: 'Find them all',
     check: (g) => g.eggsFound >= 6 },
+  // --- The 0.11 top-up: past one hundred (owner: "ideally 100+, some easy,
+  // some very hard"). All recognition, no modifiers: the reward budget from
+  // pass 01 stays where it is. ---
+  { id: 'era-1964', name: 'Två färger', hint: 'Reach 1964',
+    check: (g) => g.era >= 3 },
+  { id: 'era-1975', name: 'Under Järvafältet', hint: 'Reach 1975',
+    check: (g) => g.era >= 4 },
+  { id: 'plan-all', name: 'Generalplanen', hint: 'Deliver every corridor in the plan',
+    check: (g) => CORRIDORS.every((c) => g.planDone[c.id]) },
+  { id: 'junction-five', name: 'The weave holds five', hint: 'Run five interchanges at once',
+    check: (g) => {
+      let n = 0;
+      for (let i = 0; i < ANCHORS.length && n < 5; i++) if (linesAtAnchor(g, i) > 1) n++;
+      return n >= 5;
+    } },
+  { id: 'ten-lines', name: 'Ten colours', hint: 'Run ten lines in the sandbox',
+    check: (g) => g.lines.length >= 10 },
+  { id: 'free-25', name: 'Chief city planner', hint: 'Place twenty-five stations of your own',
+    check: (g) => g.freeSpots >= 25 },
+  { id: 'water-4', name: 'Archipelago habits', hint: 'Cross the water four times',
+    check: (g) => {
+      let n = 0;
+      for (const L of g.lines) {
+        for (let i = 0; i + 1 < L.stations.length; i++) {
+          if (crossesWater(L.stations[i].geo, L.stations[i + 1].geo) && ++n >= 4) return true;
+        }
+      }
+      return false;
+    } },
+  { id: 'hub-five', name: 'Five Knutpunkter', hint: 'Build five hubs of your own',
+    check: (g) => {
+      const seen = new Set();
+      let n = 0;
+      for (const L of g.lines) for (const st of L.stations) {
+        const k = st.anchor !== null ? 'a' + st.anchor : st.name;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) n++;
+      }
+      return n >= 5;
+    } },
+  { id: 'transfer-million', name: 'A million byten', hint: 'See 1 000 000 riders change lines',
+    check: (g) => g.transfers >= 1e6 },
+  { id: 'per-min-5k', name: 'Five thousand a minute', hint: 'Carry 5 000 riders in one minute',
+    check: (g) => g.records.riders >= 5000 },
+  { id: 'turnover-biljon', name: 'Biljonen', hint: 'Past every ledger',
+    check: (g) => g.grossLife >= 1e12 },
+  { id: 'rent-2000', name: 'The underground mall', hint: 'Earn 2 000 kr/s from retail',
+    check: (g) => commerceRate(g) >= 2000 },
+  { id: 'coverage-95', name: 'The whole region', hint: 'Serve nearly everyone well',
+    check: (g) => coverage(g) >= 0.95 },
+  { id: 'fixer-25', name: 'Signalmästaren', hint: 'Clear twenty-five signal failures',
+    check: (g) => g.incidentsFixed >= 25 },
+  { id: 'moves-50', name: 'Depot choreography', hint: 'Order fifty depot transfers',
+    check: (g) => (g.trainMoves || 0) >= 50 },
+  { id: 'headway-10', name: 'A train in sight, always', hint: 'Run a line at a headway under 10 s',
+    check: (g) => {
+      for (let li = 0; li < g.lines.length; li++) {
+        if (g.lines[li].stations.length >= 4 && lineHeadwayS(g, li) < 10) return true;
+      }
+      return false;
+    } },
+  { id: 'fleet-full', name: 'Every slot filled', hint: 'Own every train the era allows',
+    check: (g) => g.owned.train >= maxFor(g, CATALOG.find((i) => i.id === 'train')) && g.era >= 4 },
+  { id: 'night-million', name: 'Tunnelbana by starlight', hint: 'A million riders at night',
+    check: (g) => g.nightDelivered >= 1e6 },
+  { id: 'ach-50', name: 'Samlare', hint: 'Earn fifty of these',
+    check: (g) => Object.keys(g.achieved || {}).length >= 50 },
+  { id: 'ach-90', name: 'Allting', hint: 'Earn ninety of these',
+    check: (g) => Object.keys(g.achieved || {}).length >= 90 },
+  { id: 'played-10h', name: 'A regular', hint: 'Ten hours on the network',
+    check: (g) => g.playedS >= 10 * 3600 },
+  { id: 'played-24h', name: 'Dygnet runt', hint: 'A full day of your life, underground',
+    check: (g) => g.playedS >= 24 * 3600 },
+  { id: 'bulk-100', name: 'Standing order', hint: 'Place one hundred bulk orders',
+    check: (g) => g.bulkOrders >= 100 },
 ];
 
 // Presentation metadata by id: category, hidden (shown as ??? with a tease
@@ -578,6 +654,29 @@ export const ACH_META = {
   'diagram-view': { cat: 'endgame' },
   'egg-first': { cat: 'endgame', hidden: true, tease: 'There are odd corners in this city' },
   'egg-all': { cat: 'endgame', hidden: true, tease: 'Every odd corner' },
+  'era-1964': { cat: 'history' },
+  'era-1975': { cat: 'history' },
+  'plan-all': { cat: 'history' },
+  'junction-five': { cat: 'building' },
+  'ten-lines': { cat: 'building', family: 'lines' },
+  'free-25': { cat: 'building' },
+  'water-4': { cat: 'building' },
+  'hub-five': { cat: 'building' },
+  'transfer-million': { cat: 'riders', family: 'byten' },
+  'per-min-5k': { cat: 'riders', family: 'permin' },
+  'turnover-biljon': { cat: 'money', family: 'turnover', hidden: true, tease: 'Past every ledger' },
+  'rent-2000': { cat: 'money', family: 'rent' },
+  'coverage-95': { cat: 'trust', family: 'coverage' },
+  'fixer-25': { cat: 'service', family: 'repairs' },
+  'moves-50': { cat: 'service', family: 'depot' },
+  'headway-10': { cat: 'service', family: 'headway' },
+  'fleet-full': { cat: 'service' },
+  'night-million': { cat: 'night', family: 'nightriders', hidden: true, tease: 'By starlight' },
+  'ach-50': { cat: 'endgame' },
+  'ach-90': { cat: 'endgame', hidden: true, tease: 'Nearly all of it' },
+  'played-10h': { cat: 'endgame', family: 'time' },
+  'played-24h': { cat: 'endgame', family: 'time', hidden: true, tease: 'Stay a while longer' },
+  'bulk-100': { cat: 'endgame' },
 };
 
 // Checked once a second rather than every tick: eighteen predicates over a live

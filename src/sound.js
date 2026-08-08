@@ -16,30 +16,72 @@
 
 let ctx = null;
 let master = null;
-let on = true;
 let lastFareAt = 0;
 
-export function setOn(v) {
-  on = !!v;
+// The mixer (0.11, owner ask): master, music, effects. Effects run through
+// the WebAudio gain; music is an <audio> element so the vendored tracks
+// stream lazily. MUSIC is real audio and therefore carries its credit line:
+// "Morning Rain" and "Countryside" by TAD, OpenGameArt.org, CC0 — credited
+// in About per the house rule even though CC0 does not demand it.
+const TRACKS = ['audio/morning-rain.mp3', 'audio/countryside.mp3'];
+const EFFECTS_BASE = 0.28;
+const MUSIC_BASE = 0.55;
+let vol = { master: 0.8, music: 0.5, effects: 0.8 };
+let musicEl = null;
+let trackIdx = 0;
+let unlocked = false;
+
+function applyEffects() {
+  if (master) master.gain.value = EFFECTS_BASE * vol.master * vol.effects;
+}
+
+function applyMusic() {
+  const v = vol.master * vol.music;
+  if (!unlocked) return; // browsers refuse sound before a gesture anyway
+  if (v <= 0.005) {
+    if (musicEl) musicEl.pause();
+    return;
+  }
+  if (!musicEl) {
+    // Created on first genuine need, so the boot never downloads a note.
+    musicEl = new Audio();
+    musicEl.addEventListener('ended', () => {
+      trackIdx = (trackIdx + 1) % TRACKS.length;
+      musicEl.src = TRACKS[trackIdx];
+      musicEl.play().catch(() => {});
+    });
+    musicEl.src = TRACKS[trackIdx];
+  }
+  musicEl.volume = Math.min(1, v * MUSIC_BASE);
+  if (musicEl.paused) musicEl.play().catch(() => {});
+}
+
+export function setVolumes(v) {
+  vol = { ...vol, ...v };
+  applyEffects();
+  applyMusic();
 }
 
 export function unlock() {
+  unlocked = true;
   if (ctx) {
     if (ctx.state === 'suspended') ctx.resume();
+    applyMusic();
     return;
   }
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain();
-    master.gain.value = 0.22;
+    applyEffects();
     master.connect(ctx.destination);
   } catch {
     ctx = null; // no audio here; every call stays a no-op
   }
+  applyMusic();
 }
 
 function tone(freq, { at = 0, dur = 0.25, type = 'sine', gain = 0.4, attack = 0.005, lp = 0 } = {}) {
-  if (!ctx || !on) return;
+  if (!ctx || vol.master * vol.effects <= 0.005) return;
   const t0 = ctx.currentTime + at;
   const osc = ctx.createOscillator();
   osc.type = type;
@@ -77,7 +119,7 @@ export function achievement() {
 // A single warm tick, felt more than heard; pitch rises faintly with the
 // amount. Fares land constantly, so this self-throttles.
 export function fare(amt) {
-  if (!ctx || !on) return;
+  if (!ctx || vol.master * vol.effects <= 0.005) return;
   const now = performance.now();
   if (now - lastFareAt < 160) return;
   lastFareAt = now;

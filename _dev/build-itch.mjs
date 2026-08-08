@@ -15,7 +15,8 @@ mkdirSync(STAGE, { recursive: true });
 // listing, reachable at <build root>/incrementaldb.txt once uploaded. Remove it
 // here and delete the file once verification is confirmed.
 const INCLUDE = ['index.html', 'tokens.css', 'tokens-ui.css', 'ui.css', 'ui-pass03.css',
-                 'favicon.svg', 'incrementaldb.txt', 'src', 'vendor', 'fonts', 'basemap'];
+                 'favicon.svg', 'incrementaldb.txt', 'src', 'vendor', 'fonts', 'basemap',
+                 'audio'];
 for (const item of INCLUDE) {
   cpSync(join(ROOT, item), join(STAGE, item), { recursive: true });
 }
@@ -24,7 +25,8 @@ for (const item of INCLUDE) {
 // runtime endpoints explicitly so adding one is a deliberate edit here.
 const RUNTIME = new Set(['tiles.openfreemap.org', 'maclaine.se',
                          'static.cloudflareinsights.com']);
-const CREDIT = new Set(['openfreemap.org', 'www.openstreetmap.org', 'maplibre.org']);
+const CREDIT = new Set(['openfreemap.org', 'www.openstreetmap.org', 'maplibre.org',
+                        'opengameart.org']);
 // Not network calls at all: XML namespaces and source comments. Named rather
 // than folded into the allowlist, so the distinction stays visible.
 const INERT = new Set(['www.w3.org', 'github.com']);
