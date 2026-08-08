@@ -2540,6 +2540,9 @@ function updateUI() {
   $('stats-toggle').textContent = STR.statsToggle;
   $('council-toggle').hidden = !sim.councilOpen(g);
   $('council-toggle').textContent = STR.councilToggle;
+  // The opening coach's second beat: line extended, nothing has moved yet,
+  // so the bell wears the soft gold pulse until the first departure.
+  $('bell').classList.toggle('tb-goldcue', !g.opened && g.lines[0].stations.length > 3);
   const idleN = sim.idleTrains(g).length;
   // The depot bar: stabled (idle plus mothballed) in green against out
   // running, pass 04's anatomy, only once the hall exists.

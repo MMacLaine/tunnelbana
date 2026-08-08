@@ -449,6 +449,10 @@ function drawAnchors(g) {
       // to ink for a corridor's first, unowned anchor.
       const ownerLi = stakeLine(g, i);
       const colStake = ownerLi !== null ? g.lines[ownerLi].color : COL.ink;
+      // While the coach runs, the whole build affordance speaks up: the
+      // connector goes near-solid and the stake rings larger, because this
+      // ring IS the tutorial and it was too quiet to carry that.
+      const coach = coachBuild(g);
       const c = corridorOf(i);
       if (c && i > c.start && used.has(i - 1)) {
         const q = project(ANCHORS[i - 1].geo);
@@ -456,17 +460,18 @@ function drawAnchors(g) {
         ctx.moveTo(q.x, q.y);
         ctx.lineTo(p.x, p.y);
         ctx.setLineDash([3, 6]);
-        ctx.lineWidth = 2;
+        ctx.lineWidth = coach ? 3 : 2;
         ctx.lineCap = 'round';
         ctx.strokeStyle = colStake;
-        ctx.globalAlpha = 0.55;
+        ctx.globalAlpha = coach ? 0.9 : 0.55;
         ctx.stroke();
         ctx.globalAlpha = 1;
         ctx.setLineDash([]);
       }
       const pulse = 0.5 + 0.5 * Math.sin(clockT * 2.2);
+      const base = coach ? 7 : 5;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 5 + pulse * 2.5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, base + pulse * (coach ? 4 : 2.5), 0, Math.PI * 2);
       ctx.setLineDash([2, 3]);
       ctx.lineWidth = 1.5 + pulse * 0.8;
       ctx.strokeStyle = colStake;
@@ -475,11 +480,21 @@ function drawAnchors(g) {
       ctx.globalAlpha = 1;
       ctx.setLineDash([]);
       label(a.name, p.x + 13, p.y, COL.ink, 11);
+      if (coach) label('Build here', p.x + 13, p.y + 14, COL.amber, 11, { weight: 600 });
     }
   });
 }
 
+// The first two minutes, hand held (live report + telemetry 2026-08-09:
+// nearly half of starts never finished the 1950 line, and the owner himself
+// had to hunt for the stake). True only in the untouched opening position;
+// one extension ends it forever.
+export function coachBuild(g) {
+  return g.lines.length === 1 && g.lines[0].stations.length === 3 && !g.opened;
+}
+
 function drawEndHandles(g) {
+  const coach = coachBuild(g);
   for (let li = 0; li < g.lines.length; li++) {
     if (g.lines[li].stations.length < 1) continue;
     for (const end of ['head', 'tail']) {
@@ -492,6 +507,19 @@ function drawEndHandles(g) {
       ctx.globalAlpha = 0.9;
       ctx.stroke();
       ctx.globalAlpha = 1;
+      // The coach speaks at the working end: the one instruction the first
+      // minute actually needs, riding the handle it applies to.
+      if (coach && end === 'tail') {
+        const pulse = 0.5 + 0.5 * Math.sin(clockT * (Math.PI * 2 / 2.4));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r + 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = COL.amber;
+        ctx.globalAlpha = 0.5 + 0.45 * pulse;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        label('Drag this end to the pulsing ring', p.x + 18, p.y + 18, COL.amber, 12, { weight: 600 });
+      }
     }
   }
 }
