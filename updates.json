@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.8",
+      "title": "Demolish a stop in the middle of a line",
+      "content": "- Stations in the middle of a line can now be demolished from the station panel. The line closes the gap, and the fee is the same 100 kr the ends pay.\n- Destructive actions now ask first. The dialog has a button that stops the asking for good, and Settings has a Warnings switch to bring it back."
+    },
+    {
       "version": "0.12.7",
       "title": "The era tells you how, not just what",
       "content": "A live report reached 1964 and could not find the red line, because it did not exist yet. Chartering it is a shop purchase, and nothing said so.\n\n- When an era needs a line that has not been chartered, the aims strip now says to charter it and where the card is, instead of pointing at stakes that are not on the map yet.\n- The charter card itself pulses gently once your trust can pay it, the same cue as the rest of the opening."

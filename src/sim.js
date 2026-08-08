@@ -2890,6 +2890,53 @@ export function insertProblem(g, li, seg) {
   return null;
 }
 
+// The inverse splice (owner ask, 2026-08-09: stations built between lines
+// by accident need a way out). Interior stops only: the ends already have
+// right-click demolish.
+export function canRemoveStation(g, li, i) {
+  const L = g.lines[li];
+  if (!L || !Number.isInteger(i) || i <= 0 || i >= L.stations.length - 1) return false;
+  if (L.stations.length <= 2) return false;
+  if (g.money < BAL.demolishCost) return false;
+  // Same rule as canDemolish: only a train moving at or toward the doomed
+  // stop blocks it (its run references the geometry).
+  for (const t of g.trains) {
+    if (t.line !== li || !t.run) continue;
+    if (t.run.from === i || t.run.from + t.run.dir === i) return false;
+  }
+  return true;
+}
+
+export function removeStation(g, li, i) {
+  if (!canRemoveStation(g, li, i)) return false;
+  g.money -= BAL.demolishCost;
+  const L = g.lines[li];
+  const st = L.stations[i];
+  L.stations.splice(i, 1);
+  L.waitingF.splice(i, 1);
+  L.waitingB.splice(i, 1);
+  L.left60.splice(i, 1);
+  L.leaveAcc.splice(i, 1);
+  L.lastPassF.splice(i, 1);
+  L.lastPassB.splice(i, 1);
+  L.skip.splice(i, 1);
+  for (const t of g.trains) {
+    if (t.line !== li) continue;
+    if (!t.run) {
+      if (t.at >= i) t.at = Math.max(0, t.at - 1);
+      continue;
+    }
+    if (t.run.from > i) t.run.from -= 1;
+    t.run.dest.splice(i, 1);
+    t.run.destCont.splice(i, 1);
+  }
+  L.rev += 1;
+  computeDemand(g);
+  g.demolished += 1;
+  g.events.push({ type: 'demolish', geo: st.geo, name: st.name });
+  return true;
+}
+
 export function insertStation(g, li, seg) {
   if (insertProblem(g, li, seg)) return false;
   const L = g.lines[li];
@@ -3386,7 +3433,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.12.7';
+export const VERSION = '0.12.8';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a

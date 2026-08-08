@@ -511,6 +511,44 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.hydrate(sim.serialize(co)).council['not-a-decision']) err('unknown decisions must not hydrate');
 }
 
+// --- Remove a mid-line station (0.12.8): the inverse splice. Ends refuse,
+// short lines refuse, arrays stay lockstep, the line keeps delivering. ---
+{
+  const rm = sim.newGame();
+  rm.money = 1e6;
+  for (let k = 3; k < 10; k++) sim.extendTo(rm, 0, 'tail', ANCHORS[k].geo, k);
+  sim.buy(rm, 'drivers');
+  sim.buy(rm, 'train');
+  for (let t = 0; t < 120; t += 0.1) { sim.tick(rm, 0.1); rm.events.length = 0; }
+  if (sim.canRemoveStation(rm, 0, 0)) err('the head must refuse interior removal');
+  if (sim.canRemoveStation(rm, 0, rm.lines[0].stations.length - 1)) err('the tail must refuse too');
+  const before = rm.lines[0].stations.length;
+  // Find an interior stop no train is currently touching.
+  let idx = -1;
+  for (let i = 1; i < before - 1 && idx < 0; i++) if (sim.canRemoveStation(rm, 0, i)) idx = i;
+  if (idx < 0) err('some interior stop should be removable');
+  const gone = rm.lines[0].stations[idx].name;
+  const moneyB = rm.money;
+  if (!sim.removeStation(rm, 0, idx)) err('a legal removal should succeed');
+  const L0 = rm.lines[0];
+  if (L0.stations.length !== before - 1) err('removal should drop exactly one station');
+  if (L0.stations.some((s) => s.name === gone)) err('the removed stop is still on the line');
+  if (Math.round(moneyB - rm.money) !== sim.BAL.demolishCost) err('removal should charge the demolish fee');
+  for (const arr of [L0.waitingF, L0.waitingB, L0.left60, L0.leaveAcc, L0.lastPassF, L0.lastPassB, L0.skip]) {
+    if (arr.length !== L0.stations.length) err('a per-station array fell out of lockstep after removal');
+  }
+  for (const t of rm.trains) {
+    if (t.line !== 0) continue;
+    if (t.run && t.run.dest.length !== L0.stations.length) err('a running train kept a stale dest array');
+    if (!t.run && (t.at < 0 || t.at >= L0.stations.length)) err('a parked train fell off the line');
+  }
+  const dAt = rm.totalDelivered;
+  for (let t = 0; t < 300; t += 0.1) { sim.tick(rm, 0.1); rm.events.length = 0; }
+  if (!(rm.totalDelivered > dAt)) err('the line should keep delivering after the removal');
+  const backRm = sim.hydrate(sim.serialize(rm));
+  if (backRm.lines[0].stations.length !== L0.stations.length) err('the removal must survive a save');
+}
+
 // --- A save written between founding a line and extending it (v12 live
 // loss): the one-station line is REAL, and it must never retire the city. ---
 {
