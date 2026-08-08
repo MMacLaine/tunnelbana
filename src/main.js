@@ -121,6 +121,7 @@ const STR = {
   newsNext: 'Nästa.',
   diaToMap: 'KARTA',
   diaToDiagram: 'DIAGRAM',
+  fleetGrows: 'The fleet cap rises with the next era',
   skipOn: 'Express skips this stop',
   skipOff: 'Express calls here again',
   skipWhat: 'On a patterned line, trains alternate: the full service calls everywhere, the express saves the dwell at skipped stops.',
@@ -918,7 +919,10 @@ wrap.addEventListener('pointerdown', (e) => {
         options.push({ li, end, d: Math.hypot(ap.x - ep.x, ap.y - ep.y) });
       }
     }
-    options.sort((x, y) => x.d - y.d);
+    // The stake's OWNING line takes it first (live feedback: nearest-end
+    // sometimes grabbed the wrong colour); distance only breaks ties.
+    const owner = sim.stakeLine(g, a);
+    options.sort((x, y) => ((y.li === owner) - (x.li === owner)) || (x.d - y.d));
     dragRef = options.find((o) => !sim.placementProblem(g, o.li, o.end, ANCHORS[a].geo, a)) || options[0];
     tryExtend(dragState(p));
     dragRef = null;
@@ -1771,6 +1775,11 @@ function updateShop() {
     } else if (short > 0) {
       left.className = 'tb-shop__short';
       left.textContent = STR.need + ' ' + kr(short) + unit + ' ' + STR.more;
+    } else if (item.id === 'train' && maxed && g.era < 5) {
+      // The cap GROWS (live feedback read it as fixed): a maxed fleet names
+      // the next era's headroom instead of just reading Max.
+      left.className = 'tb-shop__gate';
+      left.textContent = STR.fleetGrows;
     } else if (item.id === 'train') {
       left.className = '';
       left.innerHTML = pipsHTML(owned + 1, sim.maxFor(g, item) + 1);
