@@ -273,6 +273,12 @@ const STR = {
   slotsBtnAt: 'Saves · playing slot',
   pulseOn: 'On',
   pulseOff: 'Off',
+  warnsOn: 'On',
+  warnsOff: 'Off',
+  removeBtn: 'Demolish this stop',
+  removeWarnTitle: 'DEMOLISH THE STOP',
+  removeWarn: 'and its riders and upgrades are gone for good. The line closes the gap.',
+  removeYes: 'Demolish',
   insertLabel: 'Add a stop here',
   councilToggle: 'Council',
   councilInHand: 'in hand',
@@ -597,6 +603,7 @@ function menuView(which) {
     $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
     $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
     $('settings-pulse').textContent = pulseOn ? STR.pulseOn : STR.pulseOff;
+    $('settings-warns').textContent = warnsOn ? STR.warnsOn : STR.warnsOff;
     $('settings-export').textContent = STR.exportBtn;
     $('settings-import').textContent = STR.importBtn;
     $('settings-restore').hidden = !store.get(BAK_KEY);
@@ -1271,6 +1278,7 @@ $('settings-reset').addEventListener('click', () => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
+    if (!$('confirm').hidden) { closeConfirm(); return; }
     if (statsOpen) { setStatsOpen(false); return; }
     if (councilOpen) { setCouncilOpen(false); return; }
     if (menu.hidden) showMenu('pause');
@@ -1694,6 +1702,15 @@ function updateStationPanel() {
     fixB.textContent = STR.fixCrew + ' · ' + fmt(fixCost) + ' kr';
     fixB.disabled = g.money < fixCost;
   }
+  // The way out for an accidental mid-line stop (2026-08-09): interior
+  // stations get the demolish the ends always had on right-click.
+  const rmB = $('sp-remove');
+  const interior = selected.i > 0 && selected.i < L.stations.length - 1;
+  rmB.hidden = !interior;
+  if (interior) {
+    rmB.textContent = STR.removeBtn + ' · ' + fmt(B.demolishCost) + ' kr';
+    rmB.disabled = !sim.canRemoveStation(g, selected.li, selected.i);
+  }
   // Left behind per minute: the headline diagnostic (abandonment).
   const left = Math.round(L.left60[selected.i] * 60);
   const lb = $('sp-left');
@@ -1725,6 +1742,52 @@ $('sp-found').addEventListener('click', () => {
     selectStation(null);
     updateUI();
   }
+});
+
+// --- The warning dialog (owner ask, 2026-08-09): destructive acts ask
+// once, and the third answer retires the asking for good. Settings brings
+// warnings back. ---
+const WARN_KEY = 'tunnelbana_warns';
+let warnsOn = store.get(WARN_KEY) !== 'off';
+let confirmAct = null;
+function askConfirm(title, text, yesLabel, act) {
+  if (!warnsOn) { act(); return; }
+  confirmAct = act;
+  $('confirm-title').textContent = title;
+  $('confirm-text').textContent = text;
+  $('confirm-yes').textContent = yesLabel;
+  $('confirm').hidden = false;
+}
+function closeConfirm() {
+  confirmAct = null;
+  $('confirm').hidden = true;
+}
+$('confirm-yes').addEventListener('click', () => {
+  const act = confirmAct;
+  closeConfirm();
+  if (act) act();
+});
+$('confirm-mute').addEventListener('click', () => {
+  warnsOn = false;
+  store.set(WARN_KEY, 'off');
+  const act = confirmAct;
+  closeConfirm();
+  if (act) act();
+});
+$('confirm-no').addEventListener('click', closeConfirm);
+$('confirm-cancel').addEventListener('click', closeConfirm);
+
+$('sp-remove').addEventListener('click', () => {
+  if (!selected) return;
+  const { li, i } = selected;
+  const name = g.lines[li].stations[i].name;
+  askConfirm(STR.removeWarnTitle, name + ' ' + STR.removeWarn + ' ' + fmt(sim.BAL.demolishCost) + ' kr.',
+    STR.removeYes + ' ' + name, () => {
+      if (sim.removeStation(g, li, i)) {
+        selectStation(null);
+        updateUI();
+      }
+    });
 });
 
 // Per-line fleet rows (player-controlled, report 634 risk 3; rebuilt 0.9).
@@ -1895,6 +1958,11 @@ $('settings-pulse').addEventListener('click', () => {
   pulseOn = !pulseOn;
   store.set(PULSE_KEY, pulseOn ? '1' : '0');
   $('settings-pulse').textContent = pulseOn ? STR.pulseOn : STR.pulseOff;
+});
+$('settings-warns').addEventListener('click', () => {
+  warnsOn = !warnsOn;
+  store.set(WARN_KEY, warnsOn ? 'on' : 'off');
+  $('settings-warns').textContent = warnsOn ? STR.warnsOn : STR.warnsOff;
 });
 
 function maybeNote() {

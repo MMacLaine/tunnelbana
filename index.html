@@ -9,18 +9,18 @@
      newer page (that shipped a dead Achievements screen and a 0.7 readout on a
      0.8 page). The handshake lives in the HTML because the HTML is the copy a
      browser revalidates. -->
-<meta name="tb-version" content="0.12.7">
+<meta name="tb-version" content="0.12.8">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="vendor/maplibre-gl.css" rel="stylesheet">
 <script src="vendor/maplibre-gl.js"></script>
 <!-- The design system, in adoption order (pass 02, section 08): colour and
      glyph tokens, then the interface tokens, then the component layer. Every
      class in the markup below comes from ui.css; this file owns only layout. -->
-<link rel="stylesheet" href="tokens.css?v=0.12.7">
-<link rel="stylesheet" href="tokens-ui.css?v=0.12.7">
-<link rel="stylesheet" href="ui.css?v=0.12.7">
-<link rel="stylesheet" href="ui-pass03.css?v=0.12.7">
-<link rel="stylesheet" href="ui-pass04.css?v=0.12.7">
+<link rel="stylesheet" href="tokens.css?v=0.12.8">
+<link rel="stylesheet" href="tokens-ui.css?v=0.12.8">
+<link rel="stylesheet" href="ui.css?v=0.12.8">
+<link rel="stylesheet" href="ui-pass03.css?v=0.12.8">
+<link rel="stylesheet" href="ui-pass04.css?v=0.12.8">
 <style>
   @font-face {
     font-family: "IBM Plex Mono";
@@ -243,6 +243,18 @@
 
   /* The statistics overlay (0.11.1): wide, centred, the map at its edges,
      the game running behind. A lookup, not a moment, so never full-bleed. */
+  /* The warning dialog (owner ask 2026-08-09): one destructive question,
+     three answers, and a way to never be asked again. */
+  #confirm {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 30;
+    width: min(92vw, 340px);
+  }
+  #confirm .tb-panel__body { gap: 0.5rem; }
+
   #stats-overlay, #council-overlay {
     position: fixed;
     top: 50%;
@@ -389,6 +401,7 @@
         <button class="tb-btn tb-btn--inline tb-btn--danger tb-btn--block" id="sp-fix" hidden></button>
         <button class="tb-btn tb-btn--inline tb-btn--danger" id="sp-down" hidden></button>
         <button class="tb-btn tb-btn--inline tb-btn--project tb-btn--block" id="sp-found" hidden></button>
+        <button class="tb-btn tb-btn--inline tb-btn--danger tb-btn--block" id="sp-remove" hidden></button>
       </div>
     </div>
     <!-- The aims strip (0.9): the game's one standing suggestion, derived
@@ -489,6 +502,22 @@
   <!-- The statistics office (0.11.1, owner ask): out of the menu, onto the
        map, room to breathe, and the game keeps running underneath. One
        surface; the corner toggle and the menu button both open it. -->
+  <!-- The warning dialog: shared by any destructive act that wants a second
+       thought. The third button retires the warnings for good (Settings can
+       bring them back). -->
+  <div class="tb-panel" id="confirm" hidden>
+    <div class="tb-panel__head">
+      <span class="tb-panel__title" id="confirm-title">ARE YOU SURE</span>
+      <button class="tb-panel__close" id="confirm-no" aria-label="Cancel">×</button>
+    </div>
+    <div class="tb-panel__body">
+      <p class="tb-menu__note" id="confirm-text" style="margin: 0"></p>
+      <button class="tb-btn tb-btn--std tb-btn--danger tb-btn--block" id="confirm-yes"></button>
+      <button class="tb-btn tb-btn--std tb-btn--block" id="confirm-cancel">Cancel</button>
+      <button class="tb-btn tb-btn--inline tb-btn--block" id="confirm-mute">Do this and stop warning me</button>
+    </div>
+  </div>
+
   <!-- The council (v12, pass 04 section a): an overlay like statistics, per
        the confirmed ruling. It dims the map rather than replaces it, and the
        wires behind the cards point a locked choice at the one that frees it. -->
@@ -794,6 +823,7 @@
         <div class="tb-setting"><span>Numbers</span><button class="tb-btn tb-btn--inline" id="settings-numfmt">Short</button></div>
         <div class="tb-setting"><span>City notes</span><button class="tb-btn tb-btn--inline" id="settings-notes">On</button></div>
         <div class="tb-setting"><span>Milestone pings</span><button class="tb-btn tb-btn--inline" id="settings-pulse">On</button></div>
+        <div class="tb-setting"><span>Warnings</span><button class="tb-btn tb-btn--inline" id="settings-warns">On</button></div>
         <div class="tb-setting"><span>Master</span><input type="range" class="tb-slider" id="vol-master" min="0" max="100"></div>
         <div class="tb-setting"><span>Music</span><input type="range" class="tb-slider" id="vol-music" min="0" max="100"></div>
         <div class="tb-setting"><span>Effects</span><input type="range" class="tb-slider" id="vol-effects" min="0" max="100"></div>
@@ -828,6 +858,6 @@
     <svg data-i="stats" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-6M3 20h18"></path></svg>
   </template>
 
-  <script type="module" src="src/main.js?v=0.12.7"></script>
+  <script type="module" src="src/main.js?v=0.12.8"></script>
 </body>
 </html>
