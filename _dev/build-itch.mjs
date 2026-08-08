@@ -14,9 +14,12 @@ mkdirSync(STAGE, { recursive: true });
 // incrementaldb.txt is TEMPORARY: an ownership token for the incrementaldb.com
 // listing, reachable at <build root>/incrementaldb.txt once uploaded. Remove it
 // here and delete the file once verification is confirmed.
+// updates.json ships IN the zip as of 0.11.4: the in-game changelog reads it
+// relative. This is a build-time snapshot for display; the live FEED for
+// incrementaldb remains the stable maclaine.se URL, never the zip's.
 const INCLUDE = ['index.html', 'tokens.css', 'tokens-ui.css', 'ui.css', 'ui-pass03.css',
-                 'favicon.svg', 'incrementaldb.txt', 'src', 'vendor', 'fonts', 'basemap',
-                 'audio'];
+                 'favicon.svg', 'incrementaldb.txt', 'updates.json',
+                 'src', 'vendor', 'fonts', 'basemap', 'audio'];
 for (const item of INCLUDE) {
   cpSync(join(ROOT, item), join(STAGE, item), { recursive: true });
 }
