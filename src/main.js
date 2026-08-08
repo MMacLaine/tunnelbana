@@ -239,6 +239,8 @@ const STR = {
   importBad: 'Not a valid save',
   restoreBtn: 'Restore backup',
   restoreBad: 'Backup not readable',
+  importFileBtn: 'Import from file',
+  saveCorruptNote: 'Your saved game was damaged (the checksum does not match), so it has been left untouched and autosave is off. Try Restore backup in Settings, or import a .tbsave file.',
   saveLockedNote: 'Your saved game could not be read just now, so it has been left untouched and autosave is off. Try Restore backup in Settings, or refresh; starting fresh or importing turns saving back on.',
   owned: 'Owned',
   level: 'Level',
@@ -303,12 +305,22 @@ let g = sim.hydrate(savedRaw);
 //    become permanent five seconds later. Reset or import re-arms it.
 // 2. THE BACKUP: one generation, taken at boot from a save that LOADED, so
 //    Settings can always restore the previous session's opening state.
+// 0.11.3: THREE generations, rotated only when the save actually moved, so
+// a burst of refreshes cannot launder one state through every slot.
 const BAK_KEY = 'tunnelbana_save_bak';
+const BAK2_KEY = 'tunnelbana_save_bak2';
+const BAK3_KEY = 'tunnelbana_save_bak3';
 let saveLocked = !!((savedRaw && g.hydrateFallback) || store.readFailed);
-if (savedRaw && !saveLocked) store.set(BAK_KEY, savedRaw);
+if (savedRaw && !saveLocked && savedRaw !== store.get(BAK_KEY)) {
+  const b1 = store.get(BAK_KEY);
+  const b2 = store.get(BAK2_KEY);
+  if (b2) store.set(BAK3_KEY, b2);
+  if (b1) store.set(BAK2_KEY, b1);
+  store.set(BAK_KEY, savedRaw);
+}
 let offline = null;
 try {
-  const sv = JSON.parse(savedRaw);
+  const sv = JSON.parse(sim.unpack(savedRaw).json);
   if (sv && typeof sv.savedAt === 'number') {
     offline = sim.simulateOffline(g, (Date.now() - sv.savedAt) / 1000);
   }
@@ -529,6 +541,9 @@ function menuView(which) {
     $('settings-import').textContent = STR.importBtn;
     $('settings-restore').hidden = !store.get(BAK_KEY);
     $('settings-restore').textContent = STR.restoreBtn;
+    $('settings-importfile').textContent = STR.importFileBtn;
+    $('save-status').textContent = 'automatic, local' +
+      (persisted === true ? ' · persistent' : persisted === false ? ' · best-effort' : '');
     $('import-text').hidden = true;
   }
 }
@@ -699,20 +714,50 @@ $('settings-theme').addEventListener('click', () => {
 $('settings-export').addEventListener('click', () => {
   const btn = $('settings-export');
   save();
+  const packed = sim.pack(g);
+  // The FILE is the export (0.11.3): a .tbsave in Downloads is the one
+  // backup no browser can evict. The clipboard comes along for pasting
+  // across devices; the textarea remains the last resort.
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([packed], { type: 'application/octet-stream' }));
+    const d = new Date();
+    a.download = 'tunnelbana-' + d.getFullYear() +
+      String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.tbsave';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch {}
   const done = () => {
     btn.textContent = STR.exportDone;
     setTimeout(() => { btn.textContent = STR.exportBtn; }, 1500);
   };
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(sim.serialize(g)).then(done, () => {
+    navigator.clipboard.writeText(packed).then(done, () => {
       $('import-text').hidden = false;
-      $('import-text').value = sim.serialize(g);
+      $('import-text').value = packed;
     });
   } else {
     $('import-text').hidden = false;
-    $('import-text').value = sim.serialize(g);
+    $('import-text').value = packed;
   }
 });
+
+// One import path for every source: hydrate judges, the fuse flag decides.
+function applyImport(text) {
+  const h = sim.hydrate(String(text || '').trim());
+  if (h.hydrateFallback) return false;
+  g = h;
+  saveLocked = false; // an explicit import re-arms autosave
+  save();
+  $('offline-note').hidden = true; // the note described the OLD save's absence
+  offline = null;
+  updateUI();
+  homeCamera();
+  settingsView(false);
+  showMenu('start');
+  return true;
+}
+
 $('settings-import').addEventListener('click', () => {
   const ta = $('import-text');
   if (ta.hidden) {
@@ -721,35 +766,37 @@ $('settings-import').addEventListener('click', () => {
     $('settings-import').textContent = STR.importApply;
     return;
   }
-  let ok = false;
-  try {
-    const s = JSON.parse(ta.value);
-    ok = s && typeof s.saveVersion === 'number';
-  } catch {}
-  if (!ok) {
+  if (!applyImport(ta.value)) {
     $('settings-import').textContent = STR.importBad;
     setTimeout(() => { $('settings-import').textContent = STR.importApply; }, 1500);
     return;
   }
-  g = sim.hydrate(ta.value);
-  saveLocked = false; // an explicit import re-arms autosave
-  save();
-  $('offline-note').hidden = true; // the note described the OLD save's absence
-  offline = null;
-  updateUI();
-  homeCamera();
   ta.hidden = true;
   $('settings-import').textContent = STR.importBtn;
-  settingsView(false);
-  showMenu('start');
 });
-// Restore the boot backup: last session's opening state, guaranteed to have
-// loaded once. The lifeline the 0.11.1 loss did not have.
+$('settings-importfile').addEventListener('click', () => $('import-file').click());
+$('import-file').addEventListener('change', () => {
+  const f = $('import-file').files && $('import-file').files[0];
+  if (!f) return;
+  f.text().then((t) => {
+    if (!applyImport(t)) {
+      $('settings-importfile').textContent = STR.importBad;
+      setTimeout(() => { $('settings-importfile').textContent = STR.importFileBtn; }, 1500);
+    }
+    $('import-file').value = '';
+  });
+});
+// Restore: the newest backup that actually READS wins, three generations
+// deep. The lifeline the 0.11.1 loss did not have.
 $('settings-restore').addEventListener('click', () => {
-  const bak = store.get(BAK_KEY);
-  if (!bak) return;
-  const h = sim.hydrate(bak);
-  if (h.hydrateFallback) {
+  let h = null;
+  for (const key of [BAK_KEY, BAK2_KEY, BAK3_KEY]) {
+    const bak = store.get(key);
+    if (!bak) continue;
+    const tryH = sim.hydrate(bak);
+    if (!tryH.hydrateFallback) { h = tryH; break; }
+  }
+  if (!h) {
     $('settings-restore').textContent = STR.restoreBad;
     setTimeout(() => { $('settings-restore').textContent = STR.restoreBtn; }, 1500);
     return;
@@ -1303,7 +1350,17 @@ try {
 } catch {}
 if (store.get('tunnelbana_sound') === 'off' && store.get(VOL_KEY) === null) vols.master = 0;
 sfx.setVolumes(vols);
-window.addEventListener('pointerdown', () => sfx.unlock());
+// Persistent storage, requested once behind the same first gesture: on
+// Chromium and Firefox this exempts the save from eviction. Safari neither
+// grants it nor promises anything, which is why the .tbsave export exists.
+let persisted = null;
+window.addEventListener('pointerdown', () => {
+  sfx.unlock();
+  if (persisted === null && navigator.storage && navigator.storage.persist) {
+    persisted = false;
+    navigator.storage.persist().then((p) => { persisted = p; }, () => {});
+  }
+});
 for (const [id, key] of [['vol-master', 'master'], ['vol-music', 'music'], ['vol-effects', 'effects']]) {
   const el = $(id);
   el.value = Math.round(vols[key] * 100);
@@ -2096,7 +2153,7 @@ function frame(now) {
 // --- Save ---
 function save() {
   if (saveLocked) return; // the fuse: never write over bytes that failed to load
-  store.set(sim.SAVE_KEY, sim.serialize(g));
+  store.set(sim.SAVE_KEY, sim.pack(g)); // the checksummed container (0.11.3)
 }
 setInterval(save, 5000);
 document.addEventListener('visibilitychange', () => {
@@ -2126,7 +2183,7 @@ if (offline) {
 if (saveLocked) {
   const note = $('offline-note');
   note.hidden = false;
-  note.textContent = STR.saveLockedNote;
+  note.textContent = g.hydrateCorrupt ? STR.saveCorruptNote : STR.saveLockedNote;
 }
 // A migrated save explains itself once, in the same place as the away summary,
 // so "my finished upgrades have room again" reads as an update rather than a

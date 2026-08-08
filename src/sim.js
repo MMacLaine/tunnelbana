@@ -3127,7 +3127,39 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.11.2';
+export const VERSION = '0.11.3';
+
+// --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
+// makes corruption DETECTABLE (a truncated write no longer looks like a
+// mystery), pack/unpack are the only writers/readers, and bare JSON keeps
+// loading forever: every save ever written stays valid. ---
+
+function crc32(str) {
+  let c = ~0;
+  for (let i = 0; i < str.length; i++) {
+    c ^= str.charCodeAt(i) & 0xff;
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return ((~c) >>> 0).toString(16).padStart(8, '0');
+}
+
+export function pack(g) {
+  const json = serialize(g);
+  return 'TBSAVE1:' + crc32(json) + ':' + json;
+}
+
+// Returns { json, corrupt } for hydrate: a container whose checksum fails is
+// CORRUPT (worth telling the player), not merely unreadable. Bare strings
+// pass through untouched: the legacy path.
+export function unpack(raw) {
+  if (typeof raw !== 'string' || !raw.startsWith('TBSAVE1:')) return { json: raw, corrupt: false };
+  const cut = raw.indexOf(':', 8);
+  if (cut < 0) return { json: null, corrupt: true };
+  const sum = raw.slice(8, cut);
+  const json = raw.slice(cut + 1);
+  if (crc32(json) !== sum) return { json: null, corrupt: true };
+  return { json, corrupt: false };
+}
 
 export function serialize(g) {
   return JSON.stringify({
@@ -3212,8 +3244,14 @@ export function hydrate(raw) {
   // the caller can refuse to autosave over the stored bytes (0.11.2, after
   // a live save loss: a transient load failure must never become permanent
   // five seconds later).
+  const { json, corrupt } = unpack(raw);
+  if (corrupt || json === null) {
+    g.hydrateFallback = true;
+    g.hydrateCorrupt = true;
+    return g;
+  }
   let s;
-  try { s = JSON.parse(raw); } catch { g.hydrateFallback = true; return g; }
+  try { s = JSON.parse(json); } catch { g.hydrateFallback = true; return g; }
   if (!s || typeof s.saveVersion !== 'number') { g.hydrateFallback = true; return g; }
   g.money = Math.max(0, Number(s.money) || 0);
   g.pk = Math.max(0, Number(s.pk) || 0);
