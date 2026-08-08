@@ -180,6 +180,11 @@ export const BAL = {
   // the mid-game: at minute 60 the bot had 175k riders against an 80k threshold
   // and could not advance for want of 6 more trust.
   pkFullRatePerSec: 0.055,
+  // Trust rate x(1 + this x era): the proven-operator bonus. 0.25 measured
+  // short (probe 2026-08-08: pk 13.9/25 at t=3600, because an active 1957
+  // spends ~30 trust on hubs and through-running BESIDE the 25 the era
+  // gate wants); 0.4 covers both jobs. The 1950 opening is untouched.
+  pkEraGrowth: 0.4,
   surgeEvery: 120,         // seconds between rush events
   surgeDur: 25,            // seconds a rush lasts
   surgeSpawnMult: 3,       // spawn multiplier at the rushed station
@@ -1089,7 +1094,12 @@ export function commerceRate(g) {
 // region). Owner feedback 2026-08-05: "no idea how I'm gaining it nor how long
 // I will take till 5."
 export function pkRate(g) {
-  return BAL.pkFullRatePerSec * coverage(g);
+  // Trust accrues faster for a PROVEN operator: each era multiplies the
+  // rate (live feedback x2 plus the probe-arc wall said the later gates were
+  // a wait, and the owner's "actively playing waits on money" direction
+  // extends to them). The 1950 rate is untouched, so the tuned opening
+  // holds still; by 1964 the city signs off at nearly twice the pace.
+  return BAL.pkFullRatePerSec * coverage(g) * (1 + BAL.pkEraGrowth * g.era);
 }
 
 export function upkeepRate(g) {
@@ -1214,6 +1224,20 @@ export function planBlockers(g) {
 export function nextStakeOf(g, c) {
   for (let k = c.start; k < c.end; k++) {
     if (!usedAnchorsAll(g).has(k) && anchorRevealed(g, k)) return k;
+  }
+  return null;
+}
+
+// Which LINE a stake continues: the one holding the corridor's railhead
+// (live feedback 2026-08-08: "not sure which line is actively building, so
+// accidentally built wrong colour station"). Null when the corridor has not
+// begun, or the stake is a corridor's first anchor.
+export function stakeLine(g, anchorIdx) {
+  const c = corridorOf(anchorIdx);
+  if (!c || anchorIdx <= c.start) return null;
+  const prev = anchorIdx - 1;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (g.lines[li].stations.some((s) => s.anchor === prev)) return li;
   }
   return null;
 }
@@ -2228,7 +2252,7 @@ export function tick(g, dt) {
   }
 
   // Trust accrues from coverage, up to the ceiling this era allows.
-  g.pk = Math.min(g.pk + BAL.pkFullRatePerSec * coverage(g) * dt, pkCap(g));
+  g.pk = Math.min(g.pk + pkRate(g) * dt, pkCap(g));
 
   // Decay the 60 s rate windows (the offline estimate reads these).
   g.gross60 = Math.max(0, g.gross60 - g.gross60 * dt / 60);
