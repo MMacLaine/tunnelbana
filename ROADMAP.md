@@ -63,9 +63,21 @@ away-report note.
 
 ## The long game
 
-Stockholm stays **free**. If it goes well: Steam, and a Nordic / European /
-world expansion as the possible **paid** version. That decision shapes what
-1.0 means; make it before building toward 1.0.
+Ruled 2026-08-08, superseding the earlier Steam note. Stockholm stays
+**free**, and the game is a standalone PoC/prototype that is going well.
+Steam is unlikely ever. If a **v2** happens, platform and expansion
+questions return as considerations then, not before. Swedish localisation
+is ruled out.
+
+## v12 slate (planned 2026-08-08, owner-approved)
+
+The council (a trust tree framework, mixed currencies, data-driven and
+built to grow) · visible city growth · insert a station mid-line · anonymous
+milestone telemetry ("within reason") · golden trains (click for a small
+bonus) · the schematic map becomes a reward for beating era one · depots as
+places · platform length · save slots · the ambient sound bed (sound stays
+a small part, not a large one). Dropped from the ten: Swedish localisation,
+the Steam spike.
 
 ## Watch items (from measurement, awaiting live feedback)
 
