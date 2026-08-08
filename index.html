@@ -243,7 +243,7 @@
 
   /* The statistics overlay (0.11.1): wide, centred, the map at its edges,
      the game running behind. A lookup, not a moment, so never full-bleed. */
-  #stats-overlay {
+  #stats-overlay, #council-overlay {
     position: fixed;
     top: 50%;
     left: 50%;
@@ -476,6 +476,7 @@
         </div>
       </div>
     </div>
+    <button class="tb-btn tb-btn--inline tb-btn--onmap" id="council-toggle" hidden></button>
     <button class="tb-btn tb-btn--inline tb-btn--onmap" id="stats-toggle" hidden></button>
     <button class="tb-btn tb-btn--inline tb-btn--onmap" id="dia-toggle" hidden></button>
     <button class="tb-btn tb-btn--inline tb-btn--onmap" id="menu-open"></button>
@@ -486,6 +487,24 @@
   <!-- The statistics office (0.11.1, owner ask): out of the menu, onto the
        map, room to breathe, and the game keeps running underneath. One
        surface; the corner toggle and the menu button both open it. -->
+  <!-- The council (v12, pass 04 section a): an overlay like statistics, per
+       the confirmed ruling. It dims the map rather than replaces it, and the
+       wires behind the cards point a locked choice at the one that frees it. -->
+  <div class="tb-panel" id="council-overlay" hidden>
+    <div class="tb-panel__head">
+      <span class="tb-panel__title">THE COUNCIL</span>
+      <span class="tb-panel__tag" id="council-sub"></span>
+      <button class="tb-panel__close" id="council-close" aria-label="Close">×</button>
+    </div>
+    <div class="tb-panel__body">
+      <p class="tb-menu__note" style="margin-top: 0">Trust buys decisions here. A decision is permanent, and it keeps paying its effect for as long as the city stands.</p>
+      <div style="position: relative">
+        <svg class="tb-council__wires" id="council-wires" aria-hidden="true"></svg>
+        <div class="tb-council" id="council-tree" style="position: relative; z-index: 1"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="tb-panel" id="stats-overlay" hidden>
     <div class="tb-panel__head">
       <span class="tb-panel__title">STATISTICS</span>
@@ -623,6 +642,10 @@
           <p>It has a ceiling: exactly what the next era asks of you, shown beside the number.
           Once you are full you earn none until you spend some or move on, so trust is
           something to use rather than hoard. The last era lifts the ceiling for good.</p>
+          <p>Beat the first era and the council sits. Its corner button opens a tree of
+          decisions that trust buys outright. A decision is permanent and keeps paying its
+          effect, and some decisions unlock others, so what you take shapes what you are
+          offered next.</p>
         </div>
 
         <div class="tb-prose">

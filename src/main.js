@@ -259,6 +259,15 @@ const STR = {
   pulseOn: 'On',
   pulseOff: 'Off',
   insertLabel: 'Add a stop here',
+  councilToggle: 'Council',
+  councilInHand: 'in hand',
+  councilNow: 'Available now',
+  councilShort: 'Need',
+  councilMoreTrust: 'more trust',
+  councilNeeds: 'Needs',
+  councilFirst: 'first',
+  councilEra: 'Comes with the charter of',
+  councilFloat: 'The council decides',
 };
 
 // itch serves the game from a sandboxed cross-origin iframe, where Safari and
@@ -545,7 +554,10 @@ function geoAt(p) {
   return render.fallbackUnproject(p);
 }
 
-window.addEventListener('resize', () => render.resize());
+window.addEventListener('resize', () => {
+  render.resize();
+  if (councilOpen) drawCouncilWires(); // wires follow the cards
+});
 
 // --- Menu ---
 const menu = $('menu');
@@ -761,6 +773,107 @@ $('menu-stats').addEventListener('click', () => {
 });
 $('stats-toggle').addEventListener('click', () => setStatsOpen(!statsOpen));
 $('stats-close').addEventListener('click', () => setStatsOpen(false));
+
+// --- The council (v12, pass 04 section a): the overlay where trust buys
+// decisions. Cards are the delivered .tb-dec anatomy in its four states;
+// the wires behind them light politic when a prerequisite is satisfied. ---
+let councilOpen = false;
+let councilRenderedAt = 0;
+function setCouncilOpen(on) {
+  councilOpen = on && sim.councilOpen(g);
+  $('council-overlay').hidden = !councilOpen;
+  if (councilOpen) {
+    renderCouncil();
+    councilRenderedAt = performance.now();
+  }
+}
+$('council-toggle').addEventListener('click', () => setCouncilOpen(!councilOpen));
+$('council-close').addEventListener('click', () => setCouncilOpen(false));
+
+// One glyph per category in the pass-01 grammar, plus the taken check.
+const COUNCIL_GLYPHS = {
+  growth: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"></path><path d="M8.5 12h7"></path></svg>',
+  corridor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8l4 4-4 4M11 8l4 4-4 4M18 8l3 4-3 4"></path></svg>',
+  service: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2.5" width="8" height="19" rx="4"></rect><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"></circle></svg>',
+  taken: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"></path></svg>',
+};
+
+function councilCard(d) {
+  const state = sim.councilState(g, d);
+  const visual = state === 'era' ? 'locked' : state;
+  const glyph = state === 'taken' ? COUNCIL_GLYPHS.taken : COUNCIL_GLYPHS[d.cat];
+  const catWord = d.cat.charAt(0).toUpperCase() + d.cat.slice(1);
+  let foot;
+  if (state === 'taken') {
+    foot = '<div class="tb-dec__effect">' + d.effectText + '</div>';
+  } else if (state === 'era') {
+    foot = '<div class="tb-dec__foot"><span class="tb-dec__need">' + STR.councilEra + ' ' +
+      sim.ERAS[sim.COUNCIL_TIERS[d.tier].era].year + '</span><span>' + catWord + '</span></div>';
+  } else if (state === 'locked') {
+    const needNames = (d.needs || []).filter((n) => !g.council[n])
+      .map((n) => sim.COUNCIL.find((x) => x.id === n).name).join(', ');
+    foot = '<div class="tb-dec__foot"><span class="tb-dec__need">' + STR.councilNeeds + ' ' +
+      needNames + ' ' + STR.councilFirst + '</span><span>' + catWord + '</span></div>';
+  } else if (state === 'unaffordable') {
+    foot = '<div class="tb-dec__foot"><span class="tb-dec__need" style="color: var(--tb-muted)">' +
+      STR.councilShort + ' ' + Math.ceil(d.pk - g.pk) + ' ' + STR.councilMoreTrust +
+      '</span><span>' + catWord + '</span></div>';
+  } else {
+    foot = '<div class="tb-dec__foot"><span>' + STR.councilNow + '</span><span>' + catWord + '</span></div>';
+  }
+  return '<button class="tb-dec" data-dec="' + d.id + '" data-state="' + visual + '">' +
+    '<div class="tb-dec__head"><span class="tb-dec__glyph">' + glyph + '</span>' +
+    '<span class="tb-dec__name">' + d.name + '</span>' +
+    '<span class="tb-dec__cost">' + d.pk + '<span class="tb-num__unit">pk</span></span></div>' +
+    '<span class="tb-dec__desc">' + d.desc + '</span>' + foot + '</button>';
+}
+
+function renderCouncil() {
+  $('council-sub').textContent = Math.floor(g.pk) + ' pk ' + STR.councilInHand;
+  const cols = sim.COUNCIL_TIERS.map((t, ti) => {
+    const cards = sim.COUNCIL.filter((d) => d.tier === ti).map(councilCard).join('');
+    return '<div class="tb-council__col"><div class="tb-council__tier">' + t.name +
+      ' · ' + sim.ERAS[t.era].year + '</div>' + cards + '</div>';
+  });
+  $('council-tree').innerHTML = cols.join('');
+  drawCouncilWires(); // getBoundingClientRect forces the layout it needs
+}
+
+// The prerequisite wires: from the need's card edge to the dependant's,
+// dashed and muted until the need is taken, then solid politic.
+function drawCouncilWires() {
+  const wires = $('council-wires');
+  const tree = $('council-tree');
+  if (!councilOpen) return;
+  const box = tree.getBoundingClientRect();
+  wires.setAttribute('viewBox', '0 0 ' + box.width + ' ' + box.height);
+  let paths = '';
+  for (const d of sim.COUNCIL) {
+    for (const n of d.needs || []) {
+      const from = tree.querySelector('[data-dec="' + n + '"]');
+      const to = tree.querySelector('[data-dec="' + d.id + '"]');
+      if (!from || !to) continue;
+      const a = from.getBoundingClientRect();
+      const b = to.getBoundingClientRect();
+      const x1 = a.right - box.left, y1 = a.top - box.top + a.height / 2;
+      const x2 = b.left - box.left, y2 = b.top - box.top + b.height / 2;
+      const mx = (x1 + x2) / 2;
+      paths += '<path' + (g.council[n] ? ' class="on"' : '') + ' d="M' + x1 + ' ' + y1 +
+        ' C' + mx + ' ' + y1 + ' ' + mx + ' ' + y2 + ' ' + x2 + ' ' + y2 + '"></path>';
+    }
+  }
+  wires.innerHTML = paths;
+}
+
+$('council-tree').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-dec]');
+  if (!btn) return;
+  if (sim.decide(g, btn.dataset.dec)) {
+    sfx.achievement();
+    renderCouncil();
+    updateUI();
+  }
+});
 $('ach-back').addEventListener('click', () => menuView('main'));
 $('help-back').addEventListener('click', () => menuView('main'));
 $('about-mark').addEventListener('click', () => {
@@ -1030,6 +1143,7 @@ $('settings-reset').addEventListener('click', () => {
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (statsOpen) { setStatsOpen(false); return; }
+    if (councilOpen) { setCouncilOpen(false); return; }
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
              !$('ach-view').hidden || !$('log-view').hidden || !$('slots-view').hidden) menuView('main');
@@ -2303,6 +2417,8 @@ function updateUI() {
   if (!diaOn) $('dia-toggle').textContent = STR.diaToDiagram;
   $('stats-toggle').hidden = !g.owned.stats;
   $('stats-toggle').textContent = STR.statsToggle;
+  $('council-toggle').hidden = !sim.councilOpen(g);
+  $('council-toggle').textContent = STR.councilToggle;
   const idleN = sim.idleTrains(g).length;
   const auto = !!g.owned.drivers;
   $('bell-sub').textContent = !idleN ? STR.noIdle
@@ -2369,6 +2485,7 @@ function frame(now) {
       if (e.id === 'green-south') render.addFloatGeo(e.geo, STR.freeUnlockedFloat);
     }
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
+    if (e.type === 'council') render.addFloatGeo(e.geo, STR.councilFloat + ' · ' + e.name);
     if (e.type === 'achievement') showAchievement(e.name);
     // 'open' fires exactly once per game (the g.opened guard), so it is the
     // honest "someone actually started playing" milestone, not a page load.
@@ -2389,6 +2506,12 @@ function frame(now) {
   if (statsOpen && performance.now() - statsRenderedAt > 1000) {
     renderStats();
     statsRenderedAt = performance.now();
+  }
+  // The council too: trust accrues beneath it, so unaffordable becomes
+  // available while you sit there weighing it.
+  if (councilOpen && performance.now() - councilRenderedAt > 1000) {
+    renderCouncil();
+    councilRenderedAt = performance.now();
   }
   if (diaOn) {
     // The diagram replaces the map wholesale: no basemap repaints, no canvas.

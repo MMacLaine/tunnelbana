@@ -58,6 +58,7 @@ function build(owned, demand) {
   for (const [id, n] of Object.entries(owned)) {
     if (id === 'westline') continue; // handled above, needs its side effect
     if (id === 'trainSplit') continue; // fleet allocation directive, not a catalog item
+    if (id.startsWith('council:')) { g.council[id.slice(8)] = true; continue; } // a decision, not a purchase
     g.owned[id] = n;
     if (id === 'train') {
       for (let i = 0; i < n; i++) {
@@ -172,6 +173,16 @@ const CASES = [
   // before shipping: the note in the catalog records the lesson.)
   { id: 'escalators', demand: 'high', base: { drivers: 1, capacity: 2, train: 1 }, buy: { escalators: 1 } },
   { id: 'hosts',      demand: 'high', base: { drivers: 1, train: 2 },              buy: { hosts: 1 } },
+  // The council (v12): decisions with an income-shaped effect are graded like
+  // any purchase. The two COST-shaped decisions (works permit, fast track
+  // water) are asserted in smoke instead, because a build discount never
+  // shows up in steady-state kr/s. Subsidy needs room to grow ('low'), the
+  // rezoning needs a city already AT its cap ('high'), transfers need a
+  // second line to change to.
+  { id: 'co subsidy',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 1 }, buy: { 'council:subsidise-suburbs': 1 } },
+  { id: 'co rezone',   demand: 'high', base: { drivers: 1, train: 4, timetable: 1 }, buy: { 'council:rezone-inner': 1 } },
+  { id: 'co transfer', demand: 'high', base: { drivers: 1, train: 3, westline: 1 },  buy: { 'council:easy-transfer': 1 } },
+  { id: 'co auto',     demand: 'high', base: { drivers: 1, train: 2, timetable: 1 }, buy: { 'council:automatic-operation': 1 } },
 ];
 
 let failed = 0;

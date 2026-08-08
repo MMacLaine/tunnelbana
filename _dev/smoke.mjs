@@ -460,6 +460,57 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (backIns.lines[0].stations.length !== L0.stations.length) err('the inserted stop must survive a save');
 }
 
+// --- The council (v12): tiers arrive with eras, needs lock, trust pays,
+// decisions are permanent, and every cost-shaped effect actually binds. ---
+{
+  const co = sim.newGame();
+  const first = sim.COUNCIL[0];
+  if (sim.councilOpen(co)) err('the council should not sit in 1950');
+  if (sim.councilState(co, first) !== 'era') err('a Charter decision in 1950 should read era');
+  co.era = 1;
+  if (!sim.councilOpen(co)) err('the council should open with era one beaten');
+  if (sim.councilState(co, first) !== 'unaffordable') err('no trust should read unaffordable');
+  co.pk = 20;
+  if (sim.councilState(co, first) !== 'available') err('trust in hand should read available');
+  // The needs chain: rezone waits for the subsidy even with trust in hand.
+  co.era = 2;
+  const rezone = sim.COUNCIL.find((d) => d.id === 'rezone-inner');
+  if (sim.councilState(co, rezone) !== 'locked') err('rezone should wait for the subsidy');
+  if (sim.decide(co, 'rezone-inner')) err('a locked decision must refuse');
+  if (!sim.decide(co, 'subsidise-suburbs')) err('an available decision should take');
+  if (co.pk !== 20 - first.pk) err('the decision should charge its trust');
+  if (sim.decide(co, 'subsidise-suburbs')) err('a taken decision must refuse again');
+  if (sim.councilState(co, rezone) !== 'available') err('the subsidy should free the rezoning');
+  // Cost-shaped effects bind where the money is spent.
+  co.money = 1e9;
+  const base = sim.extensionCost(co, 0, 'tail', ANCHORS[3].geo, 3);
+  co.council['works-permit'] = true;
+  const cheaper = sim.extensionCost(co, 0, 'tail', ANCHORS[3].geo, 3);
+  if (!(cheaper < base)) err('the works permit should cut station works, got ' + base + ' -> ' + cheaper);
+  // A water crossing from Slussen area: T-Centralen to Gamla stan crosses.
+  delete co.council['works-permit'];
+  const wet = sim.extensionCost(co, 0, 'head', [59.342, 18.06], null);
+  co.council['fast-track-water'] = true;
+  const wetCheap = sim.extensionCost(co, 0, 'head', [59.342, 18.06], null);
+  if (!(wetCheap <= wet)) err('fast track should never make a build dearer');
+  // Growth policy binds in the tick: the subsidised city closes the gap faster.
+  const g1 = sim.newGame(); const g2 = sim.newGame();
+  g2.council['subsidise-suburbs'] = true;
+  for (const gx of [g1, g2]) {
+    gx.money = 1e6; gx.era = 1;
+    for (let k = 3; k < 8; k++) sim.extendTo(gx, 0, 'tail', ANCHORS[k].geo, k);
+    sim.buy(gx, 'drivers'); sim.buy(gx, 'train');
+    for (let t = 0; t < 600; t += 0.1) { sim.tick(gx, 0.1); gx.events.length = 0; }
+  }
+  const sum = (gx) => gx.srcW.reduce((a, b) => a + b, 0);
+  if (!(sum(g2) > sum(g1))) err('the subsidised city should have grown further, got ' + sum(g1).toFixed(2) + ' vs ' + sum(g2).toFixed(2));
+  // Decisions survive the save, unknown ones do not.
+  const backCo = sim.hydrate(sim.serialize(co));
+  if (!backCo.council['subsidise-suburbs']) err('a decision must survive a save');
+  co.council['not-a-decision'] = true;
+  if (sim.hydrate(sim.serialize(co)).council['not-a-decision']) err('unknown decisions must not hydrate');
+}
+
 // --- Curiosities (0.10): found once, counted, achievement-checked, saved. ---
 {
   const eg = sim.newGame(); // T-Centralen and Gamla stan exist: norrstrom is live
