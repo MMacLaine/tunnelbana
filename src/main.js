@@ -256,6 +256,8 @@ const STR = {
   slotNow: 'playing now',
   slotStations: 'stations',
   slotRiders: 'riders carried',
+  pulseOn: 'On',
+  pulseOff: 'Off',
 };
 
 // itch serves the game from a sandboxed cross-origin iframe, where Safari and
@@ -566,6 +568,7 @@ function menuView(which) {
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
     $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
     $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
+    $('settings-pulse').textContent = pulseOn ? STR.pulseOn : STR.pulseOff;
     $('settings-export').textContent = STR.exportBtn;
     $('settings-import').textContent = STR.importBtn;
     $('settings-restore').hidden = !store.get(BAK_KEY);
@@ -814,6 +817,30 @@ const FEEDBACK_TO = 'matthew@maclaine.se';
 // the note (functions/api/feedback.js in the site repo). One click, no mail
 // client, nothing leaves the owner's own Cloudflare account.
 const FEEDBACK_URL = 'https://maclaine.se/api/feedback';
+
+// --- Milestone telemetry (v12): the game phones home the moments the
+// balance conversation actually needs (how far real players get, how long
+// eras take, on which build) and nothing else. No identifier, no save
+// contents, no position: the payload IS the milestone. It lands next to the
+// feedback notes in the owner's own Cloudflare account
+// (functions/api/pulse.js in the site repo), Settings can turn it off, and
+// a dev copy never sends. ---
+const PULSE_URL = 'https://maclaine.se/api/pulse';
+const PULSE_KEY = 'tunnelbana_pulse';
+let pulseOn = store.get(PULSE_KEY) !== '0';
+const pulseSurface = /itch\.zone$|itch\.io$/.test(location.hostname) ? 'itch'
+  : /maclaine\.se$/.test(location.hostname) ? 'site' : '';
+function pulse(ev, year) {
+  if (!pulseOn || !pulseSurface) return;
+  try {
+    fetch(PULSE_URL, {
+      method: 'POST',
+      keepalive: true, // an era pulse should survive an immediate tab close
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ev, year, playedS: Math.round(g.playedS), v: sim.VERSION, surface: pulseSurface }),
+    }).catch(() => {});
+  } catch {}
+}
 
 // Falls back to the mail path if the endpoint is unreachable (offline, or an
 // itch build older than the deploy), because a submit button that silently
@@ -1584,6 +1611,11 @@ $('settings-notes').addEventListener('click', () => {
   $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
   if (!notesOn) $('fact-toast').hidden = true;
 });
+$('settings-pulse').addEventListener('click', () => {
+  pulseOn = !pulseOn;
+  store.set(PULSE_KEY, pulseOn ? '1' : '0');
+  $('settings-pulse').textContent = pulseOn ? STR.pulseOn : STR.pulseOff;
+});
 
 function maybeNote() {
   if (noteShownAt && performance.now() - noteShownAt > 11000) {
@@ -2301,9 +2333,11 @@ function frame(now) {
     }
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
     if (e.type === 'achievement') showAchievement(e.name);
-    if (e.type === 'open') render.addFloatGeo(e.geo, STR.ribbonCut);
-    if (e.type === 'era') showMoment(e.year);
-    if (e.type === 'ending') showEnding();
+    // 'open' fires exactly once per game (the g.opened guard), so it is the
+    // honest "someone actually started playing" milestone, not a page load.
+    if (e.type === 'open') { render.addFloatGeo(e.geo, STR.ribbonCut); pulse('start'); }
+    if (e.type === 'era') { showMoment(e.year); pulse('era', e.year); }
+    if (e.type === 'ending') { showEnding(); pulse('ending'); }
   }
   g.events.length = 0;
   // 7 s, not the old 4.2: a toast you are meant to CLICK has to outlive the
