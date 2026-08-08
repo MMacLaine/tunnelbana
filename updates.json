@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.0",
+      "title": "The city answers back",
+      "content": "The biggest update since launch. Trust now buys decisions, and the city you serve visibly grows.\n\n- Added the council. Beat the first era and a new corner button opens a tree of decisions that trust buys outright. A decision is permanent, keeps paying its effect, and some decisions unlock others. Six decisions to start, more to come.\n- Districts now fill with warm window light as they grow toward their cap. The reward for good service is a city that looks lived in.\n- Added save slots. The Saves menu holds three networks side by side. Your current save is slot one and nothing moves without you asking.\n- You can now add a station to the middle of a line. Hover a segment and click the ghost stop. It costs the station works alone because the tunnel is already dug.\n- Added the golden train. Once a line is open it appears now and then, gliding the length of a line. Click it for a small bonus. Missing it costs nothing.\n- The schematic map is now a reward for finishing the first era rather than a purchase.\n- New upgrades. Längre plattformar hold more waiting passengers at every station. Vagnhallen stables the fleet overnight so trains cost less to run at night, and the hall appears at each line's home terminus with a small bar showing who is in and who is out.\n- A quiet ambient bed hums under the music once sound is on. It rides the Music slider and stays far below the tracks.\n- Two new achievements for the council.\n- The game now reports three anonymous milestones (game started, era reached, ending seen) so balancing can follow real play instead of guesses. No identifier, no save contents. Settings has the off switch and About says exactly what is sent."
+    },
+    {
       "version": "0.11.4",
       "title": "The changelog, in the game",
       "content": "- The version number on the menu is now a button. Clicking it opens the full changelog, every release newest first.\n- The notes are the same ones the update feed carries: written once, read everywhere."

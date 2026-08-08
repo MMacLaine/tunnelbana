@@ -178,6 +178,8 @@ const STR = {
     patterns:   { name: 'Trafikledning',     desc: 'Run your own service patterns: mark stops for the express to skip, and trains alternate full and express. Set it per stop, in the station panel.' },
     region:     { name: 'Regionplanen',      desc: 'Permission to build ' + CAT.region.add.buildRadius + ' km further from T-Centralen, per level. Stockholm does not end at the tullar.' },
     escalators: { name: 'Rulltrappor',       desc: 'Escalators network-wide: +' + CAT.escalators.add.gateRate + ' passengers/s through every station\'s gates, per level.' },
+    platforms:  { name: 'Längre plattformar', desc: 'Longer platforms hold ' + CAT.platforms.add.stationCap + ' more waiting passengers at every station, per level. Queues stop giving up at the platform edge.' },
+    depot:      { name: 'Vagnhallen',        desc: 'A home for the fleet. Stabled trains cost 60 percent less to run through the night, and the hall shows itself at each line\'s home terminus.' },
     hosts:      { name: 'Stationsvärdar',    desc: 'Hosts on the platforms: crowded queues give up ' + pct(CAT.hosts.mult.abandon) + '% slower, per level. Patience, bought.' },
     adverts:    { name: 'Reklamavtal',       desc: 'Advertising in your stations: retail rent worth ' + pct(CAT.adverts.mult.retail) + '% more, per level.' },
     works:      { name: 'Works department',  desc: 'Bulk orders: raise entrances, gates or retail one level across every station in one click. The buttons appear in the Network panel.' },
@@ -2047,6 +2049,8 @@ const SHOP_META = {
   artstation:  { icon: 'art',   cat: 'Comfort' },
   cbtc:        { icon: 'sig',   cat: 'Signalling' },
   nightservice:{ icon: 'night', cat: 'Service' },
+  platforms:   { icon: 'cap',   cat: 'Capacity' },
+  depot:       { icon: 'train', cat: 'Fleet' },
 };
 
 const ICONS = {};
@@ -2420,6 +2424,17 @@ function updateUI() {
   $('council-toggle').hidden = !sim.councilOpen(g);
   $('council-toggle').textContent = STR.councilToggle;
   const idleN = sim.idleTrains(g).length;
+  // The depot bar: stabled (idle plus mothballed) in green against out
+  // running, pass 04's anatomy, only once the hall exists.
+  const depotBar = $('depot-bar');
+  depotBar.hidden = !g.owned.depot;
+  if (g.owned.depot) {
+    const mb = g.trains.filter((t) => t.mothballed).length;
+    const stabled = idleN + mb;
+    const out = Math.max(0, g.trains.length - stabled);
+    depotBar.children[0].style.width = (g.trains.length ? (stabled / g.trains.length) * 100 : 0) + '%';
+    depotBar.children[1].style.width = (g.trains.length ? (out / g.trains.length) * 100 : 0) + '%';
+  }
   const auto = !!g.owned.drivers;
   $('bell-sub').textContent = !idleN ? STR.noIdle
     : auto ? STR.bellAuto + ' ' + Math.round(sim.lineHeadwayS(g, 0)) + ' s'

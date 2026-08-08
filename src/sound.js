@@ -60,6 +60,45 @@ export function setVolumes(v) {
   vol = { ...vol, ...v };
   applyEffects();
   applyMusic();
+  applyAmbient();
+}
+
+// --- The ambient bed (v12): the room tone of a city with a metro in it.
+// Synthesized, not an asset: filtered brown noise, barely there, riding the
+// music slider a long way below the music. It starts with the first unlock
+// and simply IS, the way a city hums; no events, no swells, no attention. ---
+let ambient = null;
+function applyAmbient() {
+  const v = vol.master * vol.music;
+  if (!ctx || !unlocked) return;
+  if (v <= 0.005) {
+    if (ambient) ambient.gain.gain.value = 0;
+    return;
+  }
+  if (!ambient) {
+    const len = ctx.sampleRate * 4;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      // Brown noise: integrate white, keep it leashed.
+      last = (last + (Math.random() * 2 - 1) * 0.02) * 0.996;
+      data[i] = last * 3.5;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 220;
+    const gain = ctx.createGain();
+    src.connect(lp);
+    lp.connect(gain);
+    gain.connect(ctx.destination); // its own path: the effects bus ducks per-event, the bed must not
+    src.start();
+    ambient = { src, gain };
+  }
+  ambient.gain.gain.value = Math.min(0.06, v * 0.06);
 }
 
 export function unlock() {
@@ -67,6 +106,7 @@ export function unlock() {
   if (ctx) {
     if (ctx.state === 'suspended') ctx.resume();
     applyMusic();
+    applyAmbient();
     return;
   }
   try {
@@ -78,6 +118,7 @@ export function unlock() {
     ctx = null; // no audio here; every call stays a no-op
   }
   applyMusic();
+  applyAmbient();
 }
 
 function tone(freq, { at = 0, dur = 0.25, type = 'sine', gain = 0.4, attack = 0.005, lp = 0 } = {}) {
