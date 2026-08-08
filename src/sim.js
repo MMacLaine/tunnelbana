@@ -2732,6 +2732,73 @@ export function demolish(g, li, end) {
   return true;
 }
 
+// --- Insert a station mid-line (v12, pass 04 section e): splice a stop into
+// an existing segment at its midpoint. The tunnel is already dug, so the
+// price is the station works alone, on the same ladder an extension pays. ---
+
+export function insertMidGeo(g, li, seg) {
+  const L = g.lines[li];
+  const a = L.stations[seg].geo, b = L.stations[seg + 1].geo;
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+}
+
+export function insertCost(g, li) {
+  return Math.round(BAL.stationBase * Math.pow(BAL.stationGrowth, Math.max(0, g.lines[li].stations.length - 2)));
+}
+
+// Same refusal grammar as placementProblem, hardest reason first. An inserted
+// stop is the player's own idea, never the city's plan, so it waits for the
+// same unlock free spots do.
+export function insertProblem(g, li, seg) {
+  const L = g.lines[li];
+  if (!L || !Number.isInteger(seg) || seg < 0 || seg >= L.stations.length - 1) return 'seg';
+  const geo = insertMidGeo(g, li, seg);
+  if (stationCount(g) >= maxStationsNow(g)) return 'max';
+  for (const w of WATER) if (inRing(geo, w.ring)) return 'water';
+  // Both neighbours by construction, and anything another line has built.
+  for (const L2 of g.lines) {
+    for (const st of L2.stations) if (kmBetween(st.geo, geo) < BAL.minSpacingKm) return 'tooClose';
+  }
+  if (!freeBuildUnlocked(g)) return 'plan';
+  if (g.money < insertCost(g, li)) return 'money';
+  return null;
+}
+
+export function insertStation(g, li, seg) {
+  if (insertProblem(g, li, seg)) return false;
+  const L = g.lines[li];
+  const geo = insertMidGeo(g, li, seg);
+  g.money -= insertCost(g, li);
+  g.freeSpots += 1;
+  const station = makeStation(freeSpotName(g, geo), geo, null, 1);
+  const k = seg + 1;
+  L.stations.splice(k, 0, station);
+  L.waitingF.splice(k, 0, BAL.seedWaiting * station.mult / 2);
+  L.waitingB.splice(k, 0, BAL.seedWaiting * station.mult / 2);
+  L.left60.splice(k, 0, 0);
+  L.leaveAcc.splice(k, 0, 0);
+  L.lastPassF.splice(k, 0, -Infinity);
+  L.lastPassB.splice(k, 0, -Infinity);
+  L.skip.splice(k, 0, false);
+  for (const t of g.trains) {
+    if (t.line !== li) continue;
+    if (!t.run) {
+      if (t.at >= k) t.at += 1;
+      continue;
+    }
+    // Index bookkeeping, then geometry sorts itself: a train mid-hop across
+    // the spliced segment keeps its `from` and simply arrives at the new
+    // stop first, because advancePhase reads from + dir against the arrays.
+    if (t.run.from >= k) t.run.from += 1;
+    t.run.dest.splice(k, 0, 0);
+    t.run.destCont.splice(k, 0, 0);
+  }
+  L.rev += 1;
+  computeDemand(g);
+  g.events.push({ type: 'extend', geo: station.geo, name: station.name });
+  return true;
+}
+
 // --- Catalog purchases ---
 
 export function maxFor(g, item) {

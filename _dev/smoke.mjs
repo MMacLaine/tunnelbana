@@ -402,6 +402,64 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.hydrate(sim.serialize(au)).goldTaken !== 2) err('goldTaken must survive a save');
 }
 
+// --- Insert a station mid-line (v12): the splice must respect the plan gate,
+// spacing and water, keep every per-station array in lockstep, leave running
+// trains sane, and the network must go on delivering afterward. ---
+{
+  const ins = sim.newGame();
+  ins.money = 1e6;
+  if (!sim.insertProblem(ins, 0, 0)) err('insert into the fresh starting line should refuse');
+  if (sim.insertStation(ins, 0, 0)) err('a refused insert must not build');
+  for (let k = 3; k < 9; k++) sim.extendTo(ins, 0, 'tail', ANCHORS[k].geo, k);
+  // Pre-plan, a long dry segment must refuse for the PLAN, not for money.
+  {
+    let planSeg = -1;
+    for (let s = 0; s < ins.lines[0].stations.length - 1; s++) {
+      if (sim.insertProblem(ins, 0, s) === 'plan') { planSeg = s; break; }
+    }
+    if (planSeg < 0) err('some pre-plan segment should refuse with plan');
+  }
+  for (let k = 9; k < 13; k++) sim.extendTo(ins, 0, 'tail', ANCHORS[k].geo, k);
+  if (!sim.freeBuildUnlocked(ins)) err('the finished 1950 line should unlock free building');
+  sim.buy(ins, 'drivers');
+  sim.buy(ins, 'train');
+  for (let t = 0; t < 120; t += 0.1) { sim.tick(ins, 0.1); ins.events.length = 0; }
+  // Across the 1950 line the refusal grammar must show its faces: the city
+  // hops are too tight to split, the two crossings sit over water.
+  {
+    const reasons = new Set();
+    for (let s = 0; s < ins.lines[0].stations.length - 1; s++) reasons.add(sim.insertProblem(ins, 0, s));
+    if (!reasons.has('tooClose')) err('some short segment should refuse tooClose');
+    if (!reasons.has('water')) err('some water crossing should refuse water');
+  }
+  // Find a legal segment and split it, mid-service.
+  let seg = -1;
+  for (let s = 0; s < ins.lines[0].stations.length - 1; s++) if (!sim.insertProblem(ins, 0, s)) { seg = s; break; }
+  if (seg < 0) err('the 1950 line should offer at least one splittable segment');
+  const before = ins.lines[0].stations.length;
+  const cost = sim.insertCost(ins, 0);
+  const moneyBefore = ins.money;
+  if (!sim.insertStation(ins, 0, seg)) err('a legal insert should succeed');
+  const L0 = ins.lines[0];
+  if (L0.stations.length !== before + 1) err('insert should add exactly one station');
+  if (Math.round(moneyBefore - ins.money) !== cost) err('insert should charge exactly its quoted cost');
+  for (const arr of [L0.waitingF, L0.waitingB, L0.left60, L0.leaveAcc, L0.lastPassF, L0.lastPassB, L0.skip]) {
+    if (arr.length !== L0.stations.length) err('a per-station array fell out of lockstep after insert');
+  }
+  for (const t of ins.trains) {
+    if (t.line !== 0 || !t.run) continue;
+    if (t.run.dest.length !== L0.stations.length) err('a running train kept a stale dest array');
+    if (t.run.from < 0 || t.run.from >= L0.stations.length) err('a running train holds an impossible from index');
+  }
+  if (ins.freeSpots < 1) err('an inserted stop should count as a free spot');
+  const deliveredAt = ins.totalDelivered;
+  for (let t = 0; t < 300; t += 0.1) { sim.tick(ins, 0.1); ins.events.length = 0; }
+  if (!(ins.totalDelivered > deliveredAt)) err('the line should keep delivering after the splice');
+  if (!Number.isFinite(ins.money)) err('money went non-finite after insert');
+  const backIns = sim.hydrate(sim.serialize(ins));
+  if (backIns.lines[0].stations.length !== L0.stations.length) err('the inserted stop must survive a save');
+}
+
 // --- Curiosities (0.10): found once, counted, achievement-checked, saved. ---
 {
   const eg = sim.newGame(); // T-Centralen and Gamla stan exist: norrstrom is live
