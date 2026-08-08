@@ -258,6 +258,9 @@ const STR = {
   slotNow: 'playing now',
   slotStations: 'stations',
   slotRiders: 'riders carried',
+  slotsSub: 'Three networks side by side. Switching parks the one you are playing in its own slot first.',
+  slotsBtnPlain: 'Saves',
+  slotsBtnAt: 'Saves · playing slot',
   pulseOn: 'On',
   pulseOff: 'Off',
   insertLabel: 'Add a stop here',
@@ -605,6 +608,11 @@ function showMenu(mode) {
   settingsView(false);
   $('menu-resume').textContent =
     mode === 'pause' ? STR.menuResume : hasSave() ? STR.menuContinue : STR.menuStart;
+  // The Saves button names the slot in play once more than one is in use,
+  // so being on slot two is never a surprise at boot.
+  const othersUsed = SLOT_IDS.some((s) => s !== activeSlot && slotInfo(s));
+  $('menu-slots').textContent = othersUsed || activeSlot !== '1'
+    ? STR.slotsBtnAt + ' ' + activeSlot : STR.slotsBtnPlain;
   $('menu-quit').hidden = mode !== 'pause';
 }
 function closeMenu() {
@@ -655,6 +663,8 @@ function relTime(ts) {
 // Before the map needs two colours the station count says more than the era.
 const SLOT_ERA_WORD = ['', '', '', 'red line era', 'blue line era', 'the modern city'];
 function renderSlots() {
+  slotArmed = null; // a re-render always disarms the confirm
+  $('slots-sub').textContent = STR.slotsSub;
   const rows = SLOT_IDS.map((s) => {
     const info = slotInfo(s);
     const current = s === activeSlot;
@@ -682,17 +692,37 @@ function renderSlots() {
   });
   $('slot-list').innerHTML = rows.join('');
 }
+// An empty slot arms first (the reset pattern): exploring the menu must
+// never quietly move you off your city (live report, 2026-08-08: the owner
+// clicked an empty slot while looking around, reloaded into a fresh game,
+// and read their parked save as lost).
+let slotArmed = null;
 $('slot-list').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-slot]');
   if (!btn || btn.disabled) return;
-  switchSlot(btn.dataset.slot);
+  const s = btn.dataset.slot;
+  if (!slotInfo(s) && s !== activeSlot && slotArmed !== s) {
+    slotArmed = s;
+    btn.querySelector('.tb-slot__name').textContent = STR.resetConfirm;
+    return;
+  }
+  slotArmed = null;
+  switchSlot(s);
 });
 function switchSlot(s) {
-  if (s === activeSlot) { menuView('main'); return; }
+  // Clicking the slot you are already in means PLAY it: straight back into
+  // the game, not a bounce to the menu's main view.
+  if (s === activeSlot) { closeMenu(); return; }
   save(); // park the current network in its own slot (a no-op under the fuse)
   const raw = store.get(slotSaveKey(s));
   const h = sim.hydrate(raw);
-  if (raw && h.hydrateFallback) { renderSlots(); return; } // damaged bytes stay untouched
+  if (raw && h.hydrateFallback) {
+    // Damaged bytes stay untouched, and the refusal SAYS SO (the silent
+    // return here was half of the live report above).
+    $('slots-sub').textContent = STR.slotBadMeta;
+    renderSlots();
+    return;
+  }
   activeSlot = s;
   saveKey = slotSaveKey(s);
   [BAK_KEY, BAK2_KEY, BAK3_KEY] = slotBakKeys(s);
@@ -714,7 +744,10 @@ function switchSlot(s) {
   save();
   updateUI();
   homeCamera();
-  showMenu('start');
+  // You clicked a network to PLAY it. Only a real away report is worth
+  // holding the menu open for.
+  if (offline) showMenu('start');
+  else closeMenu();
 }
 
 // --- The changelog (0.11.4): the SAME updates.json the incrementaldb feed

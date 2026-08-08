@@ -214,16 +214,24 @@ async function main() {
       const rows = document.querySelectorAll('#slot-list [data-slot]').length;
       const current = document.querySelector('#slot-list [aria-current]')?.dataset.slot;
       const richMoney = t.g.money;
-      document.querySelector('#slot-list [data-slot="2"]').click();
+      // An empty slot ARMS on the first click (0.12.1, after the live
+      // report) and only switches on the second.
+      const s2 = document.querySelector('#slot-list [data-slot="2"]');
+      s2.click();
+      const armed = s2.querySelector('.tb-slot__name').textContent;
+      const stillRich = t.g.money === richMoney;
+      s2.click();
       await new Promise((r) => setTimeout(r, 200));
       const freshMoney = t.g.money;
       const ptr = localStorage.getItem('tunnelbana_slot');
+      const closed = document.getElementById('menu').hidden; // switching drops you into the game
+      document.getElementById('menu-open').click();
       document.getElementById('menu-slots').click();
-      document.querySelector('#slot-list [data-slot="1"]').click();
+      document.querySelector('#slot-list [data-slot="1"]').click(); // filled: switches at once
       await new Promise((r) => setTimeout(r, 200));
-      return 'rows=' + rows + ' current=' + current +
+      return 'rows=' + rows + ' current=' + current + ' armed=' + (armed.length > 0 && stillRich) +
              ' freshIsFresh=' + (freshMoney < richMoney) + ' ptrAfterSwitch=' + ptr +
-             ' moneyBack=' + (t.g.money === richMoney) +
+             ' closedIntoGame=' + closed + ' moneyBack=' + (t.g.money === richMoney) +
              ' ptrBack=' + localStorage.getItem('tunnelbana_slot');
     })()`));
   } finally {
