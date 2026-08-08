@@ -715,7 +715,17 @@ function switchSlot(s) {
   if (s === activeSlot) { closeMenu(); return; }
   save(); // park the current network in its own slot (a no-op under the fuse)
   const raw = store.get(slotSaveKey(s));
-  const h = sim.hydrate(raw);
+  // hydrate() should never throw, but a click handler that dies silently is
+  // exactly the wrong place to find out (live report 2026-08-08, twice: the
+  // second time the refusal HAD a message and still did not show, because
+  // the throw never reached it). Catch, tell, keep the bytes.
+  let h = null;
+  try {
+    h = sim.hydrate(raw);
+  } catch (err) {
+    $('slots-sub').textContent = STR.slotBadMeta + ' (' + String(err && err.message).slice(0, 60) + ')';
+    return;
+  }
   if (raw && h.hydrateFallback) {
     // Damaged bytes stay untouched, and the refusal SAYS SO (the silent
     // return here was half of the live report above).
