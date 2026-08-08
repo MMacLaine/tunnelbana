@@ -3127,7 +3127,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.11.1';
+export const VERSION = '0.11.2';
 
 export function serialize(g) {
   return JSON.stringify({
@@ -3208,9 +3208,13 @@ function sanitizeLine(stations) {
 export function hydrate(raw) {
   const g = newGame();
   if (!raw) return g;
+  // From here on, raw EXISTED: any fallback to a fresh game is flagged, so
+  // the caller can refuse to autosave over the stored bytes (0.11.2, after
+  // a live save loss: a transient load failure must never become permanent
+  // five seconds later).
   let s;
-  try { s = JSON.parse(raw); } catch { return g; }
-  if (!s || typeof s.saveVersion !== 'number') return g;
+  try { s = JSON.parse(raw); } catch { g.hydrateFallback = true; return g; }
+  if (!s || typeof s.saveVersion !== 'number') { g.hydrateFallback = true; return g; }
   g.money = Math.max(0, Number(s.money) || 0);
   g.pk = Math.max(0, Number(s.pk) || 0);
   g.era = posInt(s.era, ERAS.length - 1);
@@ -3350,6 +3354,9 @@ export function hydrate(raw) {
   // Pre-v6 saves (the single-line era, some predating the T-Centralen hub)
   // are RETIRED: they start fresh. Pre-1.0 save policy allows this, and a
   // faithfully migrated pre-hub line kept resurrecting a Slussen start that
-  // no longer matches the game.
-  return newGame();
+  // no longer matches the game. Flagged as fallback all the same: the bytes
+  // stay on disk until the player themselves starts over.
+  const fresh = newGame();
+  fresh.hydrateFallback = true;
+  return fresh;
 }

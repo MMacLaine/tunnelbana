@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.11.2",
+      "title": "Save protection",
+      "content": "Hardening after a save was lost on refresh.\n\n- If a stored save fails to load for any reason, the game now refuses to autosave over it: the file stays untouched, a notice explains, and autosave stays off until you restore, import, or deliberately start fresh.\n- The game keeps a one-generation backup of your save, taken at each successful load. Settings has a Restore backup button.\n- If the browser's storage errors while reading, the session runs in memory and never writes over the stored file."
+    },
+    {
       "version": "0.11.1",
       "title": "Statistics, over the map",
       "content": "- The statistics office now opens as a large overlay over the running game, from a Stats button in the map corner or from the menu. It refreshes live while open.\n- Esc closes it before anything else."

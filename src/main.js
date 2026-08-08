@@ -237,6 +237,9 @@ const STR = {
   importBtn: 'Import save',
   importApply: 'Apply',
   importBad: 'Not a valid save',
+  restoreBtn: 'Restore backup',
+  restoreBad: 'Backup not readable',
+  saveLockedNote: 'Your saved game could not be read just now, so it has been left untouched and autosave is off. Try Restore backup in Settings, or refresh; starting fresh or importing turns saving back on.',
   owned: 'Owned',
   level: 'Level',
   max: 'Max',
@@ -249,9 +252,19 @@ const STR = {
 // falls back to memory (the session still plays; it just cannot persist).
 const memStore = new Map();
 const store = {
-  get(k) { try { return localStorage.getItem(k); } catch { return memStore.has(k) ? memStore.get(k) : null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch { memStore.set(k, v); } },
-  del(k) { try { localStorage.removeItem(k); } catch { memStore.delete(k); } },
+  // A read that THREW is remembered: persistent storage is unreliable this
+  // session, so writes stay in memory and cannot clobber whatever is on
+  // disk (0.11.2 save-loss hardening). Reads that merely return null are
+  // normal and mark nothing.
+  readFailed: false,
+  get(k) {
+    try { return localStorage.getItem(k); } catch { this.readFailed = true; return memStore.has(k) ? memStore.get(k) : null; }
+  },
+  set(k, v) {
+    if (this.readFailed) { memStore.set(k, v); return; }
+    try { localStorage.setItem(k, v); } catch { memStore.set(k, v); }
+  },
+  del(k) { try { localStorage.removeItem(k); } catch {} memStore.delete(k); },
 };
 
 // --- Version handshake -------------------------------------------------------
@@ -284,6 +297,15 @@ const store = {
 
 const savedRaw = store.get(sim.SAVE_KEY);
 let g = sim.hydrate(savedRaw);
+// The two save-loss guards (0.11.2, after a live loss):
+// 1. THE FUSE: if stored bytes existed but did not load, autosave is off and
+//    the bytes stay exactly as they are. A transient failure must never
+//    become permanent five seconds later. Reset or import re-arms it.
+// 2. THE BACKUP: one generation, taken at boot from a save that LOADED, so
+//    Settings can always restore the previous session's opening state.
+const BAK_KEY = 'tunnelbana_save_bak';
+let saveLocked = !!((savedRaw && g.hydrateFallback) || store.readFailed);
+if (savedRaw && !saveLocked) store.set(BAK_KEY, savedRaw);
 let offline = null;
 try {
   const sv = JSON.parse(savedRaw);
@@ -505,6 +527,8 @@ function menuView(which) {
     $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
     $('settings-export').textContent = STR.exportBtn;
     $('settings-import').textContent = STR.importBtn;
+    $('settings-restore').hidden = !store.get(BAK_KEY);
+    $('settings-restore').textContent = STR.restoreBtn;
     $('import-text').hidden = true;
   }
 }
@@ -708,6 +732,7 @@ $('settings-import').addEventListener('click', () => {
     return;
   }
   g = sim.hydrate(ta.value);
+  saveLocked = false; // an explicit import re-arms autosave
   save();
   $('offline-note').hidden = true; // the note described the OLD save's absence
   offline = null;
@@ -715,6 +740,27 @@ $('settings-import').addEventListener('click', () => {
   homeCamera();
   ta.hidden = true;
   $('settings-import').textContent = STR.importBtn;
+  settingsView(false);
+  showMenu('start');
+});
+// Restore the boot backup: last session's opening state, guaranteed to have
+// loaded once. The lifeline the 0.11.1 loss did not have.
+$('settings-restore').addEventListener('click', () => {
+  const bak = store.get(BAK_KEY);
+  if (!bak) return;
+  const h = sim.hydrate(bak);
+  if (h.hydrateFallback) {
+    $('settings-restore').textContent = STR.restoreBad;
+    setTimeout(() => { $('settings-restore').textContent = STR.restoreBtn; }, 1500);
+    return;
+  }
+  g = h;
+  saveLocked = false;
+  save();
+  $('offline-note').hidden = true;
+  offline = null;
+  updateUI();
+  homeCamera();
   settingsView(false);
   showMenu('start');
 });
@@ -726,6 +772,7 @@ $('settings-reset').addEventListener('click', () => {
   }
   store.del(sim.SAVE_KEY);
   g = sim.hydrate(null);
+  saveLocked = false; // an explicit fresh start re-arms autosave
   // A reset clears the PREVIOUS life's notes too (live report, 2026-08-08:
   // the away-report survived a reset and read as the new game's).
   $('offline-note').hidden = true;
@@ -2048,6 +2095,7 @@ function frame(now) {
 
 // --- Save ---
 function save() {
+  if (saveLocked) return; // the fuse: never write over bytes that failed to load
   store.set(sim.SAVE_KEY, sim.serialize(g));
 }
 setInterval(save, 5000);
@@ -2072,6 +2120,13 @@ if (offline) {
     offline.rate.toFixed(1) + ' kr/s net' +
     (offline.busiest && g.lines.length > 1 ? ' · ' + offline.busiest + ' ' + STR.awayLed : '') + '.';
   save();
+}
+// A locked save announces itself LOUDLY: the player must know their bytes
+// are safe and how to get them back, before anything else this session.
+if (saveLocked) {
+  const note = $('offline-note');
+  note.hidden = false;
+  note.textContent = STR.saveLockedNote;
 }
 // A migrated save explains itself once, in the same place as the away summary,
 // so "my finished upgrades have room again" reads as an update rather than a
