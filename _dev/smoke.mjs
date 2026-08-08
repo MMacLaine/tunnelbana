@@ -812,6 +812,18 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (back.trains.length !== g.trains.length) err('save round-trip lost trains');
 }
 
+// --- The save fuse (0.11.2, after a live loss): whenever stored bytes exist
+// but do not load, hydrate FLAGS it, so the UI can refuse to autosave over
+// them. Null raw is a genuine fresh start and flags nothing. ---
+{
+  if (sim.hydrate(null).hydrateFallback) err('a fresh start must not read as a fallback');
+  if (!sim.hydrate('{corrupt').hydrateFallback) err('unparseable bytes must flag the fallback');
+  if (!sim.hydrate('{"no":"version"}').hydrateFallback) err('versionless bytes must flag the fallback');
+  const good = sim.newGame();
+  good.money = 12345;
+  if (sim.hydrate(sim.serialize(good)).hydrateFallback) err('a healthy save must not flag the fallback');
+}
+
 // Pre-v6 saves are retired: they must come back as a FRESH hub start, never
 // as a resurrected pre-hub line.
 {
@@ -831,6 +843,7 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
     err('pre-v6 saves must start fresh at the hub, got ' + m.lines[0].stations[0].name);
   }
   if (m.money !== sim.BAL.startMoney) err('retired saves must not keep money');
+  if (!m.hydrateFallback) err('a retired save must flag the fallback so its bytes survive');
 }
 
 // --- Deficit: auto-mothballing reaches a floor instead of a death spiral ---
