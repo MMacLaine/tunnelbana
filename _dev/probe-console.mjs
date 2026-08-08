@@ -159,7 +159,7 @@ async function main() {
       for (const k of g.lines[0].stations.length < 8 ? [3, 4, 5, 6, 7] : []) {
         sim.extendTo(g, 0, 'tail', ANCHORS[k].geo, k);
       }
-      for (const id of ['stats', 'works', 'patterns', 'diagram']) sim.buy(g, id);
+      for (const id of ['stats', 'works', 'patterns']) sim.buy(g, id);
       sim.setSkip(g, 0, 3, true);
       t.selectStation({ li: 0, i: 3 });   // the pattern button's home
       t.updateUI();

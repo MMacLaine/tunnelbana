@@ -200,6 +200,15 @@ export const BAL = {
   incidentDur: 45,
   incidentFixGross: 25,    // repair = this many seconds of gross income...
   incidentFixMin: 400,     // ...but never less than this
+  // Golden trains (owner ask 2026-08-08): a rare visitor worth spotting. A
+  // gold train glides one line end to end; clicking it grants a small bonus
+  // and missing it costs nothing. Bonuses alternate between a capped trust
+  // nod and doubled fares for a minute.
+  goldEvery: 420,
+  goldDur: 20,
+  goldTrust: 1,
+  goldBoostS: 60,
+  goldBoostMult: 2,
   abandonPerSec: 0.06,     // share of a FULL platform that gives up per second
                            // (scaled by crowding squared: light queues barely leak)
   foundLineKr: 2500,       // charter a new line from a Knutpunkt
@@ -562,6 +571,10 @@ export const ACHIEVEMENTS = [
     check: (g) => g.playedS >= 24 * 3600 },
   { id: 'bulk-100', name: 'Standing order', hint: 'Place one hundred bulk orders',
     check: (g) => g.bulkOrders >= 100 },
+  { id: 'gold-first', name: 'Guldtåget', hint: 'Catch the golden train',
+    check: (g) => g.goldTaken >= 1 },
+  { id: 'gold-25', name: 'Gold standard', hint: 'Catch twenty five golden trains',
+    check: (g) => g.goldTaken >= 25 },
 ];
 
 // Presentation metadata by id: category, hidden (shown as ??? with a tease
@@ -682,6 +695,8 @@ export const ACH_META = {
   'played-10h': { cat: 'endgame', family: 'time' },
   'played-24h': { cat: 'endgame', family: 'time', hidden: true, tease: 'Stay a while longer' },
   'bulk-100': { cat: 'endgame' },
+  'gold-first': { cat: 'money', family: 'gold', hidden: true, tease: 'Something glitters on the line' },
+  'gold-25': { cat: 'money', family: 'gold' },
 };
 
 // Checked once a second rather than every tick: eighteen predicates over a live
@@ -765,9 +780,9 @@ export const CATALOG = [
   // upgrades, because clicking 59 stations three axes deep is a chore the
   // genre solved a decade ago. An enabler like stats: not value-gate graded.
   { id: 'works',      base: 30000, growth: 1,  max: 1, era: 1964, kind: 'works' },
-  // Linjekartan: the schematic map mode (owner: buyable, mid to end game,
-  // with an achievement for using it). Another enabler; not value-graded.
-  { id: 'diagram',    base: 12000, growth: 1,  max: 1, era: 1964, kind: 'diagram' },
+  // 'diagram' (Linjekartan) left the catalog in v12: the schematic map is a
+  // REWARD for beating the first era (owner ruling 2026-08-08). The toggle
+  // reads g.era; nothing is bought, and old saves' owned key drops silently.
   { id: 'c4stock',    base: 6000, growth: 1,   max: 1, era: 1964,
     mult: { speed: 0.9 } },
   // 'depot' removed pending M4: the fleet knee sits near 3 trains per line at
@@ -967,6 +982,11 @@ export function newGame() {
     nextIncidentAt: 0,
     incidentCounter: 0,
     incidentsFixed: 0,
+    gold: null,      // { line, from, until, taken }, transient like surge
+    nextGoldAt: 0,
+    goldCounter: 0,
+    goldTaken: 0,
+    boostUntil: 0,   // doubled fares run until this clock, transient
     // The statistics office reads these; they accrue whether or not it is
     // ever bought, so the ledger is complete on the day it opens.
     hist: { t: [], riders: [], gross: [] },   // sampled every 30 s, capped
@@ -1813,6 +1833,48 @@ export function fixIncident(g) {
   return true;
 }
 
+function goldTick(g) {
+  if (g.gold && g.clock >= g.gold.until) g.gold = null;
+  if (g.gold || !g.opened) return;
+  if (!g.nextGoldAt) {
+    g.nextGoldAt = g.clock + BAL.goldEvery / 2; // the first one comes sooner
+    return;
+  }
+  if (g.clock < g.nextGoldAt) return;
+  const lines = [];
+  for (let li = 0; li < g.lines.length; li++) {
+    if (g.lines[li].stations.length >= 3) lines.push(li);
+  }
+  if (!lines.length) return;
+  const li = lines[g.goldCounter % lines.length];
+  g.goldCounter += 1;
+  g.gold = { line: li, from: g.clock, until: g.clock + BAL.goldDur, taken: false };
+  g.nextGoldAt = g.clock + BAL.goldEvery;
+  g.events.push({ type: 'gold', geo: g.lines[li].stations[0].geo });
+}
+
+// The click. Bonuses alternate so neither becomes the boring default: a
+// capped trust nod, then doubled fares for a minute.
+export function clickGold(g) {
+  if (!g.gold || g.gold.taken || g.clock >= g.gold.until) return null;
+  const L = g.lines[g.gold.line];
+  const geo = L.stations[Math.floor(L.stations.length / 2)].geo;
+  g.gold.taken = true;
+  g.goldTaken += 1;
+  g.gold = null;
+  let bonus;
+  if (g.goldTaken % 2 === 1) {
+    const grant = Math.min(BAL.goldTrust, Math.max(0, pkCap(g) - g.pk));
+    g.pk += grant;
+    bonus = { kind: 'trust', amount: grant, geo };
+  } else {
+    g.boostUntil = g.clock + BAL.goldBoostS;
+    bonus = { kind: 'boost', seconds: BAL.goldBoostS, geo };
+  }
+  g.events.push({ type: 'gold-taken', ...bonus });
+  return bonus;
+}
+
 function incidentTick(g) {
   if (g.incident && g.clock >= g.incident.until) {
     g.events.push({ type: 'incident-over', geo: g.incident.geo, name: g.incident.name, resolved: false });
@@ -1878,6 +1940,7 @@ function board(g, train, i) {
   }
   let amt = paxKm * BAL.farePerKm * effectMult(g, 'fare');
   if (surgedAt(g, li, i)) amt *= BAL.surgeFareMult;
+  if (g.clock < g.boostUntil) amt *= BAL.goldBoostMult; // the golden minute
   g.money += amt;
   L.earned += amt;
   g.grossLife += amt;
@@ -2119,6 +2182,9 @@ export function tick(g, dt) {
 
   // Something breaks, or gets repaired by neglect's deadline.
   incidentTick(g);
+
+  // Something glitters, briefly.
+  goldTick(g);
 
   // Passengers gather where the NETWORK says they should: each station's spawn
   // splits across its lines and directions by the first hop of real shortest
@@ -3196,6 +3262,7 @@ export function serialize(g) {
       transfers: Math.round(g.transfers), nightDelivered: Math.round(g.nightDelivered),
       nightBuilds: g.nightBuilds, demolished: g.demolished, bulkOrders: g.bulkOrders,
       founded: g.founded, eggsFound: g.eggsFound, diaViews: g.diaViews, patternsSet: g.patternsSet,
+      goldTaken: g.goldTaken,
     },
     eggs: g.eggs,
     freeSpots: g.freeSpots,
@@ -3279,7 +3346,8 @@ export function hydrate(raw) {
   g.grossLife = posInt(s.grossLife, 1e15);
   g.playedS = posInt(s.playedS, 1e9);
   for (const k of ['transfers', 'nightDelivered', 'nightBuilds', 'demolished',
-                   'bulkOrders', 'founded', 'eggsFound', 'diaViews', 'patternsSet']) {
+                   'bulkOrders', 'founded', 'eggsFound', 'diaViews', 'patternsSet',
+                   'goldTaken']) {
     g[k] = posInt(s.counters?.[k], 1e12);
   }
   g.eggs = {};

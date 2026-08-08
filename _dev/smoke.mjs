@@ -363,13 +363,43 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
     }
   }
   const dg = sim.newGame();
-  dg.money = 1e9;
-  if (sim.canBuy(dg, 'diagram')) err('Linjekartan should wait for 1964');
-  dg.era = 3;
-  if (!sim.buy(dg, 'diagram')) err('Linjekartan should sell in 1964');
+  if (sim.CATALOG.some((i) => i.id === 'diagram')) err('Linjekartan left the catalog in v12 (era-one reward)');
+  dg.era = 1; // beating the first era grants the schematic; the UI reads g.era
   sim.viewedDiagram(dg);
   sim.checkAchievements(dg);
   if (!dg.achieved['diagram-view']) err('opening the diagram should earn Se kartan');
+}
+
+// --- The golden train (v12): spawns on the cadence once the line is open,
+// glides for its window, the FIRST catch grants capped trust, the second a
+// timed fare boost, catches count and survive saves, and missing costs
+// nothing. ---
+{
+  const au = sim.newGame();
+  au.money = 1e6;
+  for (let k = 3; k < 7; k++) sim.extendTo(au, 0, 'tail', ANCHORS[k].geo, k);
+  sim.buy(au, 'drivers');
+  let seen = false;
+  for (let t = 0; t < sim.BAL.goldEvery && !seen; t += 0.05) {
+    sim.tick(au, 0.05);
+    for (const e of au.events) if (e.type === 'gold') seen = true;
+    au.events.length = 0;
+  }
+  if (!seen || !au.gold) err('a golden train should appear within its first window');
+  const pk0 = au.pk;
+  const b1 = sim.clickGold(au);
+  if (!b1 || b1.kind !== 'trust') err('the first catch should pay trust');
+  if (!(au.pk > pk0) && au.pk < sim.pkCap(au) - 1e-9) err('the trust nod should land');
+  if (sim.clickGold(au) !== null) err('a caught train is gone');
+  if (au.goldTaken !== 1) err('catches should count');
+  // Force the next spawn and take the boost.
+  au.nextGoldAt = au.clock;
+  for (let t = 0; t < 2 && !au.gold; t += 0.05) { sim.tick(au, 0.05); au.events.length = 0; }
+  if (!au.gold) err('the forced second train should appear');
+  const b2 = sim.clickGold(au);
+  if (!b2 || b2.kind !== 'boost') err('the second catch should pay the fare boost');
+  if (!(au.boostUntil > au.clock)) err('the boost window should be live');
+  if (sim.hydrate(sim.serialize(au)).goldTaken !== 2) err('goldTaken must survive a save');
 }
 
 // --- Curiosities (0.10): found once, counted, achievement-checked, saved. ---

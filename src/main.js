@@ -175,7 +175,6 @@ const STR = {
     bogies:     { name: 'C1 bogie service',  desc: 'Top speed and acceleration up ' + pct(CAT.bogies.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     turnstiles: { name: 'Turnstiles',        desc: 'Fares worth ' + pct(CAT.turnstiles.mult.fare) + '% more.' },
     stats:      { name: 'Statistics office', desc: 'Graphs, records and a ledger per line. Pays in knowing, not kronor.' },
-    diagram:    { name: 'Linjekartan',       desc: 'The map on the platform wall: your network as a schematic diagram. Toggles in the map corner.' },
     patterns:   { name: 'Trafikledning',     desc: 'Run your own service patterns: mark stops for the express to skip, and trains alternate full and express. Set it per stop, in the station panel.' },
     region:     { name: 'Regionplanen',      desc: 'Permission to build ' + CAT.region.add.buildRadius + ' km further from T-Centralen, per level. Stockholm does not end at the tullar.' },
     escalators: { name: 'Rulltrappor',       desc: 'Escalators network-wide: +' + CAT.escalators.add.gateRate + ' passengers/s through every station\'s gates, per level.' },
@@ -242,6 +241,8 @@ const STR = {
   importFileBtn: 'Import from file',
   saveCorruptNote: 'Your saved game was damaged (the checksum does not match), so it has been left untouched and autosave is off. Try Restore backup in Settings, or import a .tbsave file.',
   logOffline: 'The changelog could not be loaded right now.',
+  goldName: 'Guldtåget',
+  goldBoost: 'double fares for ' + B.goldBoostS + ' seconds',
   saveLockedNote: 'Your saved game could not be read just now, so it has been left untouched and autosave is off. Try Restore backup in Settings, or refresh; starting fresh or importing turns saving back on.',
   owned: 'Owned',
   level: 'Level',
@@ -1042,6 +1043,18 @@ wrap.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     return;
   }
+  // The golden train outranks everything: it is briefest, and the catch IS
+  // the click.
+  if (render.nearGold(g, p)) {
+    const bonus = sim.clickGold(g);
+    if (bonus) {
+      sfx.achievement();
+      updateUI();
+    }
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
   // A curiosity outranks the station under it: the diamond is small, and
   // clicking it is the whole find.
   const eggId = render.nearEgg(g, p);
@@ -1375,7 +1388,7 @@ function updateLineRows() {
 let diaOn = false;
 let diaSigLast = '';
 function setDiaMode(on) {
-  diaOn = on && !!g.owned.diagram;
+  diaOn = on && g.era >= 1; // the schematic is beating-era-one's reward (v12)
   $('dia-mode').hidden = !diaOn;
   $('dia-toggle').textContent = diaOn ? STR.diaToMap : STR.diaToDiagram;
   if (diaOn) {
@@ -1711,7 +1724,6 @@ const SHOP_META = {
   turnstiles:  { icon: 'fare',  cat: 'Fare' },
   stats:       { icon: 'stats', cat: 'Office' },
   works:       { icon: 'cap',   cat: 'Office' },
-  diagram:     { icon: 'net',   cat: 'Office' },
   patterns:    { icon: 'time',  cat: 'Service' },
   region:      { icon: 'net',   cat: 'Project' },
   escalators:  { icon: 'cap',   cat: 'Capacity' },
@@ -2027,7 +2039,8 @@ function updateUI() {
   const gross = sim.grossRate(g);
   const upkeep = sim.upkeepRate(g);
   const net = gross - upkeep;
-  $('rate-gross').textContent = '+' + Math.max(0, gross - sim.commerceRate(g)).toFixed(1) + ' kr/s fares';
+  $('rate-gross').textContent = '+' + Math.max(0, gross - sim.commerceRate(g)).toFixed(1) + ' kr/s fares' +
+    (g.clock < g.boostUntil ? ' ×' + B.goldBoostMult : '');
   $('rate-upkeep').textContent = '−' + upkeep.toFixed(1) + ' kr/s upkeep';
   const netEl = $('rate-net');
   netEl.textContent = (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(1) + ' kr/s';
@@ -2094,8 +2107,8 @@ function updateUI() {
   $('btn-reactivate').disabled = mb === 0;
   // The bell states the service it runs: manual, automatic with its cadence,
   // or nothing idle to send (pass 02, section 03).
-  $('dia-toggle').hidden = !g.owned.diagram;
-  if (!g.owned.diagram && diaOn) setDiaMode(false);
+  $('dia-toggle').hidden = g.era < 1;
+  if (g.era < 1 && diaOn) setDiaMode(false);
   if (!diaOn) $('dia-toggle').textContent = STR.diaToDiagram;
   $('stats-toggle').hidden = !g.owned.stats;
   $('stats-toggle').textContent = STR.statsToggle;
@@ -2144,6 +2157,12 @@ function frame(now) {
     if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
     if (e.type === 'egg') render.addFloatGeo(e.geo, e.name);
+    if (e.type === 'gold') render.addFloatGeo(e.geo, STR.goldName);
+    if (e.type === 'gold-taken') {
+      render.addFloatGeo(e.geo, e.kind === 'trust'
+        ? STR.goldName + ' · +' + e.amount + ' ' + STR.trust
+        : STR.goldName + ' · ' + STR.goldBoost);
+    }
     if (e.type === 'pattern') render.addFloatGeo(e.geo, e.name + ' · ' + (e.on ? STR.patternOnFloat : STR.patternOffFloat), e.on ? undefined : 'muted');
     if (e.type === 'incident') { render.addFloatGeo(e.geo, STR.incidentName + ' · ' + e.name, 'red'); sfx.incident(); }
     if (e.type === 'incident-over') render.addFloatGeo(e.geo, STR.incidentOver, 'muted');
