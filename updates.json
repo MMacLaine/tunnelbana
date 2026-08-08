@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.11.0",
+      "title": "The shop reacts, and the city has a soundtrack",
+      "content": "A large update to upgrades, pacing and sound.\n\n- Upgrades can now unlock from how you play (stations built, riders carried, coverage, lines delivered), not just from the era. Locked upgrades show what unlocks them.\n- The shop is grouped by category.\n- New upgrades: Rulltrappor (faster boarding network-wide), Stationsvärdar (crowds give up more slowly), Reklamavtal (retail earns more), and Konst i tunnelbanan now goes three levels deep, from 1957.\n- Trust accrues faster in later eras, so an established operator is not left waiting between lines. Measured: the wait before 1964 fell from over ten minutes to about three, for an aggressively hub-building player.\n- The menu no longer pauses the game. Era front pages still do.\n- Music: two calm lo-fi tracks by TAD (CC0, credited in About), and a Master / Music / Effects mixer in Settings.\n- Achievements: 104 now, up from 81.\n- Money and rider counters mark their milestones with a small beat.\n- Stakes on the map now show which line they belong to, in that line's colour, and clicking one extends the right line.\n- A maxed fleet card now says the cap rises next era.\n- Fixed: resetting progress no longer shows the previous game's away-report."
+    },
+    {
       "version": "0.10.2",
       "title": "The city has an edge",
       "content": "Fixes from a player report.\n\n- Fixed: a station placed too close to an unbuilt planned stop could block that stop permanently, and with it the next era. Planned stops can now always be built.\n- Building is limited to 13 km from T-Centralen, which covers the whole historical network with room to spare. A late-game purchase, Regionplanen, extends the limit twice. Stations already built further out are untouched.\n- The camera now stays with the city."
