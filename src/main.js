@@ -248,6 +248,14 @@ const STR = {
   level: 'Level',
   max: 'Max',
   needsDrivers: 'Hire drivers first',
+  slotName: 'Stockholm',
+  slotEmpty: 'Empty slot',
+  slotEmptyMeta: 'Start a new network here',
+  slotBad: 'Damaged save',
+  slotBadMeta: 'This save could not be read so it stays untouched. Restore backup or import may help.',
+  slotNow: 'playing now',
+  slotStations: 'stations',
+  slotRiders: 'riders carried',
 };
 
 // itch serves the game from a sandboxed cross-origin iframe, where Safari and
@@ -299,7 +307,19 @@ const store = {
   }
 }
 
-const savedRaw = store.get(sim.SAVE_KEY);
+// --- Save slots (v12): three parallel networks. Slot 1 keeps the original
+// key, so every save already out there simply becomes slot one; the pointer
+// names the slot being played and every save path below goes through
+// saveKey, never sim.SAVE_KEY directly. ---
+const SLOT_KEY = 'tunnelbana_slot';
+const SLOT_IDS = ['1', '2', '3'];
+const slotSaveKey = (s) => (s === '1' ? sim.SAVE_KEY : sim.SAVE_KEY + '_s' + s);
+const slotBakKeys = (s) => ['tunnelbana_save_bak', 'tunnelbana_save_bak2', 'tunnelbana_save_bak3']
+  .map((k) => (s === '1' ? k : k + '_s' + s));
+let activeSlot = SLOT_IDS.includes(store.get(SLOT_KEY)) ? store.get(SLOT_KEY) : '1';
+let saveKey = slotSaveKey(activeSlot);
+
+const savedRaw = store.get(saveKey);
 let g = sim.hydrate(savedRaw);
 // The two save-loss guards (0.11.2, after a live loss):
 // 1. THE FUSE: if stored bytes existed but did not load, autosave is off and
@@ -309,17 +329,20 @@ let g = sim.hydrate(savedRaw);
 //    Settings can always restore the previous session's opening state.
 // 0.11.3: THREE generations, rotated only when the save actually moved, so
 // a burst of refreshes cannot launder one state through every slot.
-const BAK_KEY = 'tunnelbana_save_bak';
-const BAK2_KEY = 'tunnelbana_save_bak2';
-const BAK3_KEY = 'tunnelbana_save_bak3';
+// Backups are per slot (the lets repoint when the player switches).
+let [BAK_KEY, BAK2_KEY, BAK3_KEY] = slotBakKeys(activeSlot);
 let saveLocked = !!((savedRaw && g.hydrateFallback) || store.readFailed);
-if (savedRaw && !saveLocked && savedRaw !== store.get(BAK_KEY)) {
+// Rotation happens on entering a slot with bytes that LOADED, at boot and on
+// a slot switch alike, and only when the save actually moved.
+function rotateBak(raw) {
+  if (!raw || raw === store.get(BAK_KEY)) return;
   const b1 = store.get(BAK_KEY);
   const b2 = store.get(BAK2_KEY);
   if (b2) store.set(BAK3_KEY, b2);
   if (b1) store.set(BAK2_KEY, b1);
-  store.set(BAK_KEY, savedRaw);
+  store.set(BAK_KEY, raw);
 }
+if (!saveLocked) rotateBak(savedRaw);
 let offline = null;
 try {
   const sv = JSON.parse(sim.unpack(savedRaw).json);
@@ -524,7 +547,7 @@ window.addEventListener('resize', () => render.resize());
 // --- Menu ---
 const menu = $('menu');
 function hasSave() {
-  return store.get(sim.SAVE_KEY) !== null;
+  return store.get(saveKey) !== null;
 }
 function menuView(which) {
   $('main-view').hidden = which !== 'main';
@@ -533,8 +556,10 @@ function menuView(which) {
   $('help-view').hidden = which !== 'help';
   $('ach-view').hidden = which !== 'ach';
   $('log-view').hidden = which !== 'log';
+  $('slots-view').hidden = which !== 'slots';
   if (which === 'ach') renderAchievements();
   if (which === 'log') renderLog();
+  if (which === 'slots') renderSlots();
   if (which === 'help') renderIconKey();
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
@@ -575,6 +600,103 @@ $('menu-help').addEventListener('click', () => menuView('help'));
 $('menu-ach').addEventListener('click', () => menuView('ach'));
 $('version-btn').addEventListener('click', () => menuView('log'));
 $('log-back').addEventListener('click', () => menuView('main'));
+$('menu-slots').addEventListener('click', () => menuView('slots'));
+$('slots-back').addEventListener('click', () => menuView('main'));
+
+// --- Save slots (v12, pass 04 section e): three networks side by side.
+// A row is the pass-02 button frame with the three facts that identify a
+// save at a glance: the year reached, a landmark, riders carried. Switching
+// parks the current game in its own slot first, so nothing is ever lost by
+// looking. ---
+function slotInfo(s) {
+  const raw = store.get(slotSaveKey(s));
+  if (!raw) return null;
+  try {
+    const sv = JSON.parse(sim.unpack(raw).json);
+    if (!sv || !Array.isArray(sv.lines)) return { bad: true };
+    const era = Math.max(0, Math.min(sim.ERAS.length - 1, sv.era | 0));
+    return {
+      era,
+      year: sim.ERAS[era].year,
+      stations: sv.lines.reduce((n, L) => n + (Array.isArray(L.stations) ? L.stations.length : 0), 0),
+      delivered: sv.totalDelivered || 0,
+      savedAt: sv.savedAt,
+    };
+  } catch { return { bad: true }; }
+}
+function relTime(ts) {
+  if (!Number.isFinite(ts)) return '';
+  const s = (Date.now() - ts) / 1000;
+  if (s < 90) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  if (s < 172800) return 'yesterday';
+  return Math.round(s / 86400) + ' days ago';
+}
+// Before the map needs two colours the station count says more than the era.
+const SLOT_ERA_WORD = ['', '', '', 'red line era', 'blue line era', 'the modern city'];
+function renderSlots() {
+  const rows = SLOT_IDS.map((s) => {
+    const info = slotInfo(s);
+    const current = s === activeSlot;
+    if (!info) {
+      return '<button class="tb-slot tb-slot--empty" data-slot="' + s + '">' +
+        '<span class="tb-slot__n">' + s + '</span><span class="tb-slot__body">' +
+        '<span class="tb-slot__name">' + STR.slotEmpty + '</span>' +
+        '<span class="tb-slot__meta">' + STR.slotEmptyMeta + '</span></span>' +
+        '<span class="tb-slot__stamp">&mdash;</span></button>';
+    }
+    if (info.bad) {
+      return '<button class="tb-slot" data-slot="' + s + '" disabled>' +
+        '<span class="tb-slot__n">' + s + '</span><span class="tb-slot__body">' +
+        '<span class="tb-slot__name">' + STR.slotBad + '</span>' +
+        '<span class="tb-slot__meta">' + STR.slotBadMeta + '</span></span>' +
+        '<span class="tb-slot__stamp">&mdash;</span></button>';
+    }
+    const mark = info.era >= 3 ? SLOT_ERA_WORD[info.era] : info.stations + ' ' + STR.slotStations;
+    return '<button class="tb-slot" data-slot="' + s + '"' + (current ? ' aria-current="true"' : '') + '>' +
+      '<span class="tb-slot__n">' + s + '</span><span class="tb-slot__body">' +
+      '<span class="tb-slot__name">' + STR.slotName + '</span>' +
+      '<span class="tb-slot__meta"><b>' + info.year + '</b> · ' + mark +
+      ' · <b>' + fmt(info.delivered) + '</b> ' + STR.slotRiders + '</span></span>' +
+      '<span class="tb-slot__stamp">' + (current ? STR.slotNow : relTime(info.savedAt)) + '</span></button>';
+  });
+  $('slot-list').innerHTML = rows.join('');
+}
+$('slot-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-slot]');
+  if (!btn || btn.disabled) return;
+  switchSlot(btn.dataset.slot);
+});
+function switchSlot(s) {
+  if (s === activeSlot) { menuView('main'); return; }
+  save(); // park the current network in its own slot (a no-op under the fuse)
+  const raw = store.get(slotSaveKey(s));
+  const h = sim.hydrate(raw);
+  if (raw && h.hydrateFallback) { renderSlots(); return; } // damaged bytes stay untouched
+  activeSlot = s;
+  saveKey = slotSaveKey(s);
+  [BAK_KEY, BAK2_KEY, BAK3_KEY] = slotBakKeys(s);
+  store.set(SLOT_KEY, s);
+  rotateBak(raw);
+  g = h;
+  saveLocked = false; // fresh or proven-loadable bytes re-arm autosave
+  // A slot that sat while another was played still ran its trains: the same
+  // closed-form night the boot path grants a returning player.
+  $('offline-note').hidden = true;
+  offline = null;
+  try {
+    const sv = JSON.parse(sim.unpack(raw).json);
+    if (sv && typeof sv.savedAt === 'number') {
+      offline = sim.simulateOffline(g, (Date.now() - sv.savedAt) / 1000);
+      if (offline) showAwayNote(offline);
+    }
+  } catch {}
+  save();
+  updateUI();
+  homeCamera();
+  showMenu('start');
+}
 
 // --- The changelog (0.11.4): the SAME updates.json the incrementaldb feed
 // reads, fetched lazily and rendered with a deliberately tiny subset of
@@ -864,7 +986,7 @@ $('settings-reset').addEventListener('click', () => {
     btn.textContent = STR.resetConfirm;
     return;
   }
-  store.del(sim.SAVE_KEY);
+  store.del(saveKey); // only the slot being played; the other two are other lives
   g = sim.hydrate(null);
   saveLocked = false; // an explicit fresh start re-arms autosave
   // A reset clears the PREVIOUS life's notes too (live report, 2026-08-08:
@@ -881,7 +1003,7 @@ window.addEventListener('keydown', (e) => {
     if (statsOpen) { setStatsOpen(false); return; }
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
-             !$('ach-view').hidden || !$('log-view').hidden) menuView('main');
+             !$('ach-view').hidden || !$('log-view').hidden || !$('slots-view').hidden) menuView('main');
     else closeMenu();
   }
 });
@@ -2218,7 +2340,7 @@ function frame(now) {
 // --- Save ---
 function save() {
   if (saveLocked) return; // the fuse: never write over bytes that failed to load
-  store.set(sim.SAVE_KEY, sim.pack(g)); // the checksummed container (0.11.3)
+  store.set(saveKey, sim.pack(g)); // the checksummed container (0.11.3), into the active slot
 }
 setInterval(save, 5000);
 document.addEventListener('visibilitychange', () => {
@@ -2230,17 +2352,21 @@ $('btn-mothball').textContent = STR.mothballBtn;
 $('btn-reactivate').textContent = STR.reactivateBtn;
 $('btn-mothball').addEventListener('click', () => { if (sim.mothball(g)) updateUI(); });
 $('btn-reactivate').addEventListener('click', () => { if (sim.reactivate(g)) updateUI(); });
-if (offline) {
-  // The night report (0.10): what the closed form actually knows, told
-  // fully: the take, the riders, the rate it ran at, and who led the night.
-  const h = Math.floor(offline.seconds / 3600);
-  const m = Math.floor((offline.seconds % 3600) / 60);
+// The night report (0.10): what the closed form actually knows, told
+// fully: the take, the riders, the rate it ran at, and who led the night.
+// Shared by boot and the slot switch, which is a homecoming too.
+function showAwayNote(off) {
+  const h = Math.floor(off.seconds / 3600);
+  const m = Math.floor((off.seconds % 3600) / 60);
   $('offline-note').hidden = false;
   $('offline-note').textContent =
-    STR.awayTitle + ' (' + (h ? h + ' h ' : '') + m + ' min): +' + fmt(offline.earned) +
-    ' kr · ' + fmt(offline.delivered) + ' ' + STR.riders + ' · ' +
-    offline.rate.toFixed(1) + ' kr/s net' +
-    (offline.busiest && g.lines.length > 1 ? ' · ' + offline.busiest + ' ' + STR.awayLed : '') + '.';
+    STR.awayTitle + ' (' + (h ? h + ' h ' : '') + m + ' min): +' + fmt(off.earned) +
+    ' kr · ' + fmt(off.delivered) + ' ' + STR.riders + ' · ' +
+    off.rate.toFixed(1) + ' kr/s net' +
+    (off.busiest && g.lines.length > 1 ? ' · ' + off.busiest + ' ' + STR.awayLed : '') + '.';
+}
+if (offline) {
+  showAwayNote(offline);
   save();
 }
 // A locked save announces itself LOUDLY: the player must know their bytes
