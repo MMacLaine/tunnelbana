@@ -1081,8 +1081,13 @@ const FEEDBACK_URL = 'https://maclaine.se/api/feedback';
 const PULSE_URL = 'https://maclaine.se/api/pulse';
 const PULSE_KEY = 'tunnelbana_pulse';
 let pulseOn = store.get(PULSE_KEY) !== '0';
+// galaxy.click does not host games, it iframes the site copy. The site's
+// _headers only lets maclaine.se be framed by galaxy, so on this hostname
+// "inside a frame" and "on galaxy" are the same fact. The itch build is a
+// separate upload served from itch.zone and matches the first test instead.
+const framed = (() => { try { return window.self !== window.top; } catch { return true; } })();
 const pulseSurface = /itch\.zone$|itch\.io$/.test(location.hostname) ? 'itch'
-  : /maclaine\.se$/.test(location.hostname) ? 'site' : '';
+  : /maclaine\.se$/.test(location.hostname) ? (framed ? 'galaxy' : 'site') : '';
 function pulse(ev, year) {
   if (!pulseOn || !pulseSurface) return;
   try {

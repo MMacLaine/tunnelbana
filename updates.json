@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.10",
+      "title": "Groundwork for galaxy.click",
+      "content": "Preparing a listing on galaxy.click, a free site for incremental games.\n- The game can now run inside the galaxy.click page\n- Anonymous milestone telemetry counts plays there as their own surface so pacing numbers from galaxy and from this site stay separate"
+    },
+    {
       "version": "0.12.9",
       "title": "The feedback button speaks up",
       "content": "- The Feedback button in the corner now wears amber and a small speech bubble, so the way to reach me is the one control that stands out. Most of what has shipped this week started as a note through it."
