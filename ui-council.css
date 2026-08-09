@@ -1,8 +1,8 @@
-/* Tunnelbana UI · pass 04 component layer.
-   Extends ui.css (pass 02) and ui-pass03.css. Load order:
-   tokens.css → tokens-ui.css → ui.css → ui-pass03.css → ui-pass04.css.
+/* Tunnelbana UI · council component layer.
+   Extends ui.css and ui-moments.css. Load order:
+   tokens.css → tokens-ui.css → ui.css → ui-moments.css → ui-council.css.
    Same rules: resolves only to token names, states are CSS, SVG single-colour
-   on currentColor in the pass-01 grammar. Pass 04 designs the surfaces where
+   on currentColor. This layer designs the surfaces where
    the player and the city NEGOTIATE: the council, visible growth, the golden
    train, the depot, and the small pieces.
 
