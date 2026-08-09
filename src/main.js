@@ -129,6 +129,8 @@ const STR = {
   newsPlayed: 'played',
   newsCity: 'Staden.',
   newsNext: 'Nästa.',
+  newsNoticeK: 'Kungörelse',
+  newsNoticeDone: 'The plan is complete. Nothing further is asked of the railway.',
   diaToMap: 'KARTA',
   diaToDiagram: 'DIAGRAM',
   fleetGrows: 'The fleet cap rises with the next era',
@@ -190,6 +192,7 @@ const STR = {
     escalators: { name: 'Rulltrappor',       desc: 'Escalators network-wide: +' + CAT.escalators.add.gateRate + ' passengers/s through every station\'s gates, per level.' },
     platforms:  { name: 'Längre plattformar', desc: 'Longer platforms hold ' + CAT.platforms.add.stationCap + ' more waiting passengers at every station, per level. Queues stop giving up at the platform edge.' },
     depot:      { name: 'Vagnhallen',        desc: 'A home for the fleet. Stabled trains cost 60 percent less to run through the night, and the hall shows itself at each line\'s home terminus.' },
+    driftcentral: { name: 'Driftcentralen',  desc: 'The control room above T-Centralen runs the whole fleet tighter. Every train costs 30 percent less to keep in service.' },
     hosts:      { name: 'Stationsvärdar',    desc: 'Hosts on the platforms: crowded queues give up ' + pct(CAT.hosts.mult.abandon) + '% slower, per level. Patience, bought.' },
     adverts:    { name: 'Reklamavtal',       desc: 'Advertising in your stations: retail rent worth ' + pct(CAT.adverts.mult.retail) + '% more, per level.' },
     works:      { name: 'Works department',  desc: 'Bulk orders: raise entrances, gates or retail one level across every station in one click. The buttons appear in the Network panel.' },
@@ -1361,6 +1364,27 @@ function showFrontPage(key) {
     $('news-s3').innerHTML = numHTML(g.grossLife, ' kr');
     $('news-s3k').textContent = STR.newsTurnover;
   }
+  // The kungörelse (owner ask 2026-08-09): the lead column's empty depth now
+  // prints what the government asks before the next charter, live numbers in
+  // the dress of a period public notice. On the last pages, where nothing is
+  // asked, the notice says so once (2000) and yields its space (slut).
+  const e2 = slut ? null : sim.nextEra(g);
+  $('news-notice-k').textContent = STR.newsNoticeK;
+  if (e2) {
+    const wants = [fmt(e2.delivered) + ' riders carried', e2.pk + ' in political trust'];
+    for (const b of sim.planBlockers(g)) {
+      wants.push('the ' + b.name + ' corridor built out with ' + (b.total - b.built) + ' stations to go');
+    }
+    $('news-notice-b').textContent = 'Ahead of the ' + e2.year +
+      ' charter the government asks ' + wants.slice(0, -1).join(', ') +
+      ' and ' + wants[wants.length - 1] + '.';
+    $('news-notice').hidden = false;
+  } else if (!slut) {
+    $('news-notice-b').textContent = STR.newsNoticeDone;
+    $('news-notice').hidden = false;
+  } else {
+    $('news-notice').hidden = true;
+  }
   // The foot: the city's own words (the old era blurbs), and what stirs next.
   const blurb = slut ? STR.ending.blurb : (STR.eras[key] ? STR.eras[key].blurb : '');
   $('news-foot1').innerHTML = '<b style="color:var(--tb-ink);font-weight:400">' + STR.newsCity + '</b> ';
@@ -2262,6 +2286,7 @@ const SHOP_META = {
   nightservice:{ icon: 'night', cat: 'Service' },
   platforms:   { icon: 'cap',   cat: 'Capacity' },
   depot:       { icon: 'train', cat: 'Fleet' },
+  driftcentral: { icon: 'train', cat: 'Fleet' },
 };
 
 const ICONS = {};

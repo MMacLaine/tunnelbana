@@ -183,6 +183,10 @@ const CASES = [
   // where waiting caps bind); the depot pays through the night phase.
   { id: 'platforms',  demand: 'high', base: { drivers: 1, train: 2 },               buy: { platforms: 1 } },
   { id: 'depot',      demand: 'high', base: { drivers: 1, train: 4, timetable: 1 }, buy: { depot: 1 } },
+  // The upkeep counterweights (0.13.0): both are priced against the
+  // fleet-scaled bill, so the fleet must be past the free allowance.
+  { id: 'driftcentral', demand: 'high', base: { drivers: 1, train: 6, timetable: 1 }, buy: { driftcentral: 1 } },
+  { id: 'co service', demand: 'high', base: { drivers: 1, train: 6, timetable: 1 }, buy: { 'council:service-contract': 1 } },
   { id: 'co subsidy',  demand: 'low',  base: { drivers: 1, train: 3, timetable: 1 }, buy: { 'council:subsidise-suburbs': 1 } },
   { id: 'co rezone',   demand: 'high', base: { drivers: 1, train: 4, timetable: 1 }, buy: { 'council:rezone-inner': 1 } },
   { id: 'co transfer', demand: 'high', base: { drivers: 1, train: 3, westline: 1 },  buy: { 'council:easy-transfer': 1 } },

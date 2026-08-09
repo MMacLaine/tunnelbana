@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.13.0",
+      "title": "Running a railway now costs like one",
+      "content": "Operating costs used to fade into rounding as income grew. Now they scale with ambition and can be managed.\n- A large fleet costs more per train to keep in service. The first few trains are unchanged, then the rate climbs as the fleet grows\n- New building. Driftcentralen above T-Centralen cuts fleet running costs by 30 percent, available from 1964 once T-Centralen stands\n- New council decision. A standing maintenance contract cuts fleet running costs by 20 percent\n- Vagnhallen's night stabling now saves real money on a big fleet\n- The era front pages now print a kungörelse naming what the government asks before the next charter\n- Existing saves keep everything they have, the new bill simply starts applying"
+    },
+    {
       "version": "0.12.10",
       "title": "Groundwork for galaxy.click",
       "content": "Preparing a listing on galaxy.click, a free site for incremental games.\n- The game can now run inside the galaxy.click page\n- Anonymous milestone telemetry counts plays there as their own surface so pacing numbers from galaxy and from this site stay separate"

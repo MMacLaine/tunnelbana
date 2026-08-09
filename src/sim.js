@@ -50,6 +50,15 @@ export const BAL = {
   holdDwell: 0.4,          // seconds a held train waits before re-checking
   trainCapBase: 120,
   upkeepPerTrainPerSec: 1.2,
+  // A big fleet costs more per train, not just more trains (owner direction
+  // 2026-08-09): probe-costs measured upkeep decaying from 6% of income to
+  // 1.5% across the arc, which made the whole operating side decorative. The
+  // first fleetUpkeepFree trains pay the flat rate, then the per-train rate
+  // climbs with the log of the fleet. Relief is purchasable (Vagnhallen at
+  // night, Driftcentralen, the maintenance contract in the council), which
+  // turns a dead stat into a decision. Tuned with _dev/probe-costs.mjs.
+  fleetUpkeepFree: 4,
+  fleetUpkeepLog: 6,
   mothballShare: 0.2,      // a mothballed train costs this share of upkeep
   deficitMothballAfter: 20,// seconds broke and losing before a train auto-mothballs
   // Motion model (report 634 §2a): accelerate, cruise, brake, then DWELL at the
@@ -824,6 +833,10 @@ export const CATALOG = [
   // by the same ruling as atc's comfort.
   { id: 'depot',      base: 55000, growth: 1, max: 1, era: 1957, unlock: { delivered: 60000 },
     mult: { nightUpkeep: 0.4 } },
+  // Driftcentralen: the real control room above T-Centralen. The permanent
+  // answer to fleet-scaled upkeep, one per city, only where the hub exists.
+  { id: 'driftcentral', base: 300000, growth: 1, max: 1, era: 1964, unlock: { anchor: 0 },
+    mult: { fleetUpkeep: 0.7 } },
   // Regionplanen: permission to build beyond the city's edge, the first
   // upgrade whose product is SPACE. Late, steep, two levels (13 -> 17 -> 21
   // km), so "outside Stockholm, within reason" stays within reason.
@@ -860,6 +873,10 @@ export const COUNCIL = [
     desc: 'Crossing under the water costs nearly half as much track to build.',
     effectText: 'Water crossings 45 percent cheaper to build',
     mult: { waterCost: 0.55 } },
+  { id: 'service-contract', name: 'Standing maintenance contract', cat: 'service', tier: 1, pk: 7,
+    desc: 'The workshops keep the fleet in trim on a standing order. Every train costs less to run.',
+    effectText: 'Fleet running costs cut by 20 percent',
+    mult: { fleetUpkeep: 0.8 } },
   { id: 'rezone-inner', name: 'Rezone the inner suburbs', cat: 'growth', tier: 1, pk: 8, needs: ['subsidise-suburbs'],
     desc: 'A denser city, a higher ceiling, more riders to carry.',
     effectText: 'Districts may grow 20 percent past their old cap',
@@ -1230,7 +1247,12 @@ export function upkeepRate(g) {
   // The depot stables the fleet overnight (v12): train upkeep falls through
   // the night phase. Mothballing still beats stabling, they do not stack.
   const nightShare = dayPhase(g) === 3 ? effectMult(g, 'nightUpkeep') : 1;
-  for (const t of g.trains) r += BAL.upkeepPerTrainPerSec * (t.mothballed ? BAL.mothballShare : nightShare);
+  // Beyond the free allowance the whole fleet gets costlier per train, and
+  // Driftcentralen or the council contract are how the player pushes back.
+  const fleetFactor = 1 + BAL.fleetUpkeepLog *
+    Math.max(0, Math.log2(g.trains.length / BAL.fleetUpkeepFree));
+  const perTrain = BAL.upkeepPerTrainPerSec * fleetFactor * effectMult(g, 'fleetUpkeep');
+  for (const t of g.trains) r += perTrain * (t.mothballed ? BAL.mothballShare : nightShare);
   // Stations cost money to run: tier upkeep plus per upgrade level, counted
   // once per physical station (interchanges are one station on the ground).
   const seen = new Set();
@@ -3007,6 +3029,7 @@ export function unlockMet(g, item) {
   if (u.coverage && coverage(g) < u.coverage) return false;
   if (u.corridor && !g.planDone[u.corridor]) return false;
   if (u.hubs && playerHubs(g) < u.hubs) return false;
+  if (u.anchor !== undefined && !usedAnchorsAll(g).has(u.anchor)) return false;
   if (u.retail && commerceRate(g) < u.retail) return false;
   if (u.achievement && !g.achieved[u.achievement]) return false;
   return true;
@@ -3433,7 +3456,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.12.10';
+export const VERSION = '0.13.0';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a

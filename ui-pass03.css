@@ -100,6 +100,15 @@
   font: 400 var(--tb-fs-caption)/1.4 var(--tb-serif-text); color: var(--tb-muted); }
 .tb-news__foot .tb-news__col { flex: 1; }
 .tb-news__continue { margin-top: .4rem; align-self: flex-end; }
+/* The kungörelse (owner ask 2026-08-09): the lead column's spare depth
+   carries what the government asks before the next charter, set as the
+   official notice a paper of the period would print. */
+.tb-news__notice { border: var(--tb-border) solid var(--tb-ink); padding: .55rem .7rem .6rem;
+  margin-top: .9rem; max-width: 46ch; }
+.tb-news__notice-k { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; color: var(--tb-era); }
+.tb-news__notice-b { font: 400 var(--tb-fs-body)/1.5 var(--tb-serif-text); color: var(--tb-ink);
+  margin: .3rem 0 0; }
 
 /* ============================================================================
    b · ACHIEVEMENTS AT SCALE
