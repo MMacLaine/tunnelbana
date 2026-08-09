@@ -24,6 +24,18 @@ const HORIZON = Number(process.argv[2]) || 7200;
 const RICH = process.argv.includes('rich');
 const DT = 0.05;
 
+// Tuning affordance: BAL="fleetUpkeepLog=10,fleetUpkeepFree=4" overrides
+// balance constants for this run only, so candidate curves can be compared
+// without editing the sim between runs.
+if (process.env.BAL) {
+  for (const kv of process.env.BAL.split(',')) {
+    const [k, v] = kv.split('=');
+    if (!(k in sim.BAL)) throw new Error('unknown BAL key ' + k);
+    sim.BAL[k] = Number(v);
+    console.log('BAL override: ' + k + ' = ' + v);
+  }
+}
+
 const g = sim.newGame();
 if (RICH) { g.money = 10_000_000; g.pk = 999; }
 
