@@ -1,9 +1,10 @@
-/* Tunnelbana UI · pass 03 component layer.
-   Extends ui.css (pass 02), which extends tokens.css + tokens-ui.css. Load in
-   that order. Like pass 02: every rule resolves only to token names, states are
-   CSS, SVG only where a shape cannot be drawn in CSS. Port wholesale or lift a
-   block. Pass 03 designs the game's MOMENTS: the newspaper, the record book,
-   the clock, the events on the map, and the diagram on the platform wall.
+/* Tunnelbana UI · moments component layer.
+   Extends ui.css, which extends tokens.css + tokens-ui.css. Load in that
+   order. Same rules as ui.css: every rule resolves only to token names,
+   states are CSS, SVG only where a shape cannot be drawn in CSS. Port
+   wholesale or lift a block. This layer designs the game's MOMENTS: the
+   newspaper, the record book, the clock, the events on the map, and the
+   diagram on the platform wall.
 
    New tokens this pass needs live in the :root block at the top of THIS file so
    the deliverable is one drop-in; fold them into tokens-ui.css when convenient.

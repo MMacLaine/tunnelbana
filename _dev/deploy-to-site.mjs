@@ -27,7 +27,7 @@ const CHECK = process.argv.includes('--check');
 // entry first, unique version strings, Markdown content. It lives here so a
 // release and its changelog ship in the same push.
 const SHIP_FILES = ['index.html', 'favicon.svg', 'tokens.css', 'tokens-ui.css', 'ui.css',
-                    'ui-pass03.css', 'ui-pass04.css', 'incrementaldb.txt', 'updates.json'];
+                    'ui-moments.css', 'ui-council.css', 'incrementaldb.txt', 'updates.json'];
 const SHIP_DIRS = ['src', 'basemap', 'fonts', 'vendor', 'audio'];
 
 function walk(dir, base = dir, out = []) {
@@ -88,7 +88,7 @@ const version = (readFileSync(join(SRC, 'src/sim.js'), 'utf8').match(/VERSION = 
 // serving the first main.js for ?v=0.8.0 for hours, which is the same
 // stale-pairing bug one layer out. A hash of the actual shipped code cannot
 // drift from the code, and needs nobody to remember anything.
-const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'src/facts.js', 'src/sound.js', 'src/diagram.js', 'ui.css', 'ui-pass03.css', 'ui-pass04.css', 'tokens-ui.css', 'tokens.css']
+const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'src/facts.js', 'src/sound.js', 'src/diagram.js', 'ui.css', 'ui-moments.css', 'ui-council.css', 'tokens-ui.css', 'tokens.css']
   .map((f) => readFileSync(join(SRC, f))).join('\n');
 const stamp = createHash('sha256').update(hashSrc).digest('hex').slice(0, 10);
 if (!CHECK) {

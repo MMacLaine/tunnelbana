@@ -177,7 +177,7 @@
 
 /* Achievements: one row each, earned rows keyed green, locked rows stating what
    to chase rather than hiding it. */
-/* The pass-02 achievements LIST retired in 0.10: ui-pass03.css owns the
+/* The pass-02 achievements LIST retired in 0.10: ui-moments.css owns the
    categorised page now. The toast keeps its big-name treatment below. */
 #ach-toast .tb-ach__name { font-size: var(--tb-fs-title); font-weight: var(--tb-weight-semi); color: var(--tb-green); }
 .tb-ach--old { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.6rem; }
