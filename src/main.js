@@ -1021,7 +1021,9 @@ $('about-mark').addEventListener('click', () => {
 // structured note (with game context) to the clipboard for the itch comments.
 // submitFeedback() is the swap point: route it at a form or endpoint later
 // without touching the UI.
-$('fb-open').textContent = STR.fbOpen;
+$('fb-open').innerHTML =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M2 3h12v8H6l-4 3z"></path></svg>' + STR.fbOpen;
 $('menu-open').textContent = STR.menuBtn;
 
 // Rail collapse, remembered between sessions: a second-monitor player who wants

@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.12.9",
+      "title": "The feedback button speaks up",
+      "content": "- The Feedback button in the corner now wears amber and a small speech bubble, so the way to reach me is the one control that stands out. Most of what has shipped this week started as a note through it."
+    },
+    {
       "version": "0.12.8",
       "title": "Demolish a stop in the middle of a line",
       "content": "- Stations in the middle of a line can now be demolished from the station panel. The line closes the gap, and the fee is the same 100 kr the ends pay.\n- Destructive actions now ask first. The dialog has a button that stops the asking for good, and Settings has a Warnings switch to bring it back."
