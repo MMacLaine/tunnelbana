@@ -1009,13 +1009,22 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   c.era = 1;
   c.totalDelivered = 3e4;
   sim.buy(c, 'westline');
-  if (sim.canRecolorLine(c, 1)) err('Västerortsbanan must keep its colour');
+  // Västerortsbanan is the west arm of the green (live report 2026-08-10,
+  // its mint seed read as a stray line breaking the green trunk): it may
+  // recolour, it ALONE may wear the family green, and it may take its own
+  // mint back. Nothing else touches green or the reserved set.
+  if (!sim.canRecolorLine(c, 1)) err('Västerortsbanan must be recolourable');
+  if (sim.recolorChoices(c, 1)[0] !== sim.LINE_COLORS[0]) err('the family green should lead the west arm choices');
+  if (!sim.recolorLine(c, 1, sim.LINE_COLORS[0])) err('the west arm may wear the family green');
+  if (c.lines[1].color !== sim.LINE_COLORS[0]) err('the west arm should now be green');
+  if (!sim.recolorLine(c, 1, '#6fd6b0')) err('the west arm may take its mint back');
   c.lines[0].stations[1].tier = 3;
   if (!sim.foundLine(c, 0, 1)) err('setup, foundLine failed in the colour check');
   const li = c.lines.length - 1;
   if (!sim.canRecolorLine(c, li)) err('a founded line must be recolourable');
   if (sim.recolorLine(c, li, '#c8544a')) err('the reserved red must refuse');
-  if (sim.recolorLine(c, li, c.lines[0].color)) err('a colour another line wears must refuse');
+  if (sim.recolorLine(c, li, sim.LINE_COLORS[0])) err('a founded line must not wear the family green');
+  if (sim.recolorLine(c, li, c.lines[1].color)) err('a colour another line wears must refuse');
   if (sim.recolorLine(c, li, 'tomato')) err('a non-hex colour must refuse');
   const pick = sim.recolorChoices(c, li)[0];
   if (!pick) err('recolorChoices should offer something');
