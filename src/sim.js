@@ -982,6 +982,14 @@ export function decide(g, id) {
   g.pk -= d.pk;
   g.council[d.id] = true;
   g.decisions += 1;
+  // A decision that re-routes the city must drop the cached network, exactly
+  // as buy() does for the same modifiers. Without this the routes kept the
+  // pre-decision transfer cost and edge times until the player next built a
+  // station, so One ticket every line and Automatic operation, 22 trust
+  // between them, did nothing at all for a player who had finished building.
+  if (d.mult && (d.mult.transfer || d.mult.speed || d.mult.dispatchInterval)) {
+    g._netRev2 = undefined;
+  }
   computeDemand(g); // a demand-shaped decision applies this instant
   g.events.push({ type: 'council', name: d.name, geo: ANCHORS[0].geo });
   return true;
@@ -1149,12 +1157,27 @@ export function foundedColor(g) {
   return lineColor(g.lines.length);
 }
 
-function newLine(stations, colorIdx, identity) {
+// The next unused "Linje N". The old name came from the line COUNT, which
+// stopped being unique the moment 0.14.0 let a line be removed from the
+// middle: demolish Linje 2 away, found another, and two lines both answer
+// to Linje 3 in every panel, with the restore-the-given-name button unable
+// to tell them apart either (found in the bug round).
+function nextLineName(g) {
+  const taken = new Set((g && g.lines ? g.lines : []).flatMap((L) => [L.name, L.name0]));
+  for (let n = 2; n < 200; n++) {
+    const name = 'Linje ' + n;
+    if (!taken.has(name)) return name;
+  }
+  return 'Linje ' + ((g && g.lines ? g.lines.length : 0) + 1);
+}
+
+function newLine(stations, colorIdx, identity, name) {
+  const given = identity?.name || name || (colorIdx === 0 ? 'Gröna linjen' : 'Linje ' + (colorIdx + 1));
   return {
     stations,
-    name: identity?.name || (colorIdx === 0 ? 'Gröna linjen' : 'Linje ' + (colorIdx + 1)),
+    name: given,
     // The given name, kept so a rename can always be walked back.
-    name0: identity?.name || (colorIdx === 0 ? 'Gröna linjen' : 'Linje ' + (colorIdx + 1)),
+    name0: given,
     color: identity?.color || (typeof colorIdx === 'string' ? colorIdx : lineColor(colorIdx)),
     delivered: 0,   // lifetime riders this line carried to their stop
     earned: 0,      // lifetime fares booked at this line's platforms
@@ -1338,6 +1361,51 @@ export function pkRate(g) {
   // extends to them). The 1950 rate is untouched, so the tuned opening
   // holds still; by 1964 the city signs off at nearly twice the pace.
   return BAL.pkFullRatePerSec * coverage(g) * (1 + BAL.pkEraGrowth * g.era);
+}
+
+// The rush hour bonus points at ONE platform by line and index, and every
+// station a player adds or removes shifts those indices underneath it. Left
+// alone, the toast and the map ring name one station while the fare and the
+// spawn multiplier land on its neighbour, which is worse than no bonus at
+// all: the player cannot serve the stop the game asked them to serve.
+// Extending at the head is a routine build, so this fired constantly.
+//
+// `at` is the index the mutation happened at, `delta` +1 for an insert and
+// -1 for a removal. A surge ON the removed station ends with it.
+// A station leaving a line takes its riders with it. Their seats used to
+// stay counted in run.onboard, which meant the terminus sweep booked them
+// as DELIVERED to a stop that no longer exists (inflating totalDelivered,
+// which is an era gate), the inspector's manifest stopped adding up, and
+// the train carried invisible weight for the rest of its run. They are
+// counted as lost, which is what they are, and what abandonment already
+// does with riders the network fails.
+// An incident names a physical station. Nothing cleared it when that station
+// left the network, so the banner and the map marker went on describing a
+// stop the player had just removed, and the repair button went on taking
+// real money to fix it.
+function clearDeadIncident(g) {
+  if (!g.incident) return;
+  for (const L of g.lines) {
+    for (const st of L.stations) if (physKeyOf(st) === g.incident.key) return;
+  }
+  g.incident = null;
+}
+
+function dropRidersFor(g, li, idx) {
+  for (const t of g.trains) {
+    if (t.line !== li || !t.run) continue;
+    const gone = (t.run.dest[idx] || 0) + (t.run.destCont[idx] || 0);
+    if (gone <= 0) continue;
+    t.run.onboard = Math.max(0, t.run.onboard - gone);
+    g.totalLost += gone;
+  }
+}
+
+function shiftSurge(g, li, at, delta) {
+  if (!g.surge || g.surge.line !== li) return;
+  if (delta < 0 && g.surge.idx === at) { g.surge = null; return; }
+  if (g.surge.idx >= at) g.surge.idx += delta;
+  if (g.surge.idx < 0) g.surge = null;
 }
 
 // The upkeep knee: fleet size the flat rate covers, growing with the era so
@@ -2370,9 +2438,16 @@ function advancePhase(g, train) {
     train.at = k;
     train.run = null;
     train.readyAt = g.clock + BAL.turnaroundS;
-  } else if (run.express && L.skip[k]) {
+  } else if (run.express && L.skip[k] && (run.dest[k] || 0) < 0.5 && (run.destCont[k] || 0) < 0.5) {
     // Express: straight through, doors shut. Nobody aboard is bound for here
     // (boarding filtered them), so the saving is the whole dwell.
+    //
+    // The dest check is not belt and braces: boarding filters against the
+    // pattern AT THE TIME, and the player can set a stop to skip while a
+    // train is already carrying people to it. Those riders used to be
+    // carried past and swept up at the terminus as if delivered. An express
+    // now opens its doors rather than kidnap them, which restores the very
+    // invariant this comment claims.
     run.phase = 'move';
     run.dur = moveTime(g, kmBetween(L.stations[k].geo, L.stations[k + run.dir].geo));
   } else {
@@ -2590,8 +2665,16 @@ export function tick(g, dt) {
     }
   }
 
-  // Trust accrues from coverage, up to the ceiling this era allows.
-  g.pk = Math.min(g.pk + pkRate(g) * dt, pkCap(g));
+  // Trust accrues from coverage, up to the ceiling this era allows. The
+  // ceiling stops the EARNING, it never confiscates: a save already holding
+  // more than this era asks (an import, or trust banked before a ceiling
+  // moved) keeps every point and simply stops gaining, which is what the
+  // pkCap comment has always promised. Clamping outright destroyed the
+  // surplus in a single tick.
+  {
+    const cap = pkCap(g);
+    if (g.pk < cap) g.pk = Math.min(g.pk + pkRate(g) * dt, cap);
+  }
 
   // Decay the 60 s rate windows (the offline estimate reads these).
   g.gross60 = Math.max(0, g.gross60 - g.gross60 * dt / 60);
@@ -3025,6 +3108,7 @@ export function extendTo(g, li, end, geo, anchorIdx) {
     L.lastPassF.unshift(-Infinity);
     L.lastPassB.unshift(-Infinity);
     L.skip.unshift(false);
+    shiftSurge(g, li, 0, 1);
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at += 1;
@@ -3135,6 +3219,7 @@ export function demolish(g, li, end) {
   if (L.stations.length <= 2) {
     removeLine(g, li);
     computeDemand(g);
+    clearDeadIncident(g);
     g.demolished += 1;
     g.events.push({ type: 'demolish', geo: L.stations[0].geo, name: L.name });
     return true;
@@ -3151,6 +3236,8 @@ export function demolish(g, li, end) {
     L.lastPassB.shift();
     L.skip.shift();
     L.skip[0] = false; // the new head is a terminus: termini never skip
+    shiftSurge(g, li, 0, -1);
+    dropRidersFor(g, li, 0);
     for (const t of g.trains) {
       if (t.line !== li) continue;
       t.at = Math.max(0, t.at - 1);
@@ -3170,6 +3257,8 @@ export function demolish(g, li, end) {
     L.lastPassB.pop();
     L.skip.pop();
     L.skip[L.skip.length - 1] = false; // the new tail is a terminus
+    shiftSurge(g, li, L.stations.length, -1);
+    dropRidersFor(g, li, L.stations.length);
     for (const t of g.trains) {
       if (t.line !== li) continue;
       if (t.at >= L.stations.length) t.at = L.stations.length - 1;
@@ -3178,6 +3267,7 @@ export function demolish(g, li, end) {
   }
   L.rev += 1;
   computeDemand(g);
+  clearDeadIncident(g);
   g.demolished += 1;
   g.events.push({ type: 'demolish', geo: st.geo, name: st.name });
   return true;
@@ -3246,6 +3336,8 @@ export function removeStation(g, li, i) {
   L.lastPassF.splice(i, 1);
   L.lastPassB.splice(i, 1);
   L.skip.splice(i, 1);
+  shiftSurge(g, li, i, -1);
+  dropRidersFor(g, li, i);
   for (const t of g.trains) {
     if (t.line !== li) continue;
     if (!t.run) {
@@ -3253,11 +3345,17 @@ export function removeStation(g, li, i) {
       continue;
     }
     if (t.run.from > i) t.run.from -= 1;
+    // A running train's parked index is stale until its run ends, and every
+    // reader is gated on !run today. Clamping it here anyway costs nothing
+    // and keeps the invariant "at is always a valid station" true for the
+    // next reader, who will not know about the gate.
+    if (t.at >= L.stations.length) t.at = L.stations.length - 1;
     t.run.dest.splice(i, 1);
     t.run.destCont.splice(i, 1);
   }
   L.rev += 1;
   computeDemand(g);
+  clearDeadIncident(g);
   g.demolished += 1;
   g.events.push({ type: 'demolish', geo: st.geo, name: st.name });
   return true;
@@ -3279,6 +3377,7 @@ export function insertStation(g, li, seg) {
   L.lastPassF.splice(k, 0, -Infinity);
   L.lastPassB.splice(k, 0, -Infinity);
   L.skip.splice(k, 0, false);
+  shiftSurge(g, li, k, 1);
   for (const t of g.trains) {
     if (t.line !== li) continue;
     if (!t.run) {
@@ -3368,17 +3467,38 @@ export function shopCost(g, id) {
 //   cost of n from level k:  b * r^k * (r^n - 1) / (r - 1)
 //   max affordable with c:   floor(log_r( c(r-1) / (b*r^k) + 1 ))
 // (r == 1 degenerates to n * b, which `train` and friends rely on.)
-function geoSum(base, growth, owned, n) {
-  if (n <= 0) return 0;
-  if (growth === 1) return Math.round(base * n);
-  return Math.round(base * Math.pow(growth, owned) * (Math.pow(growth, n) - 1) / (growth - 1));
+// The price of one rung, and the ONLY definition of it. Every quote and
+// every charge is a sum of these, so they cannot drift apart.
+//
+// These were closed forms, which is elegant and was wrong by a krona or
+// two: the closed form works on the unrounded ladder while the paths that
+// actually CHARGE round each rung. A quote could differ from the charge,
+// and worse, at exactly the rounded price `affordableLevels` and the card's
+// enabled state disagreed, so a button that read as affordable bought
+// nothing. Money is re-integerised on every save, so a returning player was
+// the likeliest to meet a dead click. The loops are bounded by the room the
+// caller has left (at most a few dozen rungs), which is nothing per frame.
+function rungCost(base, growth, k) {
+  return Math.round(base * Math.pow(growth, k));
 }
 
-function geoMax(base, growth, owned, budget) {
-  if (budget < base * Math.pow(growth, owned)) return 0;
-  if (growth === 1) return Math.floor(budget / base);
-  const n = Math.log(budget * (growth - 1) / (base * Math.pow(growth, owned)) + 1) / Math.log(growth);
-  return Math.max(0, Math.floor(n + 1e-9));
+function geoSum(base, growth, owned, n) {
+  let total = 0;
+  for (let k = 0; k < n; k++) total += rungCost(base, growth, owned + k);
+  return total;
+}
+
+// How many rungs `budget` covers, never more than `cap` (the room left).
+function geoMax(base, growth, owned, budget, cap) {
+  let n = 0, spent = 0;
+  const lim = Number.isFinite(cap) ? Math.max(0, cap) : 4096;
+  while (n < lim) {
+    const next = spent + rungCost(base, growth, owned + n);
+    if (next > budget) break;
+    spent = next;
+    n++;
+  }
+  return n;
 }
 
 // How many levels of `id` the player could buy right now, capped by the item's
@@ -3390,7 +3510,7 @@ export function affordableLevels(g, id, want) {
   const room = maxFor(g, item) - g.owned[id];
   if (room <= 0) return 0;
   const budget = item.currency === 'pk' ? g.pk : g.money;
-  const can = geoMax(itemBase(g, item), item.growth, g.owned[id], budget);
+  const can = geoMax(itemBase(g, item), item.growth, g.owned[id], budget, room);
   return Math.max(0, Math.min(room, can, want || room));
 }
 
@@ -3421,7 +3541,7 @@ export function stationAffordableLevels(g, li, i, kind, want) {
   const st = g.lines[li].stations[i];
   const room = upgCapFor(g, st) - levelOf(g, li, i, kind);
   if (room <= 0) return 0;
-  const can = geoMax(BAL.upgCostBase[kind], BAL.upgCostGrowth, st[kind], g.money);
+  const can = geoMax(BAL.upgCostBase[kind], BAL.upgCostGrowth, st[kind], g.money, room);
   return Math.max(0, Math.min(room, can, want || room));
 }
 
@@ -3475,6 +3595,11 @@ export function canBuy(g, id) {
   if (!itemVisible(g, item)) return false;
   if (g.owned[id] >= maxFor(g, item)) return false;
   if (item.needs && !g.owned[item.needs]) return false;
+  // A charter SEEDS A LINE, so it answers to the line cap that founding
+  // answers to. It did not, and a player who founded up to the cap first
+  // could charter three more lines past it, each with a gift train and a
+  // fresh per-line cost ladder.
+  if (PROJECT_SEEDS[item.id] && g.lines.length >= maxLinesNow(g)) return false;
   const cost = shopCost(g, id);
   return item.currency === 'pk' ? g.pk >= cost : g.money >= cost;
 }
@@ -3582,7 +3707,7 @@ export function foundLine(g, li, i) {
   g.money -= BAL.foundLineKr;
   g.pk -= BAL.foundLinePk;
   const clone = cloneStationEntry(st);   // spread, never enumerated (report 648)
-  const L = newLine([clone], g.lines.length, { color: foundedColor(g) });
+  const L = newLine([clone], g.lines.length, { color: foundedColor(g) }, nextLineName(g));
   L.waitingF = [0];
   L.waitingB = [0];
   g.lines.push(L);
@@ -3797,8 +3922,17 @@ export function trainView(g, id) {
     v.at = L.stations[t.at] ? L.stations[t.at].name : null;
     v.readyIn = Math.max(0, t.readyAt - g.clock);
     // Which of the identical dots resting here this one is, so a stack at a
-    // terminus can be told apart without spreading it across the map.
-    const here = g.trains.filter((x) => x.line === t.line && !x.run && !x.mothballed && x.at === t.at);
+    // terminus can be told apart without spreading it across the map. The
+    // stack is PHYSICAL: trains of every line resting at one interchange
+    // share the row of dots, so counting only this line's would name the
+    // player a position they cannot see.
+    const mine = L.stations[t.at] ? physKeyOf(L.stations[t.at]) : null;
+    const here = mine === null ? [t] : g.trains.filter((x) => {
+      if (x.run || x.mothballed) return false;
+      const L2 = g.lines[x.line];
+      const s2 = L2 && L2.stations[x.at];
+      return !!s2 && physKeyOf(s2) === mine;
+    });
     v.stackSize = here.length;
     v.stackIndex = here.indexOf(t) + 1;
     v.express = !!L.expressNext && v.linePatterned; // what it will run next
@@ -3826,6 +3960,11 @@ export function sendThisTrain(g, id) {
   const t = trainById(g, id);
   if (!t) return false;
   if (g.money < BAL.moveTrainKr) return false;
+  // One order per train. spareTrains counts promises per LINE, so it cannot
+  // see that this particular train is already spoken for, and a second press
+  // of Send charged another fee to move one train once (found in the bug
+  // round). Double clicking a button is not a thing to punish.
+  if (g.moveQueue.some((m) => m.train === id)) return false;
   const to = neediestLine(g, t.line);
   if (to < 0) return false;
   // A line must not be emptied by the inspector when the line rows would
@@ -3923,6 +4062,11 @@ function processMoveQueue(g) {
 // generosity is one tunable number. Drivers required: automation IS the idle income.
 
 export function simulateOffline(g, seconds) {
+  // A non-finite elapsed time used to slip past the floor test (NaN < 60 is
+  // false) and turn money and riders into NaN, which serializes as null and
+  // loads as zero. The callers guard it today; the blast radius does not
+  // deserve to depend on that.
+  if (!Number.isFinite(seconds)) return null;
   const s = Math.floor(Math.min(Math.max(0, seconds), BAL.offlineCapS));
   if (s < 60 || !g.owned.drivers) return null;
   const net = Math.max(0, g.gross60 * BAL.offlineDiscount - upkeepRate(g));
@@ -3944,7 +4088,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.15.0';
+export const VERSION = '0.15.1';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
@@ -4101,7 +4245,12 @@ export function hydrate(raw) {
   });
   g.endingSeen = !!s.endingSeen;
   // Saves from before opening day existed: any delivery proves the ribbon cut.
-  g.opened = !!s.opened || g.totalDelivered > 0;
+  // Any delivery proves the ribbon was cut. Read it from the SAVE: this
+  // used to read g.totalDelivered, which hydrate does not set until sixty
+  // lines further down, so the fallback was dead and a pre-`opened` save
+  // loaded as a network that never opened. A 1975 city then wore the
+  // opening day HUD and fired the ribbon moment a second time.
+  g.opened = !!s.opened || Number(s.totalDelivered) > 0;
   g.achieved = {};
   if (s.achieved && typeof s.achieved === 'object') {
     for (const a of ACHIEVEMENTS) if (s.achieved[a.id]) g.achieved[a.id] = true;
@@ -4153,10 +4302,16 @@ export function hydrate(raw) {
     }
   }
   if (Array.isArray(s.srcW) && s.srcW.length === g.srcW.length) {
+    // The ceiling must be the one growCity actually grows to, decisions
+    // included. Clamping to the bare BAL.growthCap silently un-bought the
+    // council's rezoning on every reload, so a player who spent 8 trust
+    // watched their city shrink overnight and ran about 13 percent short on
+    // riders for the first minutes of every session while it regrew.
+    const cap = BAL.growthCap * effectMult(g, 'growthCap');
     g.srcW = s.srcW.map((w, j) => {
       const v = Number(w);
       const base = g.srcW[j];
-      return Number.isFinite(v) ? Math.min(base * BAL.growthCap, Math.max(base, v)) : base;
+      return Number.isFinite(v) ? Math.min(base * cap, Math.max(base, v)) : base;
     });
   }
   // Clamp to the CURRENT cap: when a cap is lowered (a measurement ruling,
@@ -4177,9 +4332,28 @@ export function hydrate(raw) {
   // report 2026-08-08: one just-founded line retired a 29-station city).
   const okLine = (st) => Array.isArray(st) && st.length >= 1 && st.every(validStation);
 
+  // The size rail counts what the GAME counts: physical stations on the
+  // ground. It used to count line entries, and an interchange is one station
+  // with an entry on every line calling there, so a perfectly legal
+  // completionist city (90 stations, the three charters, a few junctions)
+  // could cross 106 entries and have its save retired to a fresh 1950 map.
+  // Unrecoverable, too: the backups and the exported file are the same shape,
+  // so Restore and Import failed the same way and only Reset moved. The
+  // entry bound survives as a pure memory rail at the largest shape the
+  // game can ever produce, every station on every sandbox line.
+  const physKeyOfSaved = (st) => (st.anchor !== null && st.anchor !== undefined
+    ? 'a' + st.anchor
+    : Number(st.geo[0]).toFixed(4) + ',' + Number(st.geo[1]).toFixed(4));
+  const savedPhysical = Array.isArray(s.lines)
+    ? new Set(s.lines.flatMap((L) => (L && Array.isArray(L.stations) ? L.stations : []).map(physKeyOfSaved))).size
+    : 0;
+  const savedEntries = Array.isArray(s.lines)
+    ? s.lines.reduce((a, L) => a + (L && Array.isArray(L.stations) ? L.stations.length : 0), 0)
+    : 0;
   if (s.saveVersion >= 6 && Array.isArray(s.lines) && s.lines.length >= 1 &&
       s.lines.every((L) => L && okLine(L.stations)) &&
-      s.lines.reduce((a, L) => a + L.stations.length, 0) <= BAL.maxStations + 16) {
+      savedPhysical <= BAL.maxStations + 16 &&
+      savedEntries <= BAL.maxStations * SANDBOX_MAX_LINES) {
     g.lines = s.lines.map((L, idx) => ({
       stations: sanitizeLine(L.stations),
       // Pre-identity saves fall back to the palette by founding order. The
@@ -4258,12 +4432,26 @@ export function hydrate(raw) {
       const want = i < wantId.length ? wantId[i] : 0;
       if (want && !claimed.has(want)) { t.id = want; claimed.add(want); } else { t.id = 0; }
     });
-    g.nextTrainId = claimed.size ? Math.max(...claimed) + 1 : 1;
+    // The counter honours the SAVE's value as a floor as well as the highest
+    // id in the fleet. Today nothing destroys a train so the two always
+    // agree, which meant the saved counter was written and never read, and
+    // the "ids are never reused" promise held by coincidence rather than by
+    // the save. If a train is ever removed, this is what keeps it true.
+    const savedNext = Number(s.nextTrainId);
+    g.nextTrainId = Math.max(
+      claimed.size ? Math.max(...claimed) + 1 : 1,
+      Number.isInteger(savedNext) && savedNext > 0 && savedNext <= 1e9 ? savedNext : 1,
+    );
     for (const t of g.trains) if (!t.id) t.id = g.nextTrainId++;
     // Pending depot orders (0.9): fee already paid, so they must survive a
     // reload. Anything malformed is dropped, not refunded: a forged save is
     // not owed money.
-    g.moveQueue = (Array.isArray(s.moves) ? s.moves.slice(0, 16) : [])
+    // Orders beyond the cap are refunded rather than dropped, the same
+    // contract every other path keeps: a promise the game cannot keep gives
+    // the fee back (removeLine, processMoveQueue and cancelMove all do).
+    const savedMoves = Array.isArray(s.moves) ? s.moves : [];
+    if (savedMoves.length > 16) g.money += (savedMoves.length - 16) * BAL.moveTrainKr;
+    g.moveQueue = savedMoves.slice(0, 16)
       .filter((m) => m && Number.isInteger(m.from) && Number.isInteger(m.to) &&
         m.from !== m.to &&
         m.from >= 0 && m.from < g.lines.length && m.to >= 0 && m.to < g.lines.length)

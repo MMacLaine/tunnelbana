@@ -814,6 +814,7 @@ function switchSlot(s) {
   store.set(SLOT_KEY, s);
   rotateBak(raw);
   g = h;
+  clearSelections(); // the old city's indices mean nothing here
   saveLocked = false; // fresh or proven-loadable bytes re-arm autosave
   // A slot that sat while another was played still ran its trains: the same
   // closed-form night the boot path grants a returning player.
@@ -1258,6 +1259,7 @@ function applyImport(text) {
   const h = sim.hydrate(String(text || '').trim());
   if (h.hydrateFallback) return false;
   g = h;
+  clearSelections();
   saveLocked = false; // an explicit import re-arms autosave
   save();
   $('offline-note').hidden = true; // the note described the OLD save's absence
@@ -1313,6 +1315,7 @@ $('settings-restore').addEventListener('click', () => {
     return;
   }
   g = h;
+  clearSelections();
   saveLocked = false;
   save();
   $('offline-note').hidden = true;
@@ -1330,6 +1333,7 @@ $('settings-reset').addEventListener('click', () => {
   }
   store.del(saveKey); // only the slot being played; the other two are other lives
   g = sim.hydrate(null);
+  clearSelections();
   saveLocked = false; // an explicit fresh start re-arms autosave
   // A reset clears the PREVIOUS life's notes too (live report, 2026-08-08:
   // the away-report survived a reset and read as the new game's).
@@ -1346,8 +1350,11 @@ window.addEventListener('keydown', (e) => {
     if (!$('confirm').hidden) { closeConfirm(); return; }
     if (statsOpen) { setStatsOpen(false); return; }
     if (councilOpen) { setCouncilOpen(false); return; }
-    // The inspector unwinds before the menu, like every other open surface.
-    if (selectedTrain !== null) { selectTrain(null); return; }
+    // The inspector unwinds before the menu, like every other open surface,
+    // but only while it is the thing the player can actually see: under an
+    // open menu it is behind the veil, and closing it there reads as a
+    // dropped keypress.
+    if (selectedTrain !== null && menu.hidden) { selectTrain(null); return; }
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
              !$('ach-view').hidden || !$('log-view').hidden || !$('slots-view').hidden) menuView('main');
@@ -1725,6 +1732,23 @@ function selectStation(sel) {
 // --- The train inspector (0.15.0) ---
 let selectedTrain = null; // train id | null
 
+// Every selection is an index or an id into the CURRENT game, so replacing
+// the game (slot switch, import, restore, reset) must drop them first. It
+// did not, and updateStationPanel then dereferenced g.lines[li] from the
+// previous city and threw inside updateUI, which aborts the rest of the
+// switch: the menu stayed open, the camera never moved, and a dead panel
+// floated over the new network. Three clicks from any player with two lines.
+function clearSelections() {
+  selected = null;
+  selectedTrain = null;
+  render.setSelected(null);
+  render.setSelectedTrain(null);
+  $('station-panel').hidden = true;
+  $('train-panel').hidden = true;
+  $('ach-toast').hidden = true;   // the previous life's congratulations
+  $('fact-toast').hidden = true;
+}
+
 function selectTrain(id) {
   selectedTrain = id === undefined ? null : id;
   render.setSelectedTrain(selectedTrain);
@@ -2001,18 +2025,18 @@ $('ti-close').addEventListener('click', () => selectTrain(null));
 // (the 2026-08-07 lesson that the plus button "did nothing" some of the time).
 $('stabled-row').addEventListener('pointerdown', (e) => {
   const id = e.target?.dataset?.inspect;
-  if (id === undefined || paused) return;
+  if (e.button !== 0 || id === undefined || paused) return;
   e.preventDefault();
   selectTrain(Number(id));
 });
 $('ti-send').addEventListener('pointerdown', (e) => {
-  if (selectedTrain === null || paused) return;
+  if (e.button !== 0 || selectedTrain === null || paused) return;
   e.preventDefault();
   const r = sim.sendThisTrain(g, selectedTrain);
   if (r) { save(); updateUI(); }
 });
 $('ti-stable').addEventListener('pointerdown', (e) => {
-  if (selectedTrain === null || paused) return;
+  if (e.button !== 0 || selectedTrain === null || paused) return;
   e.preventDefault();
   const v = sim.trainView(g, selectedTrain);
   if (!v) return;
@@ -2135,7 +2159,7 @@ function renderSwatches() {
 }
 $('rename-colors').addEventListener('pointerdown', (e) => {
   const c = e.target?.dataset?.color;
-  if (!c) return;
+  if (e.button !== 0 || !c) return;
   e.preventDefault(); // keep focus with the dialog's input
   const li = renameLi();
   if (li >= 0 && sim.recolorLine(g, li, c)) {
@@ -2194,16 +2218,19 @@ $('sp-rename').addEventListener('click', () => {
 
 $('sp-remove').addEventListener('click', () => {
   if (!selected) return;
-  const { i } = selected;
-  // The confirm dialog captures the LINE OBJECT and re-resolves its index
-  // at commit: the game runs underneath, and 0.14.0's line removal can
-  // shift indices between the ask and the yes.
+  // The dialog captures the LINE and the STATION as OBJECTS and re-resolves
+  // both at commit. The game runs underneath with no backdrop, so a
+  // right-click demolition while the dialog is up shifts every index on the
+  // line: holding a raw station index destroyed a DIFFERENT station from
+  // the one the button named, irreversibly and for real money.
   const line = g.lines[selected.li];
-  const name = line.stations[i].name;
+  const station = line.stations[selected.i];
+  const name = station.name;
   askConfirm(STR.removeWarnTitle, name + ' ' + STR.removeWarn + ' ' + fmt(sim.BAL.demolishCost) + ' kr.',
     STR.removeYes + ' ' + name, () => {
       const li = g.lines.indexOf(line);
-      if (li >= 0 && sim.removeStation(g, li, i)) {
+      const i = li >= 0 ? g.lines[li].stations.indexOf(station) : -1;
+      if (li >= 0 && i >= 0 && sim.removeStation(g, li, i)) {
         selectStation(null);
         updateUI();
       }
@@ -2217,6 +2244,7 @@ $('sp-remove').addEventListener('click', () => {
 // nothing" some of the time (live report, 2026-08-07). Pointerdown fires
 // before any re-render can replace the node under the pointer.
 $('line-rows').addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return; // right-click is a map verb here, never a purchase
   const d = e.target?.dataset || {};
   // preventDefault so the press cannot pull focus back off the dialog's input.
   if (d.rename !== undefined) { e.preventDefault(); openRename({ kind: 'line', line: g.lines[Number(d.rename)] }); return; }
