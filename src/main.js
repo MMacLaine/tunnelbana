@@ -134,6 +134,7 @@ const STR = {
   diaToMap: 'KARTA',
   diaToDiagram: 'DIAGRAM',
   fleetGrows: 'The fleet cap rises with the next era',
+  upkeepGrows: 'Upkeep grows about',
   statsToggle: 'Stats',
   skipOn: 'Express skips this stop',
   skipOff: 'Express calls here again',
@@ -180,7 +181,7 @@ const STR = {
   fbEmpty: 'Write something first.',
   mapDown: 'Basemap unavailable. Playing on the fallback map.',
   shop: {
-    train:      { name: 'New train',         desc: 'One more train, on the emptiest line. Upkeep ' + B.upkeepPerTrainPerSec + ' kr/s.' },
+    train:      { name: 'New train',         desc: 'One more train, on the emptiest line.' },
     drivers:    { name: 'Hire drivers',      desc: 'Trains dispatch themselves. You can still ring the bell.' },
     timetable:  { name: 'Tighter timetable', desc: 'Departures run at even intervals on every line, and the signalling floor drops ' + pct(CAT.timetable.mult.dispatchInterval) + '%.' },
     capacity:   { name: 'Longer trains',     desc: '+' + CAT.capacity.add.trainCap + ' passengers per train.' },
@@ -1627,7 +1628,18 @@ wrap.addEventListener('contextmenu', (e) => {
   const ref = render.nearEnd(g, p);
   if (!ref) return;
   e.preventDefault();
+  const linesBefore = g.lines.length;
   if (sim.demolish(g, ref.li, ref.end)) {
+    // Demolishing a two stop line removes the line, so every held line
+    // index is stale; the selection AND any live drag clear rather than
+    // pointing at a neighbour that shifted into the dead line's slot (a
+    // right-click can land mid-drag, and a stale dragRef wedges the map).
+    if (g.lines.length !== linesBefore) {
+      selectStation(null);
+      dragRef = null;
+      render.setDrag(null);
+      if (map) map.dragPan.enable();
+    }
     updateUI();
   } else {
     render.addFloatGeo(sim.endStation(g, ref.li, ref.end).geo, STR.cantDemolish);
@@ -1823,17 +1835,23 @@ $('confirm-cancel').addEventListener('click', closeConfirm);
 
 // --- Renaming (0.13.1): one dialog serves stations and lines. The game runs
 // underneath, so the target is re-resolved at commit and a vanished target is
-// a quiet no-op, same contract as the warning dialog. ---
-let renameRef = null; // { kind: 'station', li, i } | { kind: 'line', li } | null
+// a quiet no-op, same contract as the warning dialog. The ref holds the LINE
+// OBJECT, never its index: 0.14.0's line removal shifts indices while the
+// dialog is open, and a raw index would rename whichever line slid into the
+// dead one's slot.
+let renameRef = null; // { kind: 'station', line, i } | { kind: 'line', line } | null
+function renameLi() {
+  return renameRef ? g.lines.indexOf(renameRef.line) : -1;
+}
 function openRename(ref) {
   renameRef = ref;
   const inp = $('rename-input');
   if (ref.kind === 'station') {
     $('rename-title').textContent = STR.renameStation;
-    inp.value = g.lines[ref.li].stations[ref.i].name;
+    inp.value = ref.line.stations[ref.i].name;
   } else {
     $('rename-title').textContent = STR.renameLine;
-    inp.value = g.lines[ref.li].name;
+    inp.value = ref.line.name;
   }
   $('rename-yes').textContent = STR.renameSave;
   $('rename-given').textContent = STR.renameGiven;
@@ -1847,23 +1865,25 @@ function closeRename() {
 }
 function commitRename(name) {
   const ref = renameRef;
+  const li = renameLi();
   closeRename();
-  if (!ref) return;
+  if (!ref || li < 0) return;
   const ok = ref.kind === 'station'
-    ? sim.renameStation(g, ref.li, ref.i, name)
-    : sim.renameLine(g, ref.li, name);
+    ? sim.renameStation(g, li, ref.i, name)
+    : sim.renameLine(g, li, name);
   if (ok) { save(); updateUI(); }
 }
 $('rename-yes').addEventListener('click', () => commitRename($('rename-input').value));
 $('rename-given').addEventListener('click', () => {
   const ref = renameRef;
+  const li = renameLi();
   if (!ref) return;
+  if (li < 0) { closeRename(); return; }
   if (ref.kind === 'station') {
-    if (!g.lines[ref.li]?.stations?.[ref.i]) { closeRename(); return; }
-    commitRename(sim.givenStationName(g, ref.li, ref.i));
+    if (!g.lines[li].stations[ref.i]) { closeRename(); return; }
+    commitRename(sim.givenStationName(g, li, ref.i));
   } else {
-    if (!g.lines[ref.li]) { closeRename(); return; }
-    commitRename(sim.givenLineName(g, ref.li));
+    commitRename(sim.givenLineName(g, li));
   }
 });
 $('rename-cancel').addEventListener('click', closeRename);
@@ -1875,16 +1895,21 @@ $('sp-rename').title = STR.renameStation;
 $('sp-rename').setAttribute('aria-label', STR.renameStation);
 $('sp-rename').addEventListener('click', () => {
   if (!selected) return;
-  openRename({ kind: 'station', li: selected.li, i: selected.i });
+  openRename({ kind: 'station', line: g.lines[selected.li], i: selected.i });
 });
 
 $('sp-remove').addEventListener('click', () => {
   if (!selected) return;
-  const { li, i } = selected;
-  const name = g.lines[li].stations[i].name;
+  const { i } = selected;
+  // The confirm dialog captures the LINE OBJECT and re-resolves its index
+  // at commit: the game runs underneath, and 0.14.0's line removal can
+  // shift indices between the ask and the yes.
+  const line = g.lines[selected.li];
+  const name = line.stations[i].name;
   askConfirm(STR.removeWarnTitle, name + ' ' + STR.removeWarn + ' ' + fmt(sim.BAL.demolishCost) + ' kr.',
     STR.removeYes + ' ' + name, () => {
-      if (sim.removeStation(g, li, i)) {
+      const li = g.lines.indexOf(line);
+      if (li >= 0 && sim.removeStation(g, li, i)) {
         selectStation(null);
         updateUI();
       }
@@ -1900,7 +1925,7 @@ $('sp-remove').addEventListener('click', () => {
 $('line-rows').addEventListener('pointerdown', (e) => {
   const d = e.target?.dataset || {};
   // preventDefault so the press cannot pull focus back off the dialog's input.
-  if (d.rename !== undefined) { e.preventDefault(); openRename({ kind: 'line', li: Number(d.rename) }); return; }
+  if (d.rename !== undefined) { e.preventDefault(); openRename({ kind: 'line', line: g.lines[Number(d.rename)] }); return; }
   if (d.req !== undefined && sim.requestTrain(g, Number(d.req))) updateUI();
   if (d.send !== undefined && sim.sendTrain(g, Number(d.send))) updateUI();
   if (d.cancel !== undefined && sim.cancelMove(g, Number(d.cancel))) updateUI();
@@ -2161,11 +2186,13 @@ function updateAim() {
 
 // --- Achievements: aims, stated plainly, with the bonus they carry ---
 let achToastAt = 0;
-function showAchievement(name) {
+function showAchievement(name, bonus) {
   sfx.achievement();
   $('ach-toast-label').textContent = STR.achEarned;
   $('ach-toast-name').textContent = name;
-  $('ach-toast-more').textContent = STR.achToastMore;
+  // What the aim just granted rides the toast (owner ask 2026-08-10, the
+  // fleet slots especially should be exciting to see land).
+  $('ach-toast-more').textContent = bonus ? bonus + ' · ' + STR.achToastMore : STR.achToastMore;
   $('ach-toast').hidden = false;
   achToastAt = performance.now();
 }
@@ -2179,15 +2206,24 @@ $('ach-toast').addEventListener('click', () => {
   showMenu('pause');
   menuView('ach');
 });
-function bonusText(a) {
+// `granted` (the achievement event's actual kr/trust) overrides the nominal
+// reward on the earn toast: the trust grant is clamped by pkCap, and a toast
+// must never promise trust the clamp withheld. The list shows the nominal.
+function bonusText(a, granted) {
   const bits = [];
   if (a.mult) for (const k of Object.keys(a.mult)) {
     const pct = Math.round(Math.abs(1 - a.mult[k]) * 100);
     bits.push((a.mult[k] > 1 ? '+' : '−') + pct + '% ' + (STR.bonusName[k] || k));
   }
   if (a.add) for (const k of Object.keys(a.add)) {
-    bits.push('+' + Math.round(a.add[k] * 100) + '% ' + (STR.bonusName[k] || k));
+    // fleetMax is a count, not a percentage: it is a train slot.
+    if (k === 'fleetMax') bits.push('+' + a.add[k] + (a.add[k] > 1 ? ' train slots' : ' train slot'));
+    else bits.push('+' + Math.round(a.add[k] * 100) + '% ' + (STR.bonusName[k] || k));
   }
+  const kr = granted ? granted.kr : a.reward?.kr;
+  const trust = granted ? granted.trust : a.reward?.pk;
+  if (kr) bits.push('+' + fmt(kr) + ' kr');
+  if (trust) bits.push('+' + trust + ' trust');
   return bits.join(' · ');
 }
 
@@ -2565,6 +2601,11 @@ function updateShop() {
     if (item.id === 'train') {
       card.classList.toggle('tb-goldcue',
         g.opened && g.era === 0 && !g.owned.train && affordable);
+      // The upkeep quote is LIVE (the flat rate lied once the fleet-scaled
+      // curve landed): what this specific next train adds to the bill.
+      card.querySelector('.tb-shop__desc').textContent =
+        STR.shop.train.desc + ' ' + STR.upkeepGrows + ' ' +
+        (Math.round(sim.nextTrainUpkeep(g) * 10) / 10) + ' kr/s.';
     }
     if (item.kind === 'project') {
       card.classList.toggle('tb-goldcue', charterNeeded.has(item.id) && affordable);
@@ -2596,7 +2637,10 @@ function updateShop() {
       left.textContent = STR.fleetGrows;
     } else if (item.id === 'train') {
       left.className = '';
-      left.innerHTML = pipsHTML(owned + 1, sim.maxFor(g, item) + 1);
+      // The expanded cap outgrew the pip row (67 dots is noise, not a
+      // glance); past 20 slots the count in the foot carries it alone.
+      const slots = sim.maxFor(g, item) + 1;
+      left.innerHTML = slots <= 20 ? pipsHTML(owned + 1, slots) : '';
     } else {
       left.className = '';
       left.innerHTML = pipsHTML(owned, sim.maxFor(g, item));
@@ -2608,7 +2652,7 @@ function updateShop() {
     const meta = SHOP_META[item.id] || { cat: '' };
     const max = sim.maxFor(g, item);
     catEl.textContent = item.id === 'train'
-      ? (owned + 1) + ' ' + STR.ownedLower + ' · ' + meta.cat
+      ? (owned + 1) + ' / ' + (max + 1) + ' ' + STR.ownedLower + ' · ' + meta.cat
       : owned + ' / ' + max + ' · ' + meta.cat;
   }
   // Category headers follow their groups: no header stands over nothing.
@@ -2832,7 +2876,10 @@ function frame(now) {
     }
     if (e.type === 'junction') render.addFloatGeo(e.geo, STR.junction + ' · ' + e.name);
     if (e.type === 'council') render.addFloatGeo(e.geo, STR.councilFloat + ' · ' + e.name);
-    if (e.type === 'achievement') showAchievement(e.name);
+    if (e.type === 'achievement') {
+      const a = sim.ACHIEVEMENTS.find((x) => x.id === e.id);
+      showAchievement(e.name, a ? bonusText(a, e) : '');
+    }
     // 'open' fires exactly once per game (the g.opened guard), so it is the
     // honest "someone actually started playing" milestone, not a page load.
     if (e.type === 'open') { render.addFloatGeo(e.geo, STR.ribbonCut); pulse('start'); }

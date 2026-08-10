@@ -970,12 +970,63 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   // The fleet ceiling is era-scaled and a big fleet survives hydration.
   const trainItem = sim.CATALOG.find((i) => i.id === 'train');
   const capOf = (era) => { const w = sim.newGame(); w.era = era; return sim.maxFor(w, trainItem); };
-  if (capOf(0) !== 8) err('1950 fleet cap should stay 8');
+  // The LITERAL is the rail: the designed 1950 cap is 10 (0.14.0 fleet
+  // expansion), and comparing against the catalog field would only restate
+  // whatever a fat-fingered edit shipped.
+  if (capOf(0) !== 10) err('1950 fleet cap should stay 10');
   if (!(capOf(4) > capOf(1) && capOf(1) > capOf(0))) err('the fleet cap must grow with the era');
   q.era = 4;
   q.owned.train = 18;
   const backQ = sim.hydrate(sim.serialize(q));
   if (backQ.owned.train !== 18) err('an era-scaled fleet must survive hydration, got ' + backQ.owned.train);
+}
+
+// Era rider gates are a promise the save keeps (0.14.0 rescale): a save
+// without eraGoals plays to the pre-0.14.0 numbers forever; a new game
+// plays to the current table.
+{
+  const fresh = sim.newGame();
+  fresh.era = 2;
+  if (sim.nextEra(fresh).delivered !== sim.ERAS[3].delivered) err('a new game must play to the current gates');
+  const old = sim.newGame();
+  old.era = 2;
+  const raw = JSON.parse(sim.serialize(old));
+  delete raw.eraGoals;                       // a pre-0.14.0 save
+  const back = sim.hydrate(JSON.stringify(raw));
+  back.era = 2;
+  if (sim.nextEra(back).delivered !== 180000) err('a pre-0.14.0 save must keep its 180k gate, got ' + sim.nextEra(back).delivered);
+}
+
+// Demolishing a line down past two stops removes the LINE (live report
+// 2026-08-10: a stub line squatted on its hub, undeletable): its trains
+// transfer to the survivors, queued depot orders touching it refund, and
+// the network's last line stays protected.
+{
+  const d = sim.newGame();
+  d.money = 1e6;
+  sim.demolish(d, 0, 'tail');        // the starting 3 down to 2
+  if (sim.canDemolish(d, 0, 'tail')) err('the only line must never demolish below two stops');
+  d.pk = 99;
+  d.era = 1;
+  d.totalDelivered = 3e4;
+  sim.buy(d, 'westline');            // 2-stop charter with a gift train
+  const moneyBefore = d.money;
+  // An order against the doomed line: refunded if it queued, honestly spent
+  // if an idle train made it immediate.
+  const order = sim.requestTrain(d, 1);
+  const orderFee = order === 'moved' ? sim.BAL.moveTrainKr : 0;
+  const fleet = d.trains.length;
+  if (!sim.canDemolish(d, 1, 'tail')) err('a two-stop line should be demolishable when another line survives');
+  // A surge on the doomed line must clear with it (a stale index crashed
+  // drawSurge in review), and gold/moveQueue reindex the same way.
+  d.surge = { line: 1, idx: 0, until: d.clock + 25, name: 'x' };
+  if (!sim.demolish(d, 1, 'tail')) err('demolishing the stub should succeed');
+  if (d.surge !== null) err('a surge on a removed line must clear');
+  if (d.lines.length !== 1) err('the stub line should be gone, got ' + d.lines.length + ' lines');
+  if (d.trains.length !== fleet) err('line removal must not lose trains');
+  if (d.trains.some((t) => t.line !== 0)) err('orphaned trains must transfer to a surviving line');
+  if (d.moveQueue.length !== 0) err('depot orders touching a removed line must clear');
+  if (d.money !== moneyBefore - orderFee - sim.BAL.demolishCost) err('line removal money off by ' + (moneyBefore - orderFee - sim.BAL.demolishCost - d.money));
 }
 
 // Extending a line must not strand parked trains (live report, 2026-08-07:

@@ -19,6 +19,7 @@
 //                                         # income comparisons meaningless
 import * as sim from '../src/sim.js';
 import { ANCHORS, CORRIDORS } from '../src/data.js';
+import { wouldBuyTrain } from './probe-policy.mjs';
 
 const HORIZON = Number(process.argv[2]) || 7200;
 const RICH = process.argv.includes('rich');
@@ -83,6 +84,9 @@ function cheapestBuy() {
   let best = null;
   for (const item of sim.CATALOG) {
     if (!sim.canBuy(g, item.id)) continue;
+    // The informed-player floor on trains: probe-policy.mjs holds the one
+    // definition probe-arc and probe-costs share.
+    if (item.id === 'train' && !wouldBuyTrain(sim, g)) continue;
     const cost = sim.shopCost(g, item.id);
     const rank = item.currency === 'pk' ? -1 : cost;
     if (!best || rank < best.rank) best = { id: item.id, cost, rank, currency: item.currency };

@@ -58,6 +58,14 @@ export const BAL = {
   // night, Driftcentralen, the maintenance contract in the council), which
   // turns a dead stat into a decision. Tuned with _dev/probe-costs.mjs.
   fleetUpkeepFree: 4,
+  // The free allowance GROWS with the era (0.14.0, with the fleet expansion):
+  // a late network runs many lines, and a knee fixed at 4 punished exactly
+  // the response rush hours ask for. The knee still exists every era, it
+  // just moves outward as the railway becomes an institution. Measured at 2
+  // (probe-costs 2026-08-10): per-era upkeep shares 13.2 / 9.5 / 6.4 / 3.5
+  // percent against the 0.13.1 baseline's 13.0 / 8.5 / 7.9 / 5.2, where 4
+  // ran a third light and 8 made the operating side decorative again.
+  fleetFreePerEra: 2,
   fleetUpkeepLog: 6,
   mothballShare: 0.2,      // a mothballed train costs this share of upkeep
   deficitMothballAfter: 20,// seconds broke and losing before a train auto-mothballs
@@ -225,11 +233,15 @@ export const BAL = {
   moveTrainKr: 100,        // depot transfer fee (reassignment must not beat a return trip)
   // The fleet ceiling grows with the era, because the LINES do (live feedback
   // 2026-08-07: era 1952 opened a second line and not one new train slot).
-  // The value-gate knee (~3 trains per line at reachable demand) is a per-line
-  // argument, so a network-wide cap must scale with the network: 8 in 1950,
-  // +4 per era to 28 in the sandbox. Cost stays the real limiter, as the
-  // catalog's 1.6 growth makes train 20 a 7.5M kr decision.
-  fleetPerEra: 4,
+  // Expanded hard in 0.14.0 (owner direction 2026-08-10, the most common
+  // feedback theme was too few trains, and the real SL runs 180 to 200 at
+  // peak): 10 purchasable in 1950 rising to 70 in the sandbox. The opening
+  // stays close to the tuned 1950 (one more slot than the old 8), and each
+  // era opens twelve slots where the old four were the wall the multi-line
+  // feedback kept hitting. UPKEEP is the limiter beyond the ladder now, and
+  // relief purchases move the knee, so the cap reads as ambition rather
+  // than as a wall. Tuned with _dev/probe-costs.mjs and probe-arc.
+  fleetPerEra: 12,
   offlineCapS: 8 * 3600,   // offline progress simulates at most this long
 };
 
@@ -255,14 +267,25 @@ export const BAL = {
 // cleanly the last gate: trust lands ~790 s, riders ~900 s, the line when
 // the money says so. An active early player waits on MONEY, never on trust
 // (owner direction, 2026-08-07).
+// The late rider gates rose with the 0.14.0 fleet expansion (180/340/600k ->
+// 230/440/780k): a fleet twice the size delivers riders twice as fast, and
+// probe-costs measured 1964 and 1975 arriving 16 to 19 percent early on the
+// old gates with the same bot. The wall-clock arc is the design constant;
+// the rider counts serve it. EXISTING SAVES KEEP THE GOALS THEY STARTED
+// WITH: newGame snapshots this table into g.eraGoals and hydrate gives
+// saves without the field the pre-0.14.0 numbers, because a player 90
+// percent of the way to an era must never watch the goal walk away.
 export const ERAS = [
   { year: 1950 },
   { year: 1952, pk: 5,  delivered: 20000 },
   { year: 1957, pk: 12, delivered: 80000 },
-  { year: 1964, pk: 25, delivered: 180000 },
-  { year: 1975, pk: 50, delivered: 340000 },
-  { year: 2000, pk: 90, delivered: 600000 },
+  { year: 1964, pk: 25, delivered: 230000 },
+  { year: 1975, pk: 50, delivered: 440000 },
+  { year: 2000, pk: 90, delivered: 780000 },
 ];
+
+// What every save made before eraGoals existed was promised.
+const ERA_GOALS_PRE_014 = [0, 20000, 80000, 180000, 340000, 600000];
 
 // The upgrade CATALOG (plan §6, Cookie Clicker direction): upgrades are DATA, and
 // their effects compose through named modifiers, never through code reading BAL
@@ -274,17 +297,24 @@ export const ERAS = [
 // the demand and fare budgets in the balance plan): these are aims and
 // recognition first, power second. `hint` shows while locked, so a player always
 // knows what to chase; nothing here is a secret.
+// Two reward grammars beyond mult/add (owner direction 2026-08-10, with the
+// fleet expansion): `add: { fleetMax: n }` raises the train cap through the
+// modifier grammar maxFor already reads, and `reward: { kr, pk }` is a ONE
+// TIME grant paid by checkAchievements when the aim lands. Trust grants
+// respect pkCap like the golden train's nod. A save that already holds the
+// achievement keeps its modifiers automatically and is never re-paid the
+// one time grant.
 export const ACHIEVEMENTS = [
   { id: 'first-departure', name: 'Invigning', hint: 'Send out your first train',
     check: (g) => g.opened, add: { demand: 0.01 } },
   { id: 'ten-stations', name: 'A line worth the name', hint: 'Run ten stations',
-    check: (g) => stationCount(g) >= 10, add: { demand: 0.02 } },
+    check: (g) => stationCount(g) >= 10, add: { demand: 0.02, fleetMax: 1 } },
   { id: 'full-1950', name: 'Hökarängen', hint: 'Complete the 1950 line',
-    check: (g) => usedAnchorsAll(g).size >= 13, mult: { fare: 1.02 } },
+    check: (g) => usedAnchorsAll(g).size >= 13, mult: { fare: 1.02 }, reward: { kr: 2500 } },
   { id: 'hundred-k', name: 'Hundred thousand journeys', hint: 'Carry 100 000 riders',
-    check: (g) => g.totalDelivered >= 1e5, mult: { fare: 1.02 } },
+    check: (g) => g.totalDelivered >= 1e5, mult: { fare: 1.02 }, reward: { kr: 5000 } },
   { id: 'million', name: 'A million rides', hint: 'Carry 1 000 000 riders',
-    check: (g) => g.totalDelivered >= 1e6, mult: { fare: 1.03 } },
+    check: (g) => g.totalDelivered >= 1e6, mult: { fare: 1.03 }, reward: { kr: 25000 } },
   { id: 'ten-million', name: 'The city rides', hint: 'Carry 10 000 000 riders',
     check: (g) => g.totalDelivered >= 1e7, mult: { fare: 1.05 } },
   { id: 'first-junction', name: 'Bytespunkt', hint: 'Let two lines share a station',
@@ -302,9 +332,9 @@ export const ACHIEVEMENTS = [
         if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) return true;
       }
       return false;
-    }, add: { demand: 0.02 } },
+    }, add: { demand: 0.02 }, reward: { pk: 2 } },
   { id: 'three-lines', name: 'A network', hint: 'Run three lines at once',
-    check: (g) => g.lines.length >= 3, add: { demand: 0.03 } },
+    check: (g) => g.lines.length >= 3, add: { demand: 0.03, fleetMax: 1 } },
   { id: 'red-line', name: 'Röda linjen', hint: 'Reach Fruängen',
     check: (g) => usedAnchorsAll(g).has(35), mult: { fare: 1.03 } },
   { id: 'blue-line', name: 'Blå linjen', hint: 'Reach Hjulsta',
@@ -371,7 +401,7 @@ export const ACHIEVEMENTS = [
     check: (g) => g.endingSeen },
   // building
   { id: 'twentyfive', name: 'Twenty-five stops', hint: 'Run twenty-five stations at once',
-    check: (g) => stationCount(g) >= 25 },
+    check: (g) => stationCount(g) >= 25, add: { fleetMax: 1 } },
   { id: 'fiftyfive', name: 'Nearly everything', hint: 'Run fifty-five stations at once',
     check: (g) => stationCount(g) >= 55 },
   { id: 'five-lines', name: 'Five colours', hint: 'Run five lines at once',
@@ -437,7 +467,7 @@ export const ACHIEVEMENTS = [
   { id: 'first-trust', name: 'The city notices', hint: 'Earn your first trust',
     check: (g) => g.pk >= 1 },
   { id: 'coverage-half', name: 'Half the region', hint: 'Serve half the region well',
-    check: (g) => coverage(g) >= 0.5 },
+    check: (g) => coverage(g) >= 0.5, reward: { pk: 3 } },
   { id: 'coverage-80', name: 'Almost everyone', hint: 'Serve four fifths of the region well',
     check: (g) => coverage(g) >= 0.8, add: { demand: 0.02 } },
   { id: 'city-grows', name: 'ABC-stad', hint: 'Grow the city half again its size',
@@ -453,9 +483,9 @@ export const ACHIEVEMENTS = [
     check: (g) => g.owned.drivers && g.owned.timetable && g.owned.atc && g.owned.cbtc,
     mult: { dispatchInterval: 0.99 } },
   { id: 'rush-a', name: 'A clean rush', hint: 'Grade an A at a peak',
-    check: (g) => (g.rushCount.A || 0) >= 1 },
+    check: (g) => (g.rushCount.A || 0) >= 1, add: { fleetMax: 1 } },
   { id: 'rush-a-10', name: 'Ten clean rushes', hint: 'Grade A at ten peaks',
-    check: (g) => (g.rushCount.A || 0) >= 10, add: { demand: 0.01 } },
+    check: (g) => (g.rushCount.A || 0) >= 10, add: { demand: 0.01 }, reward: { pk: 3 } },
   { id: 'rush-a-50', name: 'The city never waits', hint: 'Fifty clean rushes',
     check: (g) => (g.rushCount.A || 0) >= 50 },
   { id: 'fixer', name: 'Repair crew', hint: 'Clear a signal failure',
@@ -725,13 +755,31 @@ export function checkAchievements(g) {
     try { ok = !!a.check(g); } catch { ok = false; }
     if (ok) {
       g.achieved[a.id] = true;
-      g.events.push({ type: 'achievement', id: a.id, name: a.name });
+      // The one time grant. Trust respects pkCap exactly as the golden
+      // train's nod does; money is plain (the money aims trigger off the
+      // balance, so a cash reward can cascade into the next aim, which is
+      // the fun kind of cascade).
+      let kr = 0, trust = 0;
+      if (a.reward) {
+        kr = a.reward.kr || 0;
+        g.money += kr;
+        trust = Math.min(a.reward.pk || 0, Math.max(0, pkCap(g) - g.pk));
+        g.pk += trust;
+      }
+      // The event carries what was actually GRANTED, so the toast never
+      // promises trust the cap clamp withheld.
+      g.events.push({ type: 'achievement', id: a.id, name: a.name, kr, trust });
     }
   }
 }
 
 export const CATALOG = [
-  { id: 'train',      base: 600,  growth: 1.6, max: 8, era: 1950, kind: 'fleet' },
+  // Train growth 1.6 -> 1.25 with the 0.14.0 fleet expansion: a ladder that
+  // made train 20 a 7.5M kr decision cannot sell a 50 train fleet. Measured,
+  // not guessed: at 1.2 the probe-arc bot binged seventeen trains inside era
+  // 1950, drowned in upkeep and never reached 1952, so the ladder still owns
+  // the opening discipline while the caps and the upkeep knee own the rest.
+  { id: 'train',      base: 600,  growth: 1.25, max: 10, era: 1950, kind: 'fleet' },
   { id: 'drivers',    base: 900,  growth: 1,   max: 1, era: 1950 },
   // timetable max is 1 (was 3, was 6): each cap is a measurement. Levels 4-6
   // died at the spawn ceiling; when base train speed halved (2026-08-04)
@@ -1089,6 +1137,8 @@ export function newGame() {
     money: BAL.startMoney,
     pk: 0,
     era: 0,
+    eraGoals: ERAS.map((e) => e.delivered || 0), // this game's rider gates, fixed at birth
+
     lines: [newLine(Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)), 0)],
     trains: [newTrain(0)],
     moveQueue: [],   // pending depot transfers: { from, to }, fee already paid
@@ -1244,6 +1294,18 @@ export function pkRate(g) {
   return BAL.pkFullRatePerSec * coverage(g) * (1 + BAL.pkEraGrowth * g.era);
 }
 
+// The upkeep knee: fleet size the flat rate covers, growing with the era so
+// a late multi-line railway is not punished for answering rush demand.
+export function freeFleetNow(g) {
+  return BAL.fleetUpkeepFree + BAL.fleetFreePerEra * g.era;
+}
+
+// The one place the fleet curve is written: upkeepRate bills with it and
+// the shop card quotes it, and they must never drift apart again.
+function fleetFactorFor(g, active) {
+  return 1 + BAL.fleetUpkeepLog * Math.max(0, Math.log2(active / freeFleetNow(g)));
+}
+
 export function upkeepRate(g) {
   let r = 0;
   // The depot stables the fleet overnight (v12): train upkeep falls through
@@ -1251,9 +1313,11 @@ export function upkeepRate(g) {
   const nightShare = dayPhase(g) === 3 ? effectMult(g, 'nightUpkeep') : 1;
   // Beyond the free allowance the whole fleet gets costlier per train, and
   // Driftcentralen or the council contract are how the player pushes back.
-  const fleetFactor = 1 + BAL.fleetUpkeepLog *
-    Math.max(0, Math.log2(g.trains.length / BAL.fleetUpkeepFree));
-  const perTrain = BAL.upkeepPerTrainPerSec * fleetFactor * effectMult(g, 'fleetUpkeep');
+  // ACTIVE trains drive the factor (0.14.0): a mothballed train paying its
+  // 20 percent share must not also keep the multiplier high for the rest,
+  // or mothballing cannot rescue an overbought fleet.
+  const active = g.trains.filter((t) => !t.mothballed).length;
+  const perTrain = BAL.upkeepPerTrainPerSec * fleetFactorFor(g, active) * effectMult(g, 'fleetUpkeep');
   for (const t of g.trains) r += perTrain * (t.mothballed ? BAL.mothballShare : nightShare);
   // Stations cost money to run: tier upkeep plus per upgrade level, counted
   // once per physical station (interchanges are one station on the ground).
@@ -1267,6 +1331,22 @@ export function upkeepRate(g) {
     }
   }
   return r;
+}
+
+// What the NEXT train would add to the bill per second, at day rates with
+// the fleet active and current relief applied. The shop card quotes this:
+// the flat base rate stopped being the truth when the fleet-scaled curve
+// landed (0.13.0) and the card kept printing it anyway.
+export function nextTrainUpkeep(g) {
+  const relief = effectMult(g, 'fleetUpkeep');
+  const active = g.trains.filter((t) => !t.mothballed).length;
+  const moth = g.trains.length - active;
+  // Mothballed trains ride the same factor at their 20 percent share, so a
+  // new train raises their bill too; the quote must include that or a
+  // player managing an overbought fleet reads a number the bill then beats.
+  const bill = (a) =>
+    BAL.upkeepPerTrainPerSec * fleetFactorFor(g, a) * relief * (a + BAL.mothballShare * moth);
+  return bill(active + 1) - bill(active);
 }
 
 export function grossRate(g) {
@@ -2485,7 +2565,13 @@ export function tick(g, dt) {
 // --- Eras ---
 
 export function nextEra(g) {
-  return g.era + 1 < ERAS.length ? ERAS[g.era + 1] : null;
+  const i = g.era + 1;
+  if (i >= ERAS.length) return null;
+  const e = ERAS[i];
+  // The save's own goal wins where it differs (the 0.14.0 gate rescale
+  // grandfathered every existing save at its original numbers).
+  const goal = g.eraGoals && Number.isFinite(g.eraGoals[i]) ? g.eraGoals[i] : e.delivered;
+  return goal === e.delivered ? e : { ...e, delivered: goal };
 }
 
 // Trust stops accruing at exactly what the next era asks for (owner ask,
@@ -2865,7 +2951,10 @@ export function extendTo(g, li, end, geo, anchorIdx) {
 
 export function canDemolish(g, li, end) {
   const L = g.lines[li];
-  if (L.stations.length <= 2) return false;
+  // A short line stays demolishable: taking the second to last stop takes
+  // the LINE with it (live report 2026-08-10, a stub line squatted on its
+  // hub with no way to remove it). Only the network's last line is safe.
+  if (L.stations.length <= 2 && g.lines.length <= 1) return false;
   if (g.money < BAL.demolishCost) return false;
   const idx = end === 'head' ? 0 : L.stations.length - 1;
   // Only a train IN MOTION at or toward the doomed station blocks demolition
@@ -2880,10 +2969,60 @@ export function canDemolish(g, li, end) {
   return true;
 }
 
+// Demolishing a line down past two stops removes the line itself: a one
+// stop line serves nobody and reads as a bug (the 2026-08-10 screenshot,
+// Västerortsbanan at 2 stops, 0 trains, forever). Its trains transfer to
+// the thinnest surviving lines without a fee, and any depot order touching
+// the line refunds itself, the processMoveQueue contract applied eagerly.
+function removeLine(g, li) {
+  g.lines.splice(li, 1);
+  for (let i = g.moveQueue.length - 1; i >= 0; i--) {
+    const m = g.moveQueue[i];
+    if (m.from === li || m.to === li) {
+      g.moveQueue.splice(i, 1);
+      g.money += BAL.moveTrainKr;
+      continue;
+    }
+    if (m.from > li) m.from -= 1;
+    if (m.to > li) m.to -= 1;
+  }
+  if (g.gold) {
+    if (g.gold.line === li) g.gold = null;
+    else if (g.gold.line > li) g.gold.line -= 1;
+  }
+  // The surge holds a line index too: it clears or shifts with the line, or
+  // drawSurge dereferences a ghost the frame after the demolition.
+  if (g.surge) {
+    if (g.surge.line === li) g.surge = null;
+    else if (g.surge.line > li) g.surge.line -= 1;
+  }
+  const orphans = [];
+  for (const t of g.trains) {
+    if (t.line === li) { t.line = -1; orphans.push(t); }
+    else if (t.line > li) t.line -= 1;
+  }
+  for (const t of orphans) {
+    // The depot's own pick, not a re-derivation: neediestLine also counts
+    // queued arrivals, so an orphan lands where nothing is already headed.
+    const to = neediestLine(g, -1);
+    t.line = to < 0 ? 0 : to;
+    t.at = 0;
+    t.run = null;
+    t.readyAt = g.clock + BAL.turnaroundS;
+  }
+}
+
 export function demolish(g, li, end) {
   if (!canDemolish(g, li, end)) return false;
   g.money -= BAL.demolishCost;
   const L = g.lines[li];
+  if (L.stations.length <= 2) {
+    removeLine(g, li);
+    computeDemand(g);
+    g.demolished += 1;
+    g.events.push({ type: 'demolish', geo: L.stations[0].geo, name: L.name });
+    return true;
+  }
   const idx = end === 'head' ? 0 : L.stations.length - 1;
   const st = L.stations[idx];
   if (end === 'head') {
@@ -3505,7 +3644,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.13.1';
+export const VERSION = '0.14.0';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
@@ -3546,6 +3685,7 @@ export function serialize(g) {
     money: Math.round(g.money),
     pk: Math.round(g.pk * 100) / 100,
     era: g.era,
+    eraGoals: g.eraGoals,
     lines: g.lines.map((L) => ({
       stations: L.stations.map((st) => ({
         name: st.name, geo: st.geo, anchor: st.anchor,
@@ -3637,6 +3777,13 @@ export function hydrate(raw) {
   g.money = Math.max(0, Number(s.money) || 0);
   g.pk = Math.max(0, Number(s.pk) || 0);
   g.era = posInt(s.era, ERAS.length - 1);
+  // A save carries its own rider gates (0.14.0). One without the field
+  // predates the rescale and keeps the numbers it played toward; a hostile
+  // or partial array falls back per entry to that same promise.
+  g.eraGoals = ERAS.map((e, i) => {
+    const v = Array.isArray(s.eraGoals) ? Number(s.eraGoals[i]) : NaN;
+    return Number.isFinite(v) && v >= 0 && v <= 1e9 ? Math.floor(v) : ERA_GOALS_PRE_014[i];
+  });
   g.endingSeen = !!s.endingSeen;
   // Saves from before opening day existed: any delivery proves the ribbon cut.
   g.opened = !!s.opened || g.totalDelivered > 0;
