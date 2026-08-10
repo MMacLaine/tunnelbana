@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.15.0",
+      "title": "Click a train",
+      "content": "Trains stop being anonymous dots this update, and the late game stops pricing them like heirlooms.\n- Click any train on the map to open its inspector. It says what the train is doing, where it is heading, how full it is, and where every passenger aboard is getting off\n- Trains now have permanent numbers and can be given names, the same way your lines and stations can\n- Move one train to another line, or stable and wake it, from the inspector itself. The line rows still work exactly as before\n- Stabled trains are not drawn on the map, so the Network panel now shows how many there are and opens one for you\n- New council decision from 1975. A rolling stock programme cuts the price of a new train by 75 percent, because a city that orders by the dozen pays less than one buying a carriage at a time\n- The council gained a fourth band for the decisions that belong to 1975\n- Trains in an existing save are given their numbers the first time it loads. Nothing else about the save changes"
+    },
+    {
       "version": "0.14.2",
       "title": "Big fleets reload intact, and shared track shows both lines",
       "content": "Reloading a save with a very large fleet could quietly drop trains. The limit behind it was written when 28 trains was the ceiling, and 0.14.0 raised that to 70.\n- A save now reloads every train you own, whatever the size of the fleet\n- A save that already lost trains this way gets them back the next time it loads. Nothing in the game destroys a train, so what you bought is what you are owed\n- The limit is now worked out from the game's own ceiling, so it cannot fall behind a future change again\n- Where two lines run the same stretch of track, both now draw side by side as touching ribbons instead of one hiding under the other. A trunk carrying two services reads as a thicker double track, which is what it is"

@@ -1,0 +1,168 @@
+/* Tunnelbana UI · the train inspector.
+   Named for what it carries, per the 0.13.1 convention (not a pass number).
+   Extends ui.css (the component layer), ui-moments.css and ui-council.css.
+   Load order:
+   tokens.css → tokens-ui.css → ui.css → ui-moments.css → ui-council.css → ui-train.css.
+   (This project still holds the moments/council layers under their earlier
+   file names ui-pass03.css / ui-pass04.css; same content, load in that slot.)
+
+   Same rules as every pass: resolves only to token names, states are CSS,
+   SVG single-colour on currentColor in the pass-01 grammar. Reuses the
+   existing families — tb-panel frame, tb-row values, tb-chip line colour,
+   tb-btn actions, tb-pips small counts — and adds only what a train needs:
+   a crowding meter, the aboard manifest, and the on-map selection treatment.
+
+   Voice rule (2026-08-08): player-facing prose uses no colons, semicolons,
+   or dashes. Representative copy in the mockup obeys it. */
+
+:root {
+  /* Crowding ramp. Honest at both ends: the METER shows proportion and the
+     NUMBER is always present, so 40/480 and 470/480 never read alike.
+     Green comfortable, amber busy, red crush — the aspect meanings, reused. */
+  --tb-load-easy: var(--tb-green);
+  --tb-load-fill: var(--tb-green-dim);
+  --tb-load-busy: var(--tb-amber);
+  --tb-load-crush: var(--tb-red);
+  --tb-load-track: var(--tb-line);       /* the empty part of the meter */
+
+  --tb-insp-w: 300px;                    /* fits the 320px bottom-left column */
+  --tb-manifest-tick: var(--tb-line-hi); /* the stops-ahead spine */
+
+  /* On-map selection: a ring drawn around the clicked train, in ITS line
+     colour so the tie reads, plus an ink keyline so it never drowns in the
+     line it belongs to. The train sets --tb-sel to its own line colour. */
+  --tb-sel: var(--tb-ink);
+  --tb-sel-ring-w: 2.5px;
+}
+
+/* ============================================================================
+   THE INSPECTOR PANEL  (tb-insp)  ·  a tb-panel with a train's anatomy
+   Docks in the bottom-left column exactly like the station panel and REPLACES
+   it (ruling 6): both answer "the thing you clicked", so only one shows.
+   ========================================================================== */
+.tb-insp { width: var(--tb-insp-w); }
+.tb-insp .tb-panel__head { gap: .5rem; }
+
+/* Header identity: line chip + the train's name and permanent number (ruling 4,
+   we design as if a train has both). The number is the fallback name. */
+.tb-insp__id { display: flex; flex-direction: column; gap: .12rem; min-width: 0; flex: 1; }
+.tb-insp__name { font: var(--tb-weight-semi) var(--tb-fs-title)/1.1 var(--tb-mono); color: var(--tb-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-insp__no { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-ghost); letter-spacing: var(--tb-track-caps); }
+/* ADOPTION EDIT, dev side 2026-08-10. This shipped as `.tb-chip`, which
+   ui.css already owns as a bare 10px dot (the line colour in the Network
+   panel rows). ui.css sets width and height, this rule did not, so the two
+   composed into a 10px box holding a dot AND a line name, and the text sat
+   on top of the train's name. It is renamed rather than merged, because the
+   two are genuinely different components that happened to share a word. */
+.tb-insp__line { display: inline-flex; align-items: center; gap: .4rem; font: 400 var(--tb-fs-caption)/1 var(--tb-mono);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; color: var(--tb-muted); flex: none; }
+.tb-insp__dot { width: 10px; height: 10px; border-radius: var(--tb-radius-pill); background: var(--tb-line-hi); flex: none; }
+
+/* The one-glance status line: what is this train doing right now. */
+.tb-insp__doing { display: flex; align-items: center; gap: .5rem; font: var(--tb-weight-semi) var(--tb-fs-body)/1.3 var(--tb-mono);
+  color: var(--tb-ink); }
+.tb-insp__doing .tb-insp__verb { color: var(--tb-ink); }
+.tb-insp__doing .tb-insp__where { color: var(--tb-muted); font-weight: 400; }
+.tb-insp__pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--tb-green); flex: none;
+  animation: tb-insp-pulse 1.8s ease-in-out infinite; }
+@keyframes tb-insp-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.3); } }
+
+/* Run type: full service vs express. Shown as a quiet property of THIS run
+   (true for the run's duration) with a note that it is a line pattern, so the
+   player never reads it as a per-train switch (ruling 5). */
+.tb-insp__run { display: inline-flex; align-items: center; gap: .45rem; font: 400 var(--tb-fs-caption)/1 var(--tb-mono);
+  letter-spacing: var(--tb-track-caps); text-transform: uppercase; color: var(--tb-muted);
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-chip); padding: .28rem .5rem; }
+.tb-insp__run--express { color: var(--tb-amber); border-color: var(--tb-amber-dim); }
+
+/* --- Load: the crowding meter (ruling 2) --- */
+.tb-load { display: flex; flex-direction: column; gap: .35rem; }
+.tb-load__top { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.tb-load__word { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; color: var(--tb-muted); }
+.tb-load__num { font: var(--tb-weight-semi) var(--tb-fs-title)/1 var(--tb-mono); font-variant-numeric: tabular-nums;
+  color: var(--tb-ink); }
+.tb-load__num .tb-load__cap { color: var(--tb-ghost); font-weight: 400; }
+.tb-load__meter { height: 8px; background: var(--tb-load-track); border-radius: 2px; overflow: hidden; position: relative; }
+.tb-load__fill { position: absolute; inset: 0 auto 0 0; background: var(--tb-load-fill); border-radius: 2px;
+  transition: width var(--tb-motion), background var(--tb-motion); }
+/* crush hatch: at capacity, the fill gets a warning texture so it reads even in
+   a screenshot or for a red-blind player */
+.tb-load[data-band="easy"]  .tb-load__fill { background: var(--tb-load-easy); }
+.tb-load[data-band="fill"]  .tb-load__fill { background: var(--tb-load-fill); }
+.tb-load[data-band="busy"]  .tb-load__fill { background: var(--tb-load-busy); }
+.tb-load[data-band="busy"]  .tb-load__word { color: var(--tb-amber); }
+.tb-load[data-band="crush"] .tb-load__fill { background: var(--tb-load-crush); }
+.tb-load[data-band="crush"] .tb-load__word { color: var(--tb-red); }
+.tb-load__meter::after { content: ""; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--tb-ink);
+  left: 100%; opacity: 0; }
+
+/* --- The manifest: who is aboard, where they get off (the flagship) --- */
+.tb-manifest { display: flex; flex-direction: column; }
+.tb-manifest__head { display: flex; align-items: baseline; justify-content: space-between;
+  font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps); text-transform: uppercase;
+  color: var(--tb-muted); margin-bottom: .5rem; }
+.tb-manifest__stop { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: .55rem;
+  padding: .28rem 0; position: relative; }
+/* the spine down the left, a schematic of the stops ahead */
+.tb-manifest__spine { position: relative; display: flex; align-items: center; justify-content: center; align-self: stretch; }
+.tb-manifest__spine::before { content: ""; position: absolute; top: 0; bottom: 0; width: var(--tb-dia-tick-w, 2.5px);
+  background: var(--tb-manifest-tick); left: 50%; transform: translateX(-50%); }
+.tb-manifest__stop:first-child .tb-manifest__spine::before { top: 50%; }
+.tb-manifest__stop:last-child .tb-manifest__spine::before { bottom: 50%; }
+.tb-manifest__node { width: 9px; height: 9px; border-radius: 50%; background: var(--tb-bg);
+  border: var(--tb-dia-tick-w, 2.5px) solid var(--tb-ink); position: relative; z-index: 1; }
+.tb-manifest__node--change { width: 12px; height: 12px; border-radius: 3px; border-color: var(--tb-politic); }
+.tb-manifest__name { font: 400 var(--tb-fs-label)/1.2 var(--tb-mono); color: var(--tb-ink); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.tb-manifest__change { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-politic); }
+.tb-manifest__off { font: 400 var(--tb-fs-label)/1 var(--tb-mono); font-variant-numeric: tabular-nums; color: var(--tb-muted);
+  text-align: right; white-space: nowrap; }
+.tb-manifest__off b { color: var(--tb-ink); font-weight: var(--tb-weight-semi); }
+.tb-manifest__stop--soon .tb-manifest__name { color: var(--tb-ink); font-weight: var(--tb-weight-semi); }
+.tb-manifest__more { font: 400 var(--tb-fs-caption)/1.4 var(--tb-mono); color: var(--tb-ghost); padding: .3rem 0 0 calc(16px + .55rem); }
+
+/* --- Future-proof slots (section 6). Present but empty-styled so the layout
+   never redraws when they arrive. --- */
+.tb-insp__stock { display: flex; align-items: center; gap: .6rem; padding: .5rem 0; }
+.tb-insp__portrait { width: 56px; height: 26px; flex: none; border: var(--tb-border) dashed var(--tb-line);
+  border-radius: var(--tb-radius-chip); display: grid; place-items: center; color: var(--tb-ghost); }
+.tb-insp__portrait svg { width: 46px; height: 18px; }
+.tb-insp__stock-meta { display: flex; flex-direction: column; gap: .1rem; }
+.tb-insp__stock-name { font: 400 var(--tb-fs-label)/1 var(--tb-mono); color: var(--tb-muted); }
+.tb-insp__stock-sub { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); color: var(--tb-ghost); }
+
+.tb-insp__history { display: flex; gap: 1.1rem; }
+.tb-insp__hist { display: flex; flex-direction: column; gap: .1rem; }
+.tb-insp__hist b { font: var(--tb-weight-semi) var(--tb-fs-title)/1 var(--tb-mono); font-variant-numeric: tabular-nums; color: var(--tb-ink); }
+.tb-insp__hist span { font: 400 var(--tb-fs-caption)/1 var(--tb-mono); letter-spacing: var(--tb-track-caps);
+  text-transform: uppercase; color: var(--tb-ghost); }
+
+/* actions inherit tb-btn; the foot just lays them out */
+.tb-insp__actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+/* --- State handling. The status pulse and doing-line change per state; the
+   vanished case (trap 4a) replaces the body with a recovery message. --- */
+.tb-insp[data-state="parked"] .tb-insp__pulse,
+.tb-insp[data-state="dwelling"] .tb-insp__pulse { background: var(--tb-amber); }
+.tb-insp[data-state="mothballed"] .tb-insp__pulse { background: var(--tb-ghost); animation: none; }
+.tb-insp[data-state="transfer"] .tb-insp__pulse { background: var(--tb-politic); }
+
+.tb-insp__gone { display: flex; flex-direction: column; gap: .6rem; padding: .3rem 0; }
+.tb-insp__gone p { font: 400 var(--tb-fs-body)/1.5 var(--tb-mono); color: var(--tb-muted); }
+
+/* not-saved caveat marker, for facts the game forgets on reload */
+.tb-insp__ephemeral { font-style: normal; color: var(--tb-ghost); }
+.tb-insp__ephemeral::before { content: "\25CB"; margin-right: .35rem; color: var(--tb-line-hi); }
+
+/* ============================================================================
+   ON-MAP SELECTION + INVITATION  (rulings 1c/3)
+   These style the SVG the renderer draws; shown in the mockup over a mock map.
+   ========================================================================== */
+.tb-trainsel { transform-box: fill-box; transform-origin: center; }
+.tb-trainsel__ring { fill: none; stroke: var(--tb-sel); stroke-width: var(--tb-sel-ring-w); }
+.tb-trainsel__halo { fill: none; stroke: var(--tb-sel); stroke-width: 1; opacity: .4;
+  animation: tb-insp-pulse 2s ease-in-out infinite; }
+/* the hover invitation: a generous faint ring on the hovered train only */
+.tb-trainhint { fill: none; stroke: var(--tb-ink); stroke-width: 1.5; opacity: .5; }

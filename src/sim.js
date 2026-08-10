@@ -779,7 +779,8 @@ export const CATALOG = [
   // not guessed: at 1.2 the probe-arc bot binged seventeen trains inside era
   // 1950, drowned in upkeep and never reached 1952, so the ladder still owns
   // the opening discipline while the caps and the upkeep knee own the rest.
-  { id: 'train',      base: 600,  growth: 1.25, max: 10, era: 1950, kind: 'fleet' },
+  { id: 'train',      base: 600,  growth: 1.25, max: 10, era: 1950, kind: 'fleet',
+    costKey: 'trainCost' },
   { id: 'drivers',    base: 900,  growth: 1,   max: 1, era: 1950 },
   // timetable max is 1 (was 3, was 6): each cap is a measurement. Levels 4-6
   // died at the spawn ceiling; when base train speed halved (2026-08-04)
@@ -902,10 +903,15 @@ export const CATALOG = [
 // and night service are money sinks in the shop; these are the city's
 // POLICIES. desc/effectText obey the voice rule (no colons, semicolons,
 // dashes). ---
+// A fourth band arrives with 0.15.0 (era index 4, 1975), because the late
+// game had decisions to make and nowhere to put them. Region is the 1975
+// word in this game already, the era of Regionplanen and the reach beyond
+// the tullar.
 export const COUNCIL_TIERS = [
   { name: 'Charter', era: 1 },
   { name: 'Corridor', era: 2 },
   { name: 'Mandate', era: 3 },
+  { name: 'Region', era: 4 },
 ];
 
 export const COUNCIL = [
@@ -942,6 +948,17 @@ export const COUNCIL = [
     desc: 'Trains run themselves across the whole network, day and night.',
     effectText: 'Every train runs 10 percent faster',
     mult: { speed: 0.9 } },
+  // Owner ruling 2026-08-10: trains get outlandishly expensive near the end,
+  // which is the price ladder still behaving like the one that had to hold a
+  // fleet of nine. 0.14.0 already moved the real late limiter onto upkeep, so
+  // the ladder can afford to let go, and a city that orders stock by the
+  // dozen instead of one carriage at a time is the historically honest way to
+  // say it. This is the first COST shaped decision that touches the shop, so
+  // the modifier runs through every price path (see itemCostMult).
+  { id: 'stock-programme', name: 'A rolling stock programme', cat: 'service', tier: 3, pk: 20,
+    desc: 'The city orders its trains by the dozen instead of one at a time. A new train costs a fraction of what it used to.',
+    effectText: 'New trains cost 75 percent less, for good',
+    mult: { trainCost: 0.25 } },
 ];
 
 // 'taken' | 'era' (the tier has not arrived) | 'locked' (needs an earlier
@@ -1077,14 +1094,39 @@ export function lineColor(idx) {
 // could never dispatch (`clock >= undefined` is false), and a review's
 // headline finding turned out to be one working train measured against zero.
 // Probes import addTrain; nothing outside this file writes the shape.
-export function newTrain(line) {
-  return { line, at: 0, run: null, mothballed: false, readyAt: 0 };
+// `id` (0.15.0) is the first thing about a train that OUTLIVES the session.
+// Everything else here is either derived or forgotten on reload, which was
+// fine while a train was an anonymous slot and is not fine now that the
+// player can click one and name it. The number the player sees is this id,
+// so it is allocated once, never reused, and saved.
+export function newTrain(line, id) {
+  return { id, name: null, line, at: 0, run: null, mothballed: false, readyAt: 0 };
 }
 
 export function addTrain(g, line) {
-  const t = newTrain(line);
+  const t = newTrain(line, g.nextTrainId++);
   g.trains.push(t);
   return t;
+}
+
+export function trainById(g, id) {
+  return g.trains.find((t) => t.id === id) || null;
+}
+
+export function renameTrain(g, id, name) {
+  const t = trainById(g, id);
+  if (!t) return false;
+  const n = cleanName(name);
+  if (!n || n === t.name) return false;
+  t.name = n;
+  return true;
+}
+
+export function clearTrainName(g, id) {
+  const t = trainById(g, id);
+  if (!t || !t.name) return false;
+  t.name = null;
+  return true;
 }
 
 // Colours the campaign has already promised. Blue belongs to Blå linjen (1975)
@@ -1140,8 +1182,12 @@ export function newGame() {
     eraGoals: ERAS.map((e) => e.delivered || 0), // this game's rider gates, fixed at birth
 
     lines: [newLine(Array.from({ length: START_BUILT }, (_, i) => anchorStation(i)), 0)],
-    trains: [newTrain(0)],
-    moveQueue: [],   // pending depot transfers: { from, to }, fee already paid
+    nextTrainId: 2,  // the starting train takes 1; ids are never reused
+    trains: [newTrain(0, 1)],
+    // Pending depot transfers, fee already paid: { from, to } for the line
+    // level orders, plus an optional `train` id when the player sent one
+    // SPECIFIC train from the inspector.
+    moveQueue: [],
     trainMoves: 0,
     planDone: {},    // corridor id -> once completed (freedom stays earned)
     rush: null,      // open peak window: { phase, delivered0, lost0 }
@@ -3297,9 +3343,23 @@ export function itemVisible(g, item) {
   return eraVisible(g, item) && unlockMet(g, item);
 }
 
+// A cost shaped modifier on a catalog item (0.15.0, the council's rolling
+// stock programme). An item opts in with `costKey` and the named multiplier
+// then applies to its whole ladder. It scales the BASE, which is exactly
+// equivalent to scaling every rung, so the closed forms below stay closed:
+// miss one of them and x1, x10 and MAX quote three different prices for the
+// same purchase, which is the kind of split that ships as a refund request.
+function itemCostMult(g, item) {
+  return item.costKey ? effectMult(g, item.costKey) : 1;
+}
+
+function itemBase(g, item) {
+  return item.base * itemCostMult(g, item);
+}
+
 export function shopCost(g, id) {
   const item = CATALOG.find((s) => s.id === id);
-  return Math.round(item.base * Math.pow(item.growth, g.owned[id]));
+  return Math.round(itemBase(g, item) * Math.pow(item.growth, g.owned[id]));
 }
 
 // Buying a ladder one level at a time is the classic incremental complaint, so
@@ -3330,13 +3390,13 @@ export function affordableLevels(g, id, want) {
   const room = maxFor(g, item) - g.owned[id];
   if (room <= 0) return 0;
   const budget = item.currency === 'pk' ? g.pk : g.money;
-  const can = geoMax(item.base, item.growth, g.owned[id], budget);
+  const can = geoMax(itemBase(g, item), item.growth, g.owned[id], budget);
   return Math.max(0, Math.min(room, can, want || room));
 }
 
 export function bulkCost(g, id, n) {
   const item = CATALOG.find((s) => s.id === id);
-  return item ? geoSum(item.base, item.growth, g.owned[id], n) : 0;
+  return item ? geoSum(itemBase(g, item), item.growth, g.owned[id], n) : 0;
 }
 
 // Buy up to `want` levels in one transaction; returns how many were bought.
@@ -3642,6 +3702,160 @@ export function sendTrain(g, fromLi) {
   return 'queued';
 }
 
+// --- The train inspector's data contract (0.15.0) ---
+// ONE selector the panel renders, so no interface code ever reads a train's
+// internals. Everything here is derived at the instant it is asked for, and
+// new facts are added by extending this object, never by teaching the panel
+// a new field of `run`. That is the whole future proofing: when rolling
+// stock generations or a depot arrive, they arrive here.
+//
+// `ephemeral` names the facts a reload forgets (position, the live run, the
+// turnaround clock), because the panel marks them and must not have to know
+// which those are.
+
+// How full is full. The bands are the aspect meanings from pass 01 reused,
+// not new hues, and the raw count always rides beside them so 40 of 480 and
+// 470 of 480 can never read alike.
+export function loadBand(frac) {
+  if (frac >= 0.9) return 'crush';
+  if (frac >= 0.5) return 'busy';
+  if (frac >= 0.2) return 'fill';
+  return 'easy';
+}
+
+const MANIFEST_STOPS = 5; // a 27 stop run must not become a wall
+
+export function trainView(g, id) {
+  const t = trainById(g, id);
+  if (!t) return null;
+  const L = g.lines[t.line];
+  if (!L) return null;
+  const cap = trainCap(g);
+  const order = g.trains.filter((x) => x.line === t.line);
+  const v = {
+    id: t.id,
+    name: t.name,
+    line: { index: t.line, name: L.name, color: L.color },
+    capacity: cap,
+    onboard: 0,
+    loadFrac: 0,
+    band: 'easy',
+    state: t.mothballed ? 'stabled' : (t.run ? (t.run.phase === 'dwell' ? 'dwelling' : 'running') : 'parked'),
+    express: false,
+    linePatterned: !!g.owned.patterns && L.skip.some(Boolean),
+    at: null,
+    towards: null,
+    nextStop: null,
+    stackIndex: 0,
+    stackSize: 0,
+    readyIn: 0,
+    manifest: [],
+    further: null,
+    movingTo: null,
+    fleetIndex: order.indexOf(t) + 1,
+    fleetOfLine: order.length,
+  };
+  const queued = g.moveQueue.find((m) => m.train === t.id);
+  if (queued && g.lines[queued.to]) v.movingTo = g.lines[queued.to].name;
+
+  if (t.run) {
+    const r = t.run;
+    v.onboard = r.onboard;
+    v.loadFrac = cap > 0 ? Math.min(1, r.onboard / cap) : 0;
+    v.band = loadBand(v.loadFrac);
+    v.express = !!r.express;
+    v.at = L.stations[r.from] ? L.stations[r.from].name : null;
+    const endIdx = r.dir === 1 ? L.stations.length - 1 : 0;
+    v.towards = L.stations[endIdx] ? L.stations[endIdx].name : null;
+    // The next stop it will actually CALL at, which on an express run is not
+    // simply the next station along.
+    for (let k = r.from + r.dir; k >= 0 && k < L.stations.length; k += r.dir) {
+      const skipped = r.express && L.skip[k] && k > 0 && k < L.stations.length - 1;
+      if (!skipped) { v.nextStop = L.stations[k].name; break; }
+    }
+    // Who is aboard and where they get off: the stops ahead in the
+    // direction of travel, each with the riders leaving there and how many
+    // of those are changing lines.
+    const ahead = [];
+    for (let k = r.from + r.dir; k >= 0 && k < L.stations.length; k += r.dir) {
+      const off = r.dest[k] || 0;
+      const change = r.destCont[k] || 0;
+      if (off > 0.5 || change > 0.5) {
+        ahead.push({ name: L.stations[k].name, off, change });
+      }
+    }
+    v.manifest = ahead.slice(0, MANIFEST_STOPS);
+    const rest = ahead.slice(MANIFEST_STOPS);
+    if (rest.length) {
+      v.further = {
+        riders: rest.reduce((n, x) => n + x.off, 0),
+        last: rest[rest.length - 1].name,
+        stops: rest.length,
+      };
+    }
+  } else {
+    v.at = L.stations[t.at] ? L.stations[t.at].name : null;
+    v.readyIn = Math.max(0, t.readyAt - g.clock);
+    // Which of the identical dots resting here this one is, so a stack at a
+    // terminus can be told apart without spreading it across the map.
+    const here = g.trains.filter((x) => x.line === t.line && !x.run && !x.mothballed && x.at === t.at);
+    v.stackSize = here.length;
+    v.stackIndex = here.indexOf(t) + 1;
+    v.express = !!L.expressNext && v.linePatterned; // what it will run next
+  }
+  return v;
+}
+
+// --- Per-train orders (0.15.0, the inspector). The line level plus and
+// minus stay exactly as they were; these act on the ONE train the player is
+// looking at, which is the mental model the 0.8.2 reports kept reaching for.
+// The contract is the same: the fee is taken when the order is placed, and a
+// train that cannot leave right now leaves the moment it parks. ---
+
+// Where a lone train should go: the thinnest OTHER line, the depot's own
+// pick, so the answer is the same one the minus button would give.
+export function sendTargetFor(g, id) {
+  const t = trainById(g, id);
+  if (!t) return -1;
+  return neediestLine(g, t.line);
+}
+
+// Returns 'moved', 'queued', or false (no fee, nowhere to send it, or the
+// train is the last one running its line and would strand it).
+export function sendThisTrain(g, id) {
+  const t = trainById(g, id);
+  if (!t) return false;
+  if (g.money < BAL.moveTrainKr) return false;
+  const to = neediestLine(g, t.line);
+  if (to < 0) return false;
+  // A line must not be emptied by the inspector when the line rows would
+  // have refused the same move: spareTrains counts what is already promised
+  // away, and the last train on a line is not spare.
+  if (spareTrains(g, t.line) < 1) return false;
+  g.money -= BAL.moveTrainKr;
+  if (!t.run) { execMove(g, t, to); return 'moved'; }
+  g.moveQueue.push({ from: t.line, to, train: t.id });
+  return 'queued';
+}
+
+export function mothballTrain(g, id) {
+  const t = trainById(g, id);
+  if (!t || t.mothballed || t.run) return false;
+  // The last working train never stables itself: the network must always be
+  // able to move somebody.
+  if (g.trains.filter((x) => !x.mothballed).length <= 1) return false;
+  t.mothballed = true;
+  return true;
+}
+
+export function wakeTrain(g, id) {
+  const t = trainById(g, id);
+  if (!t || !t.mothballed) return false;
+  t.mothballed = false;
+  t.readyAt = g.clock + BAL.turnaroundS;
+  return true;
+}
+
 // Orders queued for a line, for the row to show (either direction).
 export function queuedMoves(g, li) {
   let inN = 0, outN = 0;
@@ -3672,6 +3886,22 @@ function processMoveQueue(g) {
   if (!g.moveQueue.length) return;
   for (let i = 0; i < g.moveQueue.length; i++) {
     const m = g.moveQueue[i];
+    // An order naming ONE train waits for that train and refunds if it is
+    // gone, by the same rule a line order follows when its line empties.
+    if (m.train !== undefined) {
+      const only = trainById(g, m.train);
+      if (!only) {
+        g.moveQueue.splice(i, 1);
+        g.money += BAL.moveTrainKr;
+        i--;
+        continue;
+      }
+      if (only.run) continue;
+      execMove(g, only, m.to);
+      g.moveQueue.splice(i, 1);
+      i--;
+      continue;
+    }
     if (!g.trains.some((t) => t.line === m.from)) {
       g.moveQueue.splice(i, 1);
       g.money += BAL.moveTrainKr;
@@ -3714,7 +3944,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.14.2';
+export const VERSION = '0.15.0';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
@@ -3774,7 +4004,8 @@ export function serialize(g) {
     records: g.records,
     grossLife: Math.round(g.grossLife),
     playedS: Math.round(g.playedS),
-    trains: g.trains.map((t) => ({ line: t.line, mothballed: t.mothballed })),
+    nextTrainId: g.nextTrainId,
+    trains: g.trains.map((t) => ({ id: t.id, name: t.name, line: t.line, mothballed: t.mothballed })),
     moves: g.moveQueue,
     trainMoves: Math.round(g.trainMoves || 0),
     planDone: g.planDone,
@@ -3988,10 +4219,21 @@ export function hydrate(raw) {
     }
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
     g.trains = [];
+    g.nextTrainId = 1;
     const tr = Array.isArray(s.trains) ? s.trains.slice(0, maxFleetEver()) : [];
+    // What each saved entry ASKS to be numbered, kept beside the fleet
+    // rather than on it: the numbering happens once, after every train
+    // exists, so a provisional number can never survive as a duplicate.
+    const wantId = tr.map((t) => {
+      const id = Number(t?.id);
+      return Number.isInteger(id) && id > 0 && id <= 1e9 ? id : 0;
+    });
     for (const t of tr) {
       const li = posInt(t?.line, g.lines.length - 1);
-      addTrain(g, li).mothballed = !!t?.mothballed;
+      const made = addTrain(g, li);
+      made.mothballed = !!t?.mothballed;
+      const nm = typeof t?.name === 'string' ? cleanName(t.name) : null;
+      made.name = nm || null;
     }
     if (!g.trains.length) addTrain(g, 0);
     if (!g.trains.some((t) => !t.mothballed)) g.trains[0].mothballed = false;
@@ -4005,6 +4247,19 @@ export function hydrate(raw) {
     const gifts = Object.keys(PROJECT_SEEDS).filter((id) => g.owned[id]).length;
     const owedFleet = Math.min(maxFleetEver(), g.owned.train + 1 + gifts);
     while (g.trains.length < owedFleet) addTrain(g, Math.max(0, neediestLine(g, -1)));
+    // Identity (0.15.0), settled once the fleet is final. A save from before
+    // ids existed simply meets a numbered fleet for the first time; a save
+    // that has them keeps them, because the number is the name of a thing
+    // the player may have renamed. Duplicates and forgeries lose the number
+    // rather than the train, and the counter is lifted clear of the highest
+    // so nothing can be minted twice.
+    const claimed = new Set();
+    g.trains.forEach((t, i) => {
+      const want = i < wantId.length ? wantId[i] : 0;
+      if (want && !claimed.has(want)) { t.id = want; claimed.add(want); } else { t.id = 0; }
+    });
+    g.nextTrainId = claimed.size ? Math.max(...claimed) + 1 : 1;
+    for (const t of g.trains) if (!t.id) t.id = g.nextTrainId++;
     // Pending depot orders (0.9): fee already paid, so they must survive a
     // reload. Anything malformed is dropped, not refunded: a forged save is
     // not owed money.
@@ -4012,7 +4267,14 @@ export function hydrate(raw) {
       .filter((m) => m && Number.isInteger(m.from) && Number.isInteger(m.to) &&
         m.from !== m.to &&
         m.from >= 0 && m.from < g.lines.length && m.to >= 0 && m.to < g.lines.length)
-      .map((m) => ({ from: m.from, to: m.to }));
+      // An order naming a SPECIFIC train (0.15.0) keeps that train only if
+      // it is still here; otherwise it degrades to a line level order,
+      // which is the same promise the player paid for.
+      .map((m) => {
+        const o = { from: m.from, to: m.to };
+        if (Number.isInteger(m.train) && g.trains.some((t) => t.id === m.train)) o.train = m.train;
+        return o;
+      });
     // The plan record: what the save says, then what the network proves (a
     // pre-plan save with a finished corridor earned it retroactively). The
     // derivation fires plandone events; a LOAD is not a moment, so drop them.

@@ -17,7 +17,7 @@ mkdirSync(STAGE, { recursive: true });
 // updates.json ships IN the zip as of 0.11.4: the in-game changelog reads it
 // relative. This is a build-time snapshot for display; the live FEED for
 // incrementaldb remains the stable maclaine.se URL, never the zip's.
-const INCLUDE = ['index.html', 'tokens.css', 'tokens-ui.css', 'ui.css', 'ui-moments.css', 'ui-council.css',
+const INCLUDE = ['index.html', 'tokens.css', 'tokens-ui.css', 'ui.css', 'ui-moments.css', 'ui-council.css', 'ui-train.css',
                  'favicon.svg', 'incrementaldb.txt', 'updates.json',
                  'src', 'vendor', 'fonts', 'basemap', 'audio'];
 for (const item of INCLUDE) {
