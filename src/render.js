@@ -1004,8 +1004,16 @@ function drawTrains(g) {
     const y = a.y + (b.y - a.y) * pos.f;
     ctx.beginPath();
     ctx.roundRect(x - 14, y - 8, 28, 16, 2.5);
-    ctx.fillStyle = COL.train1950;
+    // The train wears its line's colour (0.14.0, owner ask with the custom
+    // line colours): which line a train serves reads at a glance. The ink
+    // outline keeps the body from melting into the stroke it rides on.
+    ctx.fillStyle = L.color;
     ctx.fill();
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = COL.trainInk;
+    ctx.globalAlpha = 0.55;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
     ctx.fillStyle = COL.trainDetail;
     ctx.fillRect(x - 9, y - 5, 4, 3);
     ctx.fillRect(x - 2, y - 5, 4, 3);

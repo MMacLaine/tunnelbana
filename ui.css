@@ -238,6 +238,14 @@
 .tb-linkbtn--edit { border-bottom: 0; color: var(--tb-ghost); padding: 0 0.2rem; cursor: pointer; }
 .tb-linkbtn--edit:hover { color: var(--tb-green); }
 
+/* Line colour swatches in the rename dialog (0.14.0): the chip grammar at
+   picking size. The current colour wears the ink ring. */
+.tb-swatches { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.2rem 0 0.4rem; }
+.tb-swatch { width: 22px; height: 22px; border-radius: var(--tb-radius-chip);
+  border: 2px solid transparent; padding: 0; cursor: pointer; }
+.tb-swatch:hover { border-color: var(--tb-muted); }
+.tb-swatch--on { border-color: var(--tb-ink); }
+
 /* Era moment / ending: a deliberate full-screen moment, left-aligned on the
    same axis as the menu (pass 01, unchanged, now in panel language). */
 .tb-moment { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center;

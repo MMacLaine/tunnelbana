@@ -997,6 +997,33 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (sim.nextEra(back).delivered !== 180000) err('a pre-0.14.0 save must keep its 180k gate, got ' + sim.nextEra(back).delivered);
 }
 
+// Line colours (0.14.0): historic lines keep the identities the campaign
+// promised, a founded line recolours within the rules, and the chosen
+// colour survives hydration.
+{
+  const c = sim.newGame();
+  if (sim.canRecolorLine(c, 0)) err('Gröna linjen must keep its colour');
+  if (sim.recolorLine(c, 0, '#b06fa8')) err('recolouring a historic line must refuse');
+  c.money = 1e6;
+  c.pk = 99;
+  c.era = 1;
+  c.totalDelivered = 3e4;
+  sim.buy(c, 'westline');
+  if (sim.canRecolorLine(c, 1)) err('Västerortsbanan must keep its colour');
+  c.lines[0].stations[1].tier = 3;
+  if (!sim.foundLine(c, 0, 1)) err('setup, foundLine failed in the colour check');
+  const li = c.lines.length - 1;
+  if (!sim.canRecolorLine(c, li)) err('a founded line must be recolourable');
+  if (sim.recolorLine(c, li, '#c8544a')) err('the reserved red must refuse');
+  if (sim.recolorLine(c, li, c.lines[0].color)) err('a colour another line wears must refuse');
+  if (sim.recolorLine(c, li, 'tomato')) err('a non-hex colour must refuse');
+  const pick = sim.recolorChoices(c, li)[0];
+  if (!pick) err('recolorChoices should offer something');
+  if (!sim.recolorLine(c, li, pick)) err('a legal recolour should succeed');
+  const back = sim.hydrate(sim.serialize(c));
+  if (back.lines[li].color !== pick) err('a chosen colour must survive hydration, got ' + back.lines[li].color);
+}
+
 // Demolishing a line down past two stops removes the LINE (live report
 // 2026-08-10: a stub line squatted on its hub, undeletable): its trains
 // transfer to the survivors, queued depot orders touching it refund, and
@@ -1216,9 +1243,10 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (sim.upgCapFor(c, { tier: 1 }) !== 3) err('1952 should allow three levels on a Hållplats');
   if (c.lines[0].stations[0].ent !== 1) err('a bought level must survive the era change');
 
-  // Trust accrues to the next era's requirement and stops there.
+  // Trust accrues to DOUBLE the next era's requirement and stops there
+  // (0.14.0), so the gate and a hub can be afforded from the same bar.
   const p = sim.newGame();
-  if (sim.pkCap(p) !== 5) err('trust ceiling in 1950 should be the 1952 requirement');
+  if (sim.pkCap(p) !== 10) err('trust ceiling in 1950 should be twice the 1952 requirement');
   p.money = 1e9;
   for (let k = p.lines[0].stations.length; k < 12; k++) sim.extendTo(p, 0, 'tail', ANCHORS[k].geo, k);
   for (let t = 0; t < 4000; t += 1) { sim.tick(p, 1); p.events.length = 0; }
