@@ -2869,8 +2869,13 @@ export function renameLine(g, li, name) {
 // line painted blue would tell the player they unlocked something they did
 // not (the LINE_IDENTITY rule, extended to recolouring). name0 is the
 // stable marker: renames never touch it. ---
+// Västerortsbanan is deliberately NOT here (owner ruling 2026-08-10, from a
+// live screenshot of its mint seed reading as "a weird random line breaking
+// up my green line"): historically it IS the green line's west arm, so it
+// may be recoloured, and it alone may wear Gröna linjen's green, shared
+// stroke and all.
 const HISTORIC_NAME0 = new Set([
-  'Gröna linjen', 'Västerortsbanan', 'Röda linjen', 'Blå linjen',
+  'Gröna linjen', 'Röda linjen', 'Blå linjen',
 ]);
 
 export function canRecolorLine(g, li) {
@@ -2884,8 +2889,16 @@ export function canRecolorLine(g, li) {
 // line's own current colour are left out (the dialog shows the current one
 // itself, and recolorLine refuses a no-op).
 export function recolorChoices(g, li) {
-  const taken = new Set(g.lines.map((L) => L.color));
+  const L = g.lines[li];
+  const taken = new Set(g.lines.map((K) => K.color));
   const out = [];
+  // The west arm's special pair leads: the family green it historically
+  // belongs to, and its own promised mint when it wants the charter look
+  // back. Neither is offered to any other line.
+  if (L && L.name0 === 'Västerortsbanan') {
+    if (L.color !== LINE_COLORS[0]) out.push(LINE_COLORS[0]);
+    if (L.color !== LINE_IDENTITY.westline.color) out.push(LINE_IDENTITY.westline.color);
+  }
   for (let i = 0; out.length < 10 && i < 60; i++) {
     const c = lineColor(i);
     if (RESERVED.has(c) || c === LINE_COLORS[0] || taken.has(c)) continue;
@@ -2898,12 +2911,19 @@ export function recolorLine(g, li, color) {
   if (!canRecolorLine(g, li)) return false;
   if (!/^#[0-9a-f]{6}$/i.test(color || '')) return false;
   const c = color.toLowerCase();
-  if (RESERVED.has(c) || c === LINE_COLORS[0]) return false;
-  for (let k = 0; k < g.lines.length; k++) {
-    if (k !== li && g.lines[k].color.toLowerCase() === c) return false;
+  const L = g.lines[li];
+  if (L.color.toLowerCase() === c) return false;
+  const westArm = L.name0 === 'Västerortsbanan';
+  // Only the west arm may share the family green, and only a charter may
+  // take its own promised colour back out of the reserved set.
+  if (c === LINE_COLORS[0] && !westArm) return false;
+  if (RESERVED.has(c) && !(westArm && c === LINE_IDENTITY.westline.color)) return false;
+  if (c !== LINE_COLORS[0]) {
+    for (let k = 0; k < g.lines.length; k++) {
+      if (k !== li && g.lines[k].color.toLowerCase() === c) return false;
+    }
   }
-  if (g.lines[li].color.toLowerCase() === c) return false;
-  g.lines[li].color = c;
+  L.color = c;
   return true;
 }
 
@@ -3694,7 +3714,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.14.0';
+export const VERSION = '0.14.1';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
