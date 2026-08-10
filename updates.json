@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.14.2",
+      "title": "Big fleets reload intact, and shared track shows both lines",
+      "content": "Reloading a save with a very large fleet could quietly drop trains. The limit behind it was written when 28 trains was the ceiling, and 0.14.0 raised that to 70.\n- A save now reloads every train you own, whatever the size of the fleet\n- A save that already lost trains this way gets them back the next time it loads. Nothing in the game destroys a train, so what you bought is what you are owed\n- The limit is now worked out from the game's own ceiling, so it cannot fall behind a future change again\n- Where two lines run the same stretch of track, both now draw side by side as touching ribbons instead of one hiding under the other. A trunk carrying two services reads as a thicker double track, which is what it is"
+    },
+    {
       "version": "0.14.1",
       "title": "The west arm may wear green",
       "content": "A player screenshot showed the Västerortsbanan charter reading as a stray pale line breaking up the green trunk between T Centralen and Hötorget. It is a real second line and it was never random, but the confusion is fair. Historically that line was the green line's west arm, so now it can dress the part.\n- Västerortsbanan can be recoloured like a founded line, and it alone may also wear the green of Gröna linjen. The pencil beside its name in the network panel opens the dialog\n- It can take its own mint back at any time\n- Röda linjen and Blå linjen keep their promised colours\n- If the two stop line itself is unwanted, right click its end handle and the whole line comes down, any trains moving to your other lines. That shipped in 0.14.0 and works here too"

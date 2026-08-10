@@ -625,7 +625,30 @@ function segKey(a, b) {
   return ka < kb ? ka + '|' + kb : kb + '|' + ka;
 }
 
-function drawAllLines(g) {
+// Track width and the gap between services sharing one. The gap equals the
+// width, so two services on a trunk draw as touching ribbons and the trunk
+// reads as one thicker track carrying two colours (owner ask 2026-08-10).
+const TRACK_W = 6;
+const TRUNK_GAP = 6;
+
+// How far each line is pushed sideways on every one of its segments, in
+// screen pixels, 0 where it runs alone.
+//
+// Slots are numbered against the segment's CANONICAL direction (its two
+// endpoint keys, sorted), never against the order a line happens to store
+// its stations in, and the drawing takes its perpendicular the same way.
+// That agreement is the whole point: previously the perpendicular came from
+// the direction of travel, so a line running the trunk south to north had
+// both its perpendicular AND its slot negated, the two cancelled exactly,
+// and it drew on top of the line running north to south instead of beside
+// it. The higher line index simply painted over the lower and a shared
+// trunk showed a single colour (live screenshot 2026-08-10, the red line
+// covering the green through Gamla stan).
+//
+// Exported because it is the testable half of the drawing: smoke asserts
+// that two lines sharing a segment in opposite station order come back with
+// opposite signs.
+export function trunkOffsets(g) {
   const owners = new Map(); // segKey -> [line indices, ascending]
   g.lines.forEach((L, li) => {
     for (let i = 0; i + 1 < L.stations.length; i++) {
@@ -634,26 +657,41 @@ function drawAllLines(g) {
       owners.get(k).push(li);
     }
   });
+  return g.lines.map((L, li) => {
+    const out = [];
+    for (let i = 0; i + 1 < L.stations.length; i++) {
+      const a = L.stations[i], b = L.stations[i + 1];
+      const list = owners.get(segKey(a, b));
+      if (!list || list.length < 2) { out.push(0); continue; }
+      out.push((list.indexOf(li) - (list.length - 1) / 2) * TRUNK_GAP);
+    }
+    return out;
+  });
+}
+
+function drawAllLines(g) {
+  const offsets = trunkOffsets(g);
   g.lines.forEach((L, li) => {
     if (L.stations.length < 2) return;
     const P = linePoints(L);
-    let shared = false;
-    for (let i = 0; i + 1 < L.stations.length; i++) {
-      if (owners.get(segKey(L.stations[i], L.stations[i + 1])).length > 1) { shared = true; break; }
-    }
-    if (!shared) { drawLinePath(P, L.color); return; }
+    const off = offsets[li];
+    if (!off.some((v) => v !== 0)) { drawLinePath(P, L.color); return; }
     // Per-segment strokes so shared stretches can shift sideways; the smooth
     // arcTo corners only exist on unshared lines, a fair trade for legibility.
-    ctx.lineWidth = 6;
+    ctx.lineWidth = TRACK_W;
     ctx.lineCap = 'round';
     ctx.strokeStyle = L.color;
     for (let i = 0; i + 1 < L.stations.length; i++) {
-      const list = owners.get(segKey(L.stations[i], L.stations[i + 1]));
-      const off = list.length > 1 ? (list.indexOf(li) - (list.length - 1) / 2) * 7 : 0;
       let ax = P[i].x, ay = P[i].y, bx = P[i + 1].x, by = P[i + 1].y;
-      if (off) {
-        const len = Math.hypot(bx - ax, by - ay) || 1;
-        const nx = (-(by - ay) / len) * off, ny = ((bx - ax) / len) * off;
+      if (off[i]) {
+        // The perpendicular is taken in the segment's CANONICAL direction,
+        // the same one trunkOffsets numbered the slots in, so both services
+        // agree which side of the track is which however each of them
+        // happens to store its stations.
+        const flip = stKey(L.stations[i]) < stKey(L.stations[i + 1]) ? 1 : -1;
+        const dx = (bx - ax) * flip, dy = (by - ay) * flip;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = (-dy / len) * off[i], ny = (dx / len) * off[i];
         ax += nx; ay += ny; bx += nx; by += ny;
       }
       ctx.beginPath();

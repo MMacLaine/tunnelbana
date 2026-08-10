@@ -3,6 +3,7 @@
 // transfer flow, surges, political capital, the mothball deficit rule, offline
 // progress, and save round-trips. Run: node _dev/smoke.mjs
 import * as sim from '../src/sim.js';
+import { trunkOffsets } from '../src/render.js';
 import { ANCHORS, CORRIDORS, WEST_FIRST, WATER, inRing, kmBetween } from '../src/data.js';
 
 const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); };
@@ -979,6 +980,40 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   q.owned.train = 18;
   const backQ = sim.hydrate(sim.serialize(q));
   if (backQ.owned.train !== 18) err('an era-scaled fleet must survive hydration, got ' + backQ.owned.train);
+
+  // Hydrate's fleet bound is a sanity rail against a hostile save and must
+  // never sit below what an honest player can own. It was a hard 48 written
+  // when 28 trains were purchasable; 0.14.0 raised that to 70 and turned the
+  // rail into a cliff that would have eaten a late fleet on reload. Computed
+  // here independently of the sim, so the two can never agree by accident.
+  const f = sim.newGame();
+  f.era = sim.ERAS.length - 1;
+  for (const a of sim.ACHIEVEMENTS) if (a.add && a.add.fleetMax) f.achieved[a.id] = true;
+  const reachable = sim.maxFor(f, trainItem) + 1 + 3; // bought + starting + three charter gifts
+  if (sim.maxFleetEver() < reachable) {
+    err('the hydrate fleet bound must cover a maximum fleet, ' + sim.maxFleetEver() + ' < ' + reachable);
+  }
+  while (f.trains.length < reachable) sim.addTrain(f, 0);
+  const backF = sim.hydrate(sim.serialize(f));
+  if (backF.trains.length !== reachable) {
+    err('a maximum fleet must survive hydration, got ' + backF.trains.length + ' of ' + reachable);
+  }
+
+  // And a save ALREADY truncated by the old bound is repaired on load: a
+  // train is never destroyed in play, so a fleet short of what was bought
+  // is owed the difference back.
+  const robbed = sim.newGame();
+  robbed.era = 4;
+  robbed.owned.train = 40;
+  const rawR = JSON.parse(sim.serialize(robbed));
+  rawR.trains = rawR.trains.slice(0, 5);        // what the 48 cap did, in miniature
+  const healed = sim.hydrate(JSON.stringify(rawR));
+  if (healed.trains.length !== 41) err('a truncated fleet must be restored to 41, got ' + healed.trains.length);
+  // A forged owned count still cannot mint a fleet beyond the ceiling.
+  const forged = JSON.parse(sim.serialize(robbed));
+  forged.owned.train = 99999;
+  const clamped = sim.hydrate(JSON.stringify(forged));
+  if (clamped.trains.length > sim.maxFleetEver()) err('a forged save minted ' + clamped.trains.length + ' trains');
 }
 
 // Era rider gates are a promise the save keeps (0.14.0 rescale): a save
@@ -995,6 +1030,37 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   const back = sim.hydrate(JSON.stringify(raw));
   back.era = 2;
   if (sim.nextEra(back).delivered !== 180000) err('a pre-0.14.0 save must keep its 180k gate, got ' + sim.nextEra(back).delivered);
+}
+
+// A trunk shared by two services draws as two ribbons side by side, and it
+// must do so however each line happens to store its stations. A line running
+// the trunk in the opposite order used to have both its perpendicular and
+// its slot negated, which cancelled exactly and stacked it under the other
+// line (live screenshot 2026-08-10, red covering green through Gamla stan).
+{
+  const t = sim.newGame();
+  t.money = 1e6;
+  t.pk = 99;
+  // A second line founded at anchor 1 and extended BACK to anchor 0, so it
+  // stores the shared segment as 1 then 0 while the green line stores 0
+  // then 1.
+  t.lines[0].stations[1].tier = 3;
+  if (!sim.foundLine(t, 0, 1)) err('setup, foundLine failed in the trunk check');
+  if (!sim.extendTo(t, 1, 'tail', ANCHORS[0].geo, 0)) err('setup, extend to anchor 0 failed');
+  const green = t.lines[0].stations.map((s) => s.anchor);
+  const other = t.lines[1].stations.map((s) => s.anchor);
+  if (!(green[0] === 0 && green[1] === 1)) err('setup, green should store 0 then 1, got ' + green);
+  if (!(other[0] === 1 && other[1] === 0)) err('setup, the second line should store 1 then 0, got ' + other);
+  const offs = trunkOffsets(t);
+  const a = offs[0][0], b = offs[1][0];
+  if (a === 0 || b === 0) err('a shared segment must push both lines aside, got ' + a + ' and ' + b);
+  if (Math.sign(a) === Math.sign(b)) {
+    err('lines sharing a segment in opposite order must be pushed to opposite sides, got ' + a + ' and ' + b);
+  }
+  if (Math.abs(a) !== Math.abs(b)) err('both services should sit the same distance off centre');
+  // A line running alone is never pushed.
+  const solo = trunkOffsets(sim.newGame());
+  if (solo[0].some((v) => v !== 0)) err('an unshared line must not be offset');
 }
 
 // Line colours (0.14.0): historic lines keep the identities the campaign
