@@ -1109,6 +1109,146 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (sim.shopCost(c, 'capacity') !== sim.shopCost(sim.newGame(), 'capacity')) err('the programme must not discount the rest of the shop');
 }
 
+// --- The 0.15.1 bug round. Each of these was found reproduced in the wild
+// before it was fixed, so each keeps a rail. ---
+{
+  // A junction is ONE station on the ground with an entry per line, and the
+  // save's size rail used to count ENTRIES against the station cap. A legal
+  // completionist city could cross it and have its save retired to a fresh
+  // 1950 map, with the backups and the export failing identically.
+  const b = sim.newGame();
+  b.money = 1e12; b.pk = 999; b.era = 5; b.totalDelivered = 1e6;
+  sim.buy(b, 'westline'); sim.buy(b, 'redline'); sim.buy(b, 'blueline');
+  // Junction entries: found lines at hubs and share stations between them.
+  for (let n = 0; n < 4 && b.lines.length < sim.maxLinesNow(b); n++) {
+    b.lines[0].stations[1].tier = 3;
+    if (!sim.foundLine(b, 0, 1)) break;
+  }
+  const entries = b.lines.reduce((a, L) => a + L.stations.length, 0);
+  const phys = sim.stationCount(b);
+  const back = sim.hydrate(sim.serialize(b));
+  if (back.hydrateFallback) err('a legal junction-heavy save must load, ' + phys + ' stations in ' + entries + ' entries');
+  if (back.lines.length !== b.lines.length) err('every line must survive, got ' + back.lines.length + ' of ' + b.lines.length);
+  if (sim.stationCount(back) !== phys) err('physical stations must survive, ' + sim.stationCount(back) + ' vs ' + phys);
+}
+{
+  // The trust ceiling stops the EARNING. It must never confiscate what a
+  // save already holds; it used to wipe the surplus in one tick.
+  const p = sim.newGame();
+  p.pk = 500;
+  const cap = sim.pkCap(p);
+  if (!(cap < 500)) err('setup, the cap should be below the banked trust');
+  for (let i = 0; i < 20; i++) { sim.tick(p, 0.05); p.events.length = 0; }
+  if (p.pk < 500) err('banked trust must survive the ceiling, ' + p.pk + ' of 500');
+}
+{
+  // A charter seeds a LINE, so it answers to the line cap that founding
+  // answers to. It used to walk straight past it.
+  const c = sim.newGame();
+  c.money = 1e9; c.pk = 999; c.era = 3; c.totalDelivered = 3e5;
+  let guard = 0;
+  while (c.lines.length < sim.maxLinesNow(c) && guard++ < 20) {
+    c.lines[0].stations[1].tier = 3;
+    if (!sim.foundLine(c, 0, 1)) break;
+  }
+  const atCap = c.lines.length;
+  if (atCap !== sim.maxLinesNow(c)) err('setup, expected to reach the line cap, got ' + atCap);
+  sim.buy(c, 'westline');
+  if (c.lines.length > sim.maxLinesNow(c)) err('a charter must not exceed the line cap, ' + c.lines.length + ' > ' + sim.maxLinesNow(c));
+}
+{
+  // Quotes and charges must agree exactly: buying n one at a time must cost
+  // what the bulk quote said, or a button reads affordable and buys nothing.
+  const q = sim.newGame();
+  q.era = 5; q.money = 1e15; q.pk = 999;
+  for (const id of ['train', 'capacity', 'entrances']) {
+    for (const want of [1, 3, 10]) {
+      const w = sim.newGame(); w.era = 5; w.money = 1e15; w.pk = 999;
+      const item = sim.CATALOG.find((x) => x.id === id);
+      // Only ever compare a quantity the item has room for: bulkCost prices
+      // the rungs it is asked for and the caller is what clamps to the cap.
+      const n = Math.min(want, sim.maxFor(w, item) - w.owned[id]);
+      if (n < 1) continue;
+      const quote = sim.bulkCost(w, id, n);
+      let sum = 0;
+      for (let k = 0; k < n; k++) { sum += sim.shopCost(w, id); if (!sim.buy(w, id)) break; }
+      if (sum !== quote) err('x' + n + ' of ' + id + ' quoted ' + quote + ' and charged ' + sum);
+    }
+    // And an exact wallet must always buy at least one.
+    const w2 = sim.newGame(); w2.era = 5; w2.pk = 999;
+    w2.money = sim.shopCost(w2, id);
+    if (sim.affordableLevels(w2, id, 1) < 1) err('an exact wallet must afford one ' + id + ', the dead click is back');
+  }
+}
+{
+  // Riders bound for a stop that leaves the line are LOST, not quietly
+  // booked as delivered to a station that no longer exists.
+  const r = sim.newGame();
+  r.money = 1e7;
+  for (let k = r.lines[0].stations.length; k < 8; k++) sim.extendTo(r, 0, 'tail', ANCHORS[k].geo, k);
+  sim.dispatch(r);
+  for (let i = 0; i < 300; i++) { sim.tick(r, 0.1); r.events.length = 0; }
+  const car = r.trains.find((t) => t.run && t.run.onboard > 1);
+  if (car) {
+    const sumOf = (run) => run.dest.reduce((a, v) => a + v, 0) + run.destCont.reduce((a, v) => a + v, 0);
+    const before = { on: car.run.onboard, sum: sumOf(car.run), lost: r.totalLost };
+    if (Math.abs(before.on - before.sum) > 0.01) err('setup, the manifest should already balance');
+    const target = car.run.from + car.run.dir * 2;
+    if (target > 0 && target < r.lines[0].stations.length - 1 && sim.canRemoveStation(r, 0, target)) {
+      sim.removeStation(r, 0, target);
+      const gap = Math.abs(car.run.onboard - sumOf(car.run));
+      if (gap > 0.01) err('onboard must follow the manifest when a stop leaves, gap ' + gap.toFixed(2));
+      if (!(r.totalLost >= before.lost)) err('riders whose stop vanished must be counted lost');
+    }
+  }
+}
+{
+  // An incident must not outlive the station it broke.
+  const inc = sim.newGame();
+  inc.money = 1e7;
+  for (let k = inc.lines[0].stations.length; k < 8; k++) sim.extendTo(inc, 0, 'tail', ANCHORS[k].geo, k);
+  const victim = inc.lines[0].stations[3];
+  // The same key the sim uses: anchor if it has one, else its rounded geo.
+  const key = victim.anchor !== null ? 'a' + victim.anchor
+    : victim.geo[0].toFixed(4) + ',' + victim.geo[1].toFixed(4);
+  inc.incident = { key, geo: victim.geo, name: victim.name, until: inc.clock + 45 };
+  if (sim.canRemoveStation(inc, 0, 3)) {
+    sim.removeStation(inc, 0, 3);
+    if (inc.incident) err('an incident must die with its station');
+  }
+}
+{
+  // Two lines must never share a name, however the middle of the list was
+  // emptied out.
+  const n = sim.newGame();
+  n.money = 1e9; n.pk = 999; n.era = 3;
+  n.lines[0].stations[1].tier = 3;
+  sim.foundLine(n, 0, 1);
+  n.lines[0].stations[2].tier = 3;
+  sim.foundLine(n, 0, 2);
+  sim.demolish(n, 1, 'tail');            // take the middle line away
+  n.lines[0].stations[1].tier = 3;
+  sim.foundLine(n, 0, 1);
+  const names = n.lines.map((L) => L.name);
+  if (new Set(names).size !== names.length) err('two lines share a name: ' + names.join(' | '));
+}
+{
+  // One order per train: pressing Send twice must not charge twice.
+  const d = sim.newGame();
+  d.money = 1e7; d.pk = 99; d.era = 1; d.totalDelivered = 3e4;
+  sim.buy(d, 'westline');
+  sim.buy(d, 'train');
+  sim.dispatch(d);
+  const moving = d.trains.find((t) => t.run);
+  if (moving) {
+    const before = d.money;
+    const first = sim.sendThisTrain(d, moving.id);
+    const second = sim.sendThisTrain(d, moving.id);
+    if (first === 'queued' && second) err('a second order for one train must refuse');
+    if (first === 'queued' && d.money !== before - sim.BAL.moveTrainKr) err('one order, one fee');
+  }
+}
+
 // --- The train inspector's sim layer (0.15.0) ---
 // Identity is the first thing about a train that outlives the session, so it
 // is the first thing asserted: unique, stable across a save, and handed out

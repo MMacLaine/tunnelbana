@@ -1063,7 +1063,13 @@ export function trainMarks(g) {
     } else {
       const s = L.stations[t.at];
       if (!s) continue;
-      const key = t.line + ':' + t.at;
+      // Keyed by the PHYSICAL station, not by line and index. Keying it per
+      // line restarted the offset for each service, so at an interchange
+      // where three lines terminate, six resting trains landed on two
+      // pixels and four of them had nowhere on the map that could open
+      // them. T-Centralen is exactly such a place, which made the
+      // inspector's main affordance fail at the busiest stop in the game.
+      const key = stKey(s);
       const k = stack.get(key) || 0;
       stack.set(key, k + 1);
       const p = project(s.geo);
