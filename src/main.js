@@ -136,6 +136,49 @@ const STR = {
   fleetGrows: 'The fleet cap rises with the next era',
   upkeepGrows: 'Upkeep grows about',
   lineColour: 'Line colour',
+  // The train inspector (0.15.0). Every line of it obeys the voice rule, so
+  // a state reads as a sentence about a train rather than a labelled field.
+  ti: {
+    train: 'Train',
+    running: 'Running',
+    dwelling: 'Doors open',
+    parked: 'Parked',
+    stabled: 'Stabled',
+    towards: 'toward',
+    between: 'and next calls at',
+    at: 'at',
+    boardingAt: 'at',
+    stabledWhere: 'carrying nobody, at reduced cost',
+    stackOf: 'of',
+    inTheStack: 'in the stack here',
+    full: 'Full service · every stop',
+    express: 'Express · skips some stops',
+    expressNext: 'Next out as express',
+    fullNext: 'Next out as full service',
+    patternNote: 'the line alternates, so this is the run and not the train',
+    bands: { easy: 'Room to spare', fill: 'Filling', busy: 'Busy', crush: 'Crush' },
+    manifest: 'Aboard, and where they get off',
+    change: 'change',
+    off: 'off',
+    furtherA: 'and',
+    furtherB: 'riding further, to',
+    furtherC: 'and the stops before it',
+    ready: 'Ready in',
+    readySec: 's',
+    notSaved: 'not saved',
+    movingTo: 'Moving to',
+    send: 'Move to another line',
+    sendTo: 'Move to',
+    sendNone: 'Nowhere to send it',
+    sendQueued: 'moves when it next parks',
+    stable: 'Stable this train',
+    wake: 'Wake this train',
+    stableLast: 'The last working train stays',
+    gone: 'This train is not here any more. It may have been stabled, moved to another line, or lost its line to a demolition.',
+    renameTitle: 'Name this train',
+    stabledCount: 'Stabled',
+    inspect: 'Inspect',
+  },
   statsToggle: 'Stats',
   skipOn: 'Express skips this stop',
   skipOff: 'Express calls here again',
@@ -1303,6 +1346,8 @@ window.addEventListener('keydown', (e) => {
     if (!$('confirm').hidden) { closeConfirm(); return; }
     if (statsOpen) { setStatsOpen(false); return; }
     if (councilOpen) { setCouncilOpen(false); return; }
+    // The inspector unwinds before the menu, like every other open surface.
+    if (selectedTrain !== null) { selectTrain(null); return; }
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
              !$('ach-view').hidden || !$('log-view').hidden || !$('slots-view').hidden) menuView('main');
@@ -1479,9 +1524,14 @@ wrap.addEventListener('pointerdown', (e) => {
   if (paused || e.button === 2) return;
   const p = canvasPos(e);
   downAt = p;
-  const ref = render.nearEnd(g, p);
-  if (ref) {
-    dragRef = ref;
+  // Line ends and trains compete for the same pixels: a train resting at a
+  // terminus sits inside the end handle's grab radius. Whichever the pointer
+  // is actually NEARER wins, so the build verb keeps the handle and the
+  // inspector can still reach a train parked on top of it (0.15.0).
+  const ref = render.nearEndAt(g, p);
+  const nearTrainHit = render.nearTrainAt(g, p);
+  if (ref && !(nearTrainHit && nearTrainHit.d < ref.d)) {
+    dragRef = { li: ref.li, end: ref.end };
     render.setDrag(dragState(p));
     if (map) map.dragPan.disable();
     e.stopPropagation();
@@ -1513,6 +1563,16 @@ wrap.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     return;
   }
+  // A train (0.15.0). It outranks the station beneath it for the same
+  // reason a curiosity does, and because trains paint over stations: the
+  // thing under the pointer should be the thing that answers. It sits below
+  // the golden train and the curiosities, which are briefer and rarer.
+  if (nearTrainHit) {
+    selectTrain(nearTrainHit.id);
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
   // A built station (not a grabbable end): select it for the panel.
   const st = render.nearStation(g, p);
   if (st) {
@@ -1535,6 +1595,7 @@ wrap.addEventListener('pointerdown', (e) => {
     return;
   }
   selectStation(null); // clicking empty map clears the panel (pan still works)
+  selectTrain(null);
   // Click on a dashed anchor ring: extend from the nearest legal line end.
   const a = render.nearAnchor(g, p, null);
   if (a !== null) {
@@ -1567,7 +1628,8 @@ wrap.addEventListener('pointermove', (e) => {
     const ins = insertSpot(p);
     render.setInsertHover(ins);
     wrap.style.cursor =
-      render.nearEnd(g, p) || ins || render.nearAnchor(g, p, null) !== null ? 'pointer' : '';
+      render.nearEnd(g, p) || ins || render.nearTrain(g, p) !== null ||
+      render.nearAnchor(g, p, null) !== null ? 'pointer' : '';
   } else {
     render.setInsertHover(null);
   }
@@ -1579,6 +1641,7 @@ wrap.addEventListener('pointermove', (e) => {
 // outrank it, so the ghost never fights an existing click.
 function insertSpot(p) {
   if (render.nearEnd(g, p) || render.nearStation(g, p) || render.nearGold(g, p)) return null;
+  if (render.nearTrain(g, p) !== null) return null;
   const m = render.nearInsert(g, p);
   if (!m) return null;
   const problem = sim.insertProblem(g, m.li, m.seg);
@@ -1654,7 +1717,27 @@ function selectStation(sel) {
   selected = sel;
   render.setSelected(sel);
   $('station-panel').hidden = !sel;
-  if (sel) updateStationPanel();
+  // One subject at a time (design pass 05, ruling 6): the two panels answer
+  // the same question about different things and share the same slot.
+  if (sel) { selectTrain(null); updateStationPanel(); }
+}
+
+// --- The train inspector (0.15.0) ---
+let selectedTrain = null; // train id | null
+
+function selectTrain(id) {
+  selectedTrain = id === undefined ? null : id;
+  render.setSelectedTrain(selectedTrain);
+  $('train-panel').hidden = selectedTrain === null;
+  if (selectedTrain !== null) { selectStationQuiet(null); updateTrainPanel(); }
+}
+
+// Clearing the station selection WITHOUT bouncing back into selectTrain,
+// which would close the panel we are in the middle of opening.
+function selectStationQuiet(sel) {
+  selected = sel;
+  render.setSelected(sel);
+  $('station-panel').hidden = !sel;
 }
 
 function stationUpgRow(kind) {
@@ -1686,6 +1769,131 @@ function stationUpgRow(kind) {
   } else if (why === 'tier') {
     btn.textContent += ' · ' + STR.deeperNeedsTier;
   }
+}
+
+// Everything below renders sim.trainView and nothing else. If a fact is not
+// on that object it does not belong in this panel; add it to the selector.
+function updateTrainPanel() {
+  if (selectedTrain === null) return;
+  const T = STR.ti;
+  const v = sim.trainView(g, selectedTrain);
+  const gone = !v;
+  // The subject can vanish under an open panel (stabled, moved, or its line
+  // demolished). The frame stays and the body explains, rather than the
+  // panel blinking out and leaving the player wondering what they broke.
+  for (const id of ['ti-line-wrap', 'ti-load', 'ti-manifest', 'ti-ready']) {
+    const el = $(id);
+    if (el) el.hidden = gone;
+  }
+  $('ti-gone').hidden = !gone;
+  $('ti-send').hidden = gone;
+  $('ti-stable').hidden = gone;
+  $('ti-rename').hidden = gone;
+  if (gone) {
+    $('train-panel').dataset.state = 'gone';
+    $('ti-gone-text').textContent = T.gone;
+    $('ti-name').textContent = T.train + ' ' + selectedTrain;
+    $('ti-no').textContent = '';
+    $('ti-doing').hidden = true;
+    $('ti-run').hidden = true;
+    return;
+  }
+  $('ti-doing').hidden = false;
+  $('train-panel').dataset.state = v.state;
+
+  $('ti-name').textContent = v.name || (T.train + ' ' + v.id);
+  $('ti-no').textContent = v.name ? T.train + ' ' + v.id : '';
+  $('ti-dot').style.background = v.line.color;
+  $('ti-line').textContent = v.line.name;
+
+  // The one glance line: the verb, then where.
+  const verb = v.state === 'running' ? T.running
+    : v.state === 'dwelling' ? T.dwelling
+    : v.state === 'stabled' ? T.stabled : T.parked;
+  $('ti-verb').textContent = verb;
+  let where = '';
+  if (v.state === 'running') {
+    where = T.towards + ' ' + (v.towards || '') +
+      (v.nextStop ? ', ' + T.between + ' ' + v.nextStop : '');
+  } else if (v.state === 'dwelling') {
+    where = T.boardingAt + ' ' + (v.at || '');
+  } else if (v.state === 'parked') {
+    where = T.at + ' ' + (v.at || '') +
+      (v.stackSize > 1 ? ', ' + v.stackIndex + ' ' + T.stackOf + ' ' + v.stackSize + ' ' + T.inTheStack : '');
+  } else {
+    where = T.stabledWhere;
+  }
+  if (v.movingTo) where += ' · ' + T.movingTo + ' ' + v.movingTo;
+  $('ti-where').textContent = where;
+
+  // Service pattern. Only shown where it means something, and never as a
+  // switch: it belongs to the line and rotates every departure.
+  const runEl = $('ti-run');
+  runEl.hidden = v.state === 'stabled';
+  if (!runEl.hidden) {
+    const isRun = v.state === 'running' || v.state === 'dwelling';
+    runEl.textContent = v.linePatterned
+      ? (isRun ? (v.express ? T.express : T.full) : (v.express ? T.expressNext : T.fullNext))
+      : T.full;
+    runEl.classList.toggle('tb-insp__run--express', !!v.express && v.linePatterned);
+    runEl.title = v.linePatterned ? T.patternNote : '';
+  }
+
+  // Load: meter, number and word together, so 40 of 480 and 470 of 480 can
+  // never read alike.
+  const load = $('ti-load');
+  load.dataset.band = v.band;
+  $('ti-load-word').textContent = T.bands[v.band];
+  $('ti-load-n').textContent = fmt(Math.round(v.onboard));
+  $('ti-load-cap').textContent = ' / ' + fmt(v.capacity);
+  $('ti-load-fill').style.width = Math.round(v.loadFrac * 100) + '%';
+
+  // The manifest, the reason to open the panel twice.
+  const man = $('ti-manifest');
+  man.hidden = !v.manifest.length;
+  if (!man.hidden) {
+    $('ti-manifest-title').textContent = T.manifest;
+    $('ti-manifest-n').textContent = fmt(Math.round(v.onboard));
+    $('ti-manifest-rows').innerHTML = v.manifest.map((m, i) => {
+      const change = m.change > 0.5
+        ? '<span class="tb-manifest__change">· ' + fmt(Math.round(m.change)) + ' ' + T.change + '</span>' : '';
+      return '<div class="tb-manifest__stop' + (i === 0 ? ' tb-manifest__stop--soon' : '') + '">' +
+        '<span class="tb-manifest__spine"><i class="tb-manifest__node' +
+        (m.change > 0.5 ? ' tb-manifest__node--change' : '') + '"></i></span>' +
+        '<span class="tb-manifest__name">' + esc(m.name) + ' ' + change + '</span>' +
+        '<span class="tb-manifest__off"><b>' + fmt(Math.round(m.off)) + '</b> ' + T.off + '</span></div>';
+    }).join('');
+    const f = $('ti-further');
+    f.hidden = !v.further;
+    if (v.further) {
+      f.textContent = T.furtherA + ' ' + fmt(Math.round(v.further.riders)) + ' ' + T.furtherB + ' ' +
+        v.further.last + (v.further.stops > 1 ? ' ' + T.furtherC : '');
+    }
+  }
+
+  // The turnaround clock, marked as something a reload forgets.
+  const ready = $('ti-ready');
+  ready.hidden = !(v.state === 'parked' && v.readyIn > 0.05);
+  if (!ready.hidden) {
+    ready.innerHTML = '<span>' + T.ready + ' ' + Math.ceil(v.readyIn) + T.readySec +
+      '</span><span class="tb-row__v tb-insp__ephemeral">' + T.notSaved + '</span>';
+  }
+
+  // Actions. Disabled states name their reason rather than fading out.
+  const send = $('ti-send');
+  const target = sim.sendTargetFor(g, v.id);
+  const canSend = target >= 0 && sim.spareTrains(g, v.line.index) >= 1 && g.money >= sim.BAL.moveTrainKr;
+  send.disabled = !canSend;
+  send.textContent = target >= 0 && g.lines[target]
+    ? T.sendTo + ' ' + g.lines[target].name : T.sendNone;
+  send.title = canSend && v.state !== 'parked' ? T.sendQueued : '';
+
+  const stable = $('ti-stable');
+  const stabled = v.state === 'stabled';
+  const canStable = stabled ? true : (v.state === 'parked' && g.trains.filter((t) => !t.mothballed).length > 1);
+  stable.disabled = !canStable;
+  stable.textContent = stabled ? T.wake : T.stable;
+  stable.title = !canStable && !stabled ? T.stableLast : '';
 }
 
 function updateStationPanel() {
@@ -1783,6 +1991,40 @@ for (const kind of ['tier', 'ent', 'gates', 'shop']) {
   });
 }
 $('sp-close').addEventListener('click', () => selectStation(null));
+
+// --- The inspector's controls. Each re-reads the selection at click time
+// and no-ops if it is gone, the same contract the station panel's foot uses,
+// because the subject can vanish between the render and the click.
+$('ti-close').addEventListener('click', () => selectTrain(null));
+// Pointerdown, not click: this row re-renders every tick with the fleet
+// numbers, and a click straddling a re-render dispatches to the container
+// (the 2026-08-07 lesson that the plus button "did nothing" some of the time).
+$('stabled-row').addEventListener('pointerdown', (e) => {
+  const id = e.target?.dataset?.inspect;
+  if (id === undefined || paused) return;
+  e.preventDefault();
+  selectTrain(Number(id));
+});
+$('ti-send').addEventListener('pointerdown', (e) => {
+  if (selectedTrain === null || paused) return;
+  e.preventDefault();
+  const r = sim.sendThisTrain(g, selectedTrain);
+  if (r) { save(); updateUI(); }
+});
+$('ti-stable').addEventListener('pointerdown', (e) => {
+  if (selectedTrain === null || paused) return;
+  e.preventDefault();
+  const v = sim.trainView(g, selectedTrain);
+  if (!v) return;
+  const done = v.state === 'stabled' ? sim.wakeTrain(g, selectedTrain) : sim.mothballTrain(g, selectedTrain);
+  if (done) { save(); updateUI(); }
+});
+$('ti-rename').title = STR.ti.renameTitle;
+$('ti-rename').setAttribute('aria-label', STR.ti.renameTitle);
+$('ti-rename').addEventListener('click', () => {
+  if (selectedTrain === null) return;
+  openRename({ kind: 'train', trainId: selectedTrain });
+});
 $('sp-fix').addEventListener('click', () => {
   if (sim.fixIncident(g)) updateUI();
 });
@@ -1847,7 +2089,13 @@ function renameLi() {
 function openRename(ref) {
   renameRef = ref;
   const inp = $('rename-input');
-  if (ref.kind === 'station') {
+  if (ref.kind === 'train') {
+    // A train is held by its ID, which is stable by construction, so this
+    // one needs none of the line object dance below.
+    const v = sim.trainView(g, ref.trainId);
+    $('rename-title').textContent = STR.ti.renameTitle;
+    inp.value = v && v.name ? v.name : '';
+  } else if (ref.kind === 'station') {
     $('rename-title').textContent = STR.renameStation;
     inp.value = ref.line.stations[ref.i].name;
   } else {
@@ -1900,7 +2148,12 @@ function commitRename(name) {
   const ref = renameRef;
   const li = renameLi();
   closeRename();
-  if (!ref || li < 0) return;
+  if (!ref) return;
+  if (ref.kind === 'train') {
+    if (sim.renameTrain(g, ref.trainId, name)) { save(); updateUI(); }
+    return;
+  }
+  if (li < 0) return;
   const ok = ref.kind === 'station'
     ? sim.renameStation(g, li, ref.i, name)
     : sim.renameLine(g, li, name);
@@ -1909,8 +2162,16 @@ function commitRename(name) {
 $('rename-yes').addEventListener('click', () => commitRename($('rename-input').value));
 $('rename-given').addEventListener('click', () => {
   const ref = renameRef;
-  const li = renameLi();
   if (!ref) return;
+  if (ref.kind === 'train') {
+    // A train's given name is its number, so restoring means dropping the
+    // player's name and letting the number speak again.
+    const id = ref.trainId;
+    closeRename();
+    if (sim.clearTrainName(g, id)) { save(); updateUI(); }
+    return;
+  }
+  const li = renameLi();
   if (li < 0) { closeRename(); return; }
   if (ref.kind === 'station') {
     if (!g.lines[li].stations[ref.i]) { closeRename(); return; }
@@ -1979,6 +2240,19 @@ $('line-rows').addEventListener('pointerdown', (e) => {
 let lineRowsHTML = '';   // rebuild only on change: fewer re-renders, fewer eaten presses
 let rushChipHTML = '';   // same rule for the rush chip
 let lastRush = null;     // the most recent grade, shown as a chip for a while
+// The stabled fleet. A stabled train has no presence on the map, so without
+// this row the inspector could describe it but the player could never open
+// it (design pass 05, ruling 7).
+function updateStabledRow() {
+  const row = $('stabled-row');
+  const stabled = g.trains.filter((t) => t.mothballed);
+  row.hidden = stabled.length === 0;
+  if (row.hidden) return;
+  row.innerHTML = STR.ti.stabledCount + '<span class="tb-row__v">' + stabled.length +
+    ' · <button class="tb-linkbtn" data-inspect="' + stabled[0].id + '">' +
+    STR.ti.inspect + '</button></span>';
+}
+
 function updateLineRows() {
   const rows = [];
   const fee = B.moveTrainKr;
@@ -2850,6 +3124,8 @@ function updateUI() {
   bell.classList.toggle('tb-bell--auto', auto);
   bell.disabled = !idleN;
   if (selected) updateStationPanel();
+  if (selectedTrain !== null) updateTrainPanel();
+  updateStabledRow();
   updateAim();
   updateLineRows();
   updateShop();

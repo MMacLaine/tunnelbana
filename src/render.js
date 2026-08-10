@@ -97,11 +97,16 @@ let basemap = 'off'; // 'pending' | 'on' | 'off'; fallback water draws only when
 let drag = null;   // {x, y, li, end, snap, cost, problem, label} set by main.js
 let floats = [];   // {geo, text, age, colour}
 let selected = null; // {li, i} | null
+let selectedTrain = null; // train id | null (0.15.0, the inspector)
 let clockT = 0;
 let lastDrawAt = 0;
 
 export function setSelected(sel) {
   selected = sel;
+}
+
+export function setSelectedTrain(id) {
+  selectedTrain = id === undefined ? null : id;
 }
 
 // --- Projection ---
@@ -256,14 +261,14 @@ export function endHandles(g) {
   return out;
 }
 
-// Returns { li, end } for the nearest grabbable line end, or null.
-export function nearEnd(g, p) {
+// Returns { li, end, d } for the nearest grabbable line end, or null.
+export function nearEndAt(g, p) {
   const r = grabRadius();
   const handles = endHandles(g);
   let best = null, bestD = r;
   for (const h of handles) {
     const d = Math.hypot(p.x - h.x, p.y - h.y);
-    if (d < bestD) { best = { li: h.li, end: h.end }; bestD = d; }
+    if (d < bestD) { best = { li: h.li, end: h.end, d }; bestD = d; }
   }
   if (best) return best;
   // The fan pulled the handles off the station, which orphaned the side of
@@ -275,9 +280,13 @@ export function nearEnd(g, p) {
     if (!h.fanned) continue;
     if (Math.hypot(p.x - h.cx, p.y - h.cy) >= r) continue;
     const d = Math.hypot(p.x - h.x, p.y - h.y);
-    if (d < fbD) { fb = { li: h.li, end: h.end }; fbD = d; }
+    if (d < fbD) { fb = { li: h.li, end: h.end, d }; fbD = d; }
   }
   return fb;
+}
+
+export function nearEnd(g, p) {
+  return nearEndAt(g, p);
 }
 
 // --- Insert-station affordance (v12, pass 04 section e): a ghost node on a
@@ -1026,26 +1035,82 @@ function drawIncident(g) {
   label('SIGNALFEL', p.x + 14, p.y + 14, COL.amber, 10, { weight: 600 });
 }
 
+// Every train that has a place on the map, with the exact screen point it is
+// drawn at. ONE source for the drawing AND the hit test (0.15.0): a mark the
+// pointer cannot find where the eye can is the shared terminus bug wearing a
+// different hat, so the two are not allowed to compute it separately.
+//
+// Stabled trains are deliberately absent. They are not on the map at all, so
+// the Network panel's fleet list is how the player reaches one.
+export function trainMarks(g) {
+  const out = [];
+  const stack = new Map(); // line:at -> how many pips already placed there
+  for (const t of g.trains) {
+    if (t.mothballed) continue;
+    const L = g.lines[t.line];
+    if (!L) continue;
+    if (t.run) {
+      // Position from the sim's accel/dwell physics: dots brake into
+      // platforms and visibly sit while boarding (report 634 §2a).
+      const pos = trainPos(g, t);
+      const aSt = L.stations[pos.from], bSt = L.stations[pos.to];
+      if (!aSt || !bSt) continue;
+      const a = project(aSt.geo), b = project(bSt.geo);
+      out.push({
+        t, id: t.id, kind: 'run', color: L.color,
+        x: a.x + (b.x - a.x) * pos.f, y: a.y + (b.y - a.y) * pos.f,
+      });
+    } else {
+      const s = L.stations[t.at];
+      if (!s) continue;
+      const key = t.line + ':' + t.at;
+      const k = stack.get(key) || 0;
+      stack.set(key, k + 1);
+      const p = project(s.geo);
+      out.push({ t, id: t.id, kind: 'idle', color: L.color, x: p.x + 6 + k * 9, y: p.y - 14 });
+    }
+  }
+  return out;
+}
+
+// The train under the pointer with how far away it is, or null. Reverse
+// order so the one painted on top answers, and a radius in the nearGold
+// spirit: a moving 28 by 16 body wants a forgiving circle, not its own
+// rectangle.
+//
+// The DISTANCE is part of the answer because a train resting at a terminus
+// sits about fifteen pixels from the station, which is inside the line end
+// grab radius. Whoever is nearest the pointer should win, or either the
+// build verb or the inspector becomes unreachable there.
+export function nearTrainAt(g, p) {
+  const marks = trainMarks(g);
+  let best = null, bestD = Infinity;
+  for (let i = marks.length - 1; i >= 0; i--) {
+    const m = marks[i];
+    const d = Math.hypot(p.x - m.x, p.y - m.y);
+    if (d <= (m.kind === 'run' ? 20 : 8) && d < bestD) { best = { id: m.id, d }; bestD = d; }
+  }
+  return best;
+}
+
+export function nearTrain(g, p) {
+  const hit = nearTrainAt(g, p);
+  return hit ? hit.id : null;
+}
+
 function drawTrains(g) {
-  for (const train of g.trains) {
-    if (!train.run) continue;
-    const L = g.lines[train.line];
-    const run = train.run;
-    // Position from the sim's accel/dwell physics: dots brake into platforms
-    // and visibly sit while boarding (report 634 §2a).
-    const pos = trainPos(g, train);
-    const a = project(L.stations[pos.from].geo);
-    const bSt = L.stations[pos.to];
-    if (!bSt) continue;
-    const b = project(bSt.geo);
-    const x = a.x + (b.x - a.x) * pos.f;
-    const y = a.y + (b.y - a.y) * pos.f;
+  const marks = trainMarks(g);
+  // Bodies first, then the resting pips, so a pip beside a station is never
+  // buried under a train running past it.
+  for (const m of marks) {
+    if (m.kind !== 'run') continue;
+    const { x, y } = m;
     ctx.beginPath();
     ctx.roundRect(x - 14, y - 8, 28, 16, 2.5);
     // The train wears its line's colour (0.14.0, owner ask with the custom
     // line colours): which line a train serves reads at a glance. The ink
     // outline keeps the body from melting into the stroke it rides on.
-    ctx.fillStyle = L.color;
+    ctx.fillStyle = m.color;
     ctx.fill();
     ctx.lineWidth = 1.4;
     ctx.strokeStyle = COL.trainInk;
@@ -1060,25 +1125,33 @@ function drawTrains(g) {
     ctx.font = mono(9, 600);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(Math.round(run.onboard)), x, y + 2.5);
+    ctx.fillText(String(Math.round(m.t.run.onboard)), x, y + 2.5);
   }
-  // Idle trains wait as pips beside their station, in their line's colour.
-  const idleAt = new Map();
-  for (const t of g.trains) {
-    if (t.run || t.mothballed) continue;
-    const key = t.line + ':' + t.at;
-    idleAt.set(key, (idleAt.get(key) || 0) + 1);
+  for (const m of marks) {
+    if (m.kind !== 'idle') continue;
+    ctx.fillStyle = m.color;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 3.2, 0, Math.PI * 2);
+    ctx.fill();
   }
-  for (const [key, n] of idleAt) {
-    const [li, idx] = key.split(':').map(Number);
-    const s = g.lines[li]?.stations[idx];
-    if (!s) continue;
-    ctx.fillStyle = g.lines[li].color;
-    const p = project(s.geo);
-    for (let k = 0; k < n; k++) {
+  // The inspected train wears a ring in its own line's colour, with an ink
+  // keyline so it survives sitting on the stroke it belongs to.
+  if (selectedTrain !== null) {
+    const m = marks.find((x) => x.id === selectedTrain);
+    if (m) {
+      const r = (m.kind === 'run' ? 17 : 7.5) + Math.sin(clockT * 2.4) * 1.2;
       ctx.beginPath();
-      ctx.arc(p.x + 6 + k * 9, p.y - 14, 3.2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(m.x, m.y, r + 1.5, 0, Math.PI * 2);
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = COL.trainInk;
+      ctx.globalAlpha = 0.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = m.color;
+      ctx.stroke();
     }
   }
 }

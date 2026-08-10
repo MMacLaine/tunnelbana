@@ -9,18 +9,19 @@
      newer page (that shipped a dead Achievements screen and a 0.7 readout on a
      0.8 page). The handshake lives in the HTML because the HTML is the copy a
      browser revalidates. -->
-<meta name="tb-version" content="0.14.2">
+<meta name="tb-version" content="0.15.0">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="vendor/maplibre-gl.css" rel="stylesheet">
 <script src="vendor/maplibre-gl.js"></script>
 <!-- The design system, in adoption order (pass 02, section 08): colour and
      glyph tokens, then the interface tokens, then the component layer. Every
      class in the markup below comes from ui.css; this file owns only layout. -->
-<link rel="stylesheet" href="tokens.css?v=0.14.2">
-<link rel="stylesheet" href="tokens-ui.css?v=0.14.2">
-<link rel="stylesheet" href="ui.css?v=0.14.2">
-<link rel="stylesheet" href="ui-moments.css?v=0.14.2">
-<link rel="stylesheet" href="ui-council.css?v=0.14.2">
+<link rel="stylesheet" href="tokens.css?v=0.15.0">
+<link rel="stylesheet" href="tokens-ui.css?v=0.15.0">
+<link rel="stylesheet" href="ui.css?v=0.15.0">
+<link rel="stylesheet" href="ui-moments.css?v=0.15.0">
+<link rel="stylesheet" href="ui-council.css?v=0.15.0">
+<link rel="stylesheet" href="ui-train.css?v=0.15.0">
 <style>
   @font-face {
     font-family: "IBM Plex Mono";
@@ -440,6 +441,46 @@
         <button class="tb-btn tb-btn--inline tb-btn--danger tb-btn--block" id="sp-remove" hidden></button>
       </div>
     </div>
+    <!-- The train inspector (0.15.0, design pass 05). Shares this slot with
+         the station panel and replaces it: both answer "the thing you just
+         clicked", so only one is ever open. Everything inside is filled from
+         sim.trainView, so no markup here reads a train's internals. -->
+    <div class="tb-panel tb-insp" id="train-panel" hidden>
+      <div class="tb-panel__head">
+        <span class="tb-insp__id">
+          <span class="tb-insp__name" id="ti-name"></span>
+          <span class="tb-insp__no" id="ti-no"></span>
+        </span>
+        <button class="tb-linkbtn tb-linkbtn--edit" id="ti-rename">✎</button>
+        <button class="tb-panel__close" id="ti-close" aria-label="Close">×</button>
+      </div>
+      <div class="tb-panel__body" id="ti-body">
+        <span class="tb-insp__line" id="ti-line-wrap"><i class="tb-insp__dot" id="ti-dot"></i><span id="ti-line"></span></span>
+        <div class="tb-insp__doing" id="ti-doing">
+          <i class="tb-insp__pulse"></i>
+          <span><b class="tb-insp__verb" id="ti-verb"></b> <span class="tb-insp__where" id="ti-where"></span></span>
+        </div>
+        <div><span class="tb-insp__run" id="ti-run"></span></div>
+        <div class="tb-load" id="ti-load">
+          <div class="tb-load__top">
+            <span class="tb-load__word" id="ti-load-word"></span>
+            <span class="tb-load__num"><span id="ti-load-n"></span><span class="tb-load__cap" id="ti-load-cap"></span></span>
+          </div>
+          <div class="tb-load__meter"><i class="tb-load__fill" id="ti-load-fill"></i></div>
+        </div>
+        <div class="tb-manifest" id="ti-manifest">
+          <div class="tb-manifest__head"><span id="ti-manifest-title"></span><span id="ti-manifest-n"></span></div>
+          <div id="ti-manifest-rows"></div>
+          <div class="tb-manifest__more" id="ti-further" hidden></div>
+        </div>
+        <div class="tb-row" id="ti-ready" hidden></div>
+        <div class="tb-insp__gone" id="ti-gone" hidden><p id="ti-gone-text"></p></div>
+      </div>
+      <div class="tb-panel__foot tb-insp__actions">
+        <button class="tb-btn tb-btn--inline" id="ti-send"></button>
+        <button class="tb-btn tb-btn--inline" id="ti-stable"></button>
+      </div>
+    </div>
     <!-- The aims strip (0.9): the game's one standing suggestion, derived
          entirely from sim state so it can never contradict the board or get
          stuck. Live feedback asked the game to "lead you more"; two players
@@ -495,6 +536,10 @@
         <div class="tb-row">Trains idle / active <span class="tb-row__v" id="stat-trains">1 / 1</span></div>
         <hr class="tb-divider">
         <div id="line-rows"></div>
+        <!-- Stabled trains are not drawn on the map at all, so a click can
+             never reach one (design pass 05, ruling 7). This row is the way
+             in to the train the player most wants to act on. -->
+        <div class="tb-row" id="stabled-row" hidden></div>
       </div>
       <div class="tb-panel__foot">
         <button class="tb-btn tb-btn--inline" id="btn-mothball"></button>
@@ -917,6 +962,6 @@
     <svg data-i="stats" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-6M3 20h18"></path></svg>
   </template>
 
-  <script type="module" src="src/main.js?v=0.14.2"></script>
+  <script type="module" src="src/main.js?v=0.15.0"></script>
 </body>
 </html>

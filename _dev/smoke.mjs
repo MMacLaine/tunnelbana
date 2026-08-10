@@ -3,7 +3,7 @@
 // transfer flow, surges, political capital, the mothball deficit rule, offline
 // progress, and save round-trips. Run: node _dev/smoke.mjs
 import * as sim from '../src/sim.js';
-import { trunkOffsets } from '../src/render.js';
+import { trunkOffsets, trainMarks, nearTrain, setProjector } from '../src/render.js';
 import { ANCHORS, CORRIDORS, WEST_FIRST, WATER, inRing, kmBetween } from '../src/data.js';
 
 const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); };
@@ -1030,6 +1030,170 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   const back = sim.hydrate(JSON.stringify(raw));
   back.era = 2;
   if (sim.nextEra(back).delivered !== 180000) err('a pre-0.14.0 save must keep its 180k gate, got ' + sim.nextEra(back).delivered);
+}
+
+// The map marks and the hit test must agree, because a train the eye can see
+// and the pointer cannot find is the shared terminus bug in another costume.
+// A stabled train has no mark at all, by design, and is reached from the
+// Network panel instead.
+{
+  // The node fallback projector collapses every geo onto one point, which
+  // would prove nothing; give it a real one.
+  setProjector((geo) => ({ x: (geo[1] - 18) * 20000, y: (59.35 - geo[0]) * 20000 }));
+  const m = sim.newGame();
+  m.money = 1e7;
+  for (let k = m.lines[0].stations.length; k < 8; k++) sim.extendTo(m, 0, 'tail', ANCHORS[k].geo, k);
+  sim.buy(m, 'train');
+  sim.dispatch(m);
+  for (let i = 0; i < 150; i++) { sim.tick(m, 0.1); m.events.length = 0; }
+  const marks = trainMarks(m);
+  if (marks.length !== m.trains.length) err('every unstabled train needs a mark, got ' + marks.length + ' for ' + m.trains.length);
+  if (!marks.some((x) => x.kind === 'run')) err('a dispatched train should have a running mark');
+  for (const mk of marks) {
+    const hit = nearTrain(m, { x: mk.x, y: mk.y });
+    if (hit !== mk.id) err('the hit test missed train ' + mk.id + ' at its own mark, got ' + hit);
+  }
+  if (nearTrain(m, { x: 1e6, y: 1e6 }) !== null) err('empty map must return no train');
+  // Stacked pips are told apart: two trains resting at one stop get two
+  // marks at different points, and each answers for itself.
+  const parked = m.trains.filter((t) => !t.run);
+  if (parked.length >= 2) {
+    const a = marks.find((x) => x.id === parked[0].id), b = marks.find((x) => x.id === parked[1].id);
+    if (a.kind === 'idle' && b.kind === 'idle' && a.x === b.x && a.y === b.y) err('two resting trains must not share a mark');
+  }
+  // A stabled train leaves the map entirely.
+  const idle = m.trains.find((t) => !t.run);
+  sim.mothballTrain(m, idle.id);
+  if (trainMarks(m).some((x) => x.id === idle.id)) err('a stabled train must have no mark on the map');
+}
+
+// The council's rolling stock programme (0.15.0): the first COST shaped
+// decision that touches the shop. A cost modifier that reaches shopCost but
+// not the closed forms would quote three different prices for x1, x10 and
+// MAX, so parity between them is the assertion that matters.
+{
+  const c = sim.newGame();
+  c.era = 4;                        // 1975, the Region band
+  c.money = 1e12;
+  c.pk = 999;
+  const one0 = sim.shopCost(c, 'train');
+  const ten0 = sim.bulkCost(c, 'train', 10);
+  const dec = sim.COUNCIL.find((d) => d.id === 'stock-programme');
+  if (!dec) err('the rolling stock programme should exist');
+  if (sim.COUNCIL_TIERS[dec.tier].era !== 4) err('the programme should sit in the 1975 band');
+  const early = sim.newGame();
+  early.era = 3;
+  early.pk = 999;
+  if (sim.councilState(early, dec) !== 'era') err('the programme must be closed before 1975, got ' + sim.councilState(early, dec));
+  if (!sim.decide(c, 'stock-programme')) err('the programme should be affordable at 1975 with trust');
+  const one1 = sim.shopCost(c, 'train');
+  const ten1 = sim.bulkCost(c, 'train', 10);
+  const want = dec.mult.trainCost;
+  if (Math.abs(one1 / one0 - want) > 0.02) err('a single train should cost ' + want + ' of what it did, got ' + (one1 / one0));
+  if (Math.abs(ten1 / ten0 - want) > 0.02) err('ten trains should discount by the same factor, got ' + (ten1 / ten0));
+  // The three purchase paths must agree with each other, not merely be cheap.
+  const sumOfOnes = (() => {
+    const w = sim.hydrate(sim.serialize(c));
+    w.money = 1e12;
+    let total = 0;
+    for (let k = 0; k < 10; k++) { total += sim.shopCost(w, 'train'); sim.buy(w, 'train'); }
+    return total;
+  })();
+  if (Math.abs(sumOfOnes - ten1) > 10) err('buying ten one at a time must cost what x10 quotes, ' + sumOfOnes + ' vs ' + ten1);
+  // MAX must be able to spend a budget the discount now covers.
+  const poor = sim.hydrate(sim.serialize(c));
+  poor.money = one1 * 3;
+  const canBuy = sim.affordableLevels(poor, 'train', 0);
+  if (canBuy < 2) err('MAX should see the discounted price, got ' + canBuy + ' affordable');
+  // Nothing else in the shop moved.
+  if (sim.shopCost(c, 'capacity') !== sim.shopCost(sim.newGame(), 'capacity')) err('the programme must not discount the rest of the shop');
+}
+
+// --- The train inspector's sim layer (0.15.0) ---
+// Identity is the first thing about a train that outlives the session, so it
+// is the first thing asserted: unique, stable across a save, and handed out
+// fresh to a fleet that predates it.
+{
+  const t = sim.newGame();
+  t.money = 1e7;
+  const ids = new Set(t.trains.map((x) => x.id));
+  if (ids.size !== t.trains.length) err('train ids must be unique at birth');
+  if (!t.trains.every((x) => Number.isInteger(x.id) && x.id > 0)) err('every train needs a positive integer id');
+  for (let k = 0; k < 4; k++) sim.buy(t, 'train');
+  if (new Set(t.trains.map((x) => x.id)).size !== t.trains.length) err('bought trains must get unique ids');
+  if (!sim.renameTrain(t, t.trains[2].id, 'Silverpilen')) err('a train should be renamable');
+  const keptId = t.trains[2].id;
+  const back = sim.hydrate(sim.serialize(t));
+  if (back.trains.length !== t.trains.length) err('the fleet must survive hydration');
+  if (new Set(back.trains.map((x) => x.id)).size !== back.trains.length) err('ids must stay unique across a save');
+  const named = back.trains.find((x) => x.id === keptId);
+  if (!named || named.name !== 'Silverpilen') err('a named train must keep its id and its name');
+  if (!(back.nextTrainId > Math.max(...back.trains.map((x) => x.id)))) err('the id counter must clear the highest id');
+  // A pre-0.15.0 save has no ids at all, and a forged one may repeat them.
+  const raw = JSON.parse(sim.serialize(t));
+  raw.trains.forEach((x) => { delete x.id; });
+  const old = sim.hydrate(JSON.stringify(raw));
+  if (new Set(old.trains.map((x) => x.id)).size !== old.trains.length) err('an id-less save must be numbered uniquely');
+  const forged = JSON.parse(sim.serialize(t));
+  forged.trains.forEach((x) => { x.id = 7; });
+  const dedup = sim.hydrate(JSON.stringify(forged));
+  if (new Set(dedup.trains.map((x) => x.id)).size !== dedup.trains.length) err('duplicate saved ids must be renumbered, not kept');
+  if (dedup.trains.length !== t.trains.length) err('a forged save must lose the numbers, never the trains');
+}
+
+// trainView is the ONE contract the panel reads, so it must answer for a
+// train in every state and refuse to invent one that is gone.
+{
+  const v = sim.newGame();
+  v.money = 1e7;
+  for (let k = v.lines[0].stations.length; k < 8; k++) sim.extendTo(v, 0, 'tail', ANCHORS[k].geo, k);
+  sim.dispatch(v);
+  for (let i = 0; i < 200; i++) { sim.tick(v, 0.1); v.events.length = 0; }
+  const id = v.trains[0].id;
+  const run = sim.trainView(v, id);
+  if (!run) err('trainView should answer for a live train');
+  if (!['running', 'dwelling'].includes(run.state)) err('a dispatched train should read as running or dwelling, got ' + run.state);
+  if (!(run.onboard > 0)) err('a train past several stops should be carrying somebody');
+  if (run.capacity !== sim.trainCap(v)) err('the view must quote the real capacity');
+  if (!run.towards || !run.at) err('a running train must name where it is and where it is heading');
+  if (!run.manifest.length) err('a loaded train must say where its riders get off');
+  const summed = run.manifest.reduce((n, m) => n + m.off, 0) + (run.further ? run.further.riders : 0);
+  if (summed > run.onboard + 1e-6) err('the manifest cannot carry more riders than the train, ' + summed + ' vs ' + run.onboard);
+  if (run.manifest.length > 5) err('the manifest must cap at five stops, got ' + run.manifest.length);
+  if (sim.trainView(v, 999999) !== null) err('trainView must return null for a train that is not there');
+  // Bands stay honest at both ends of the range.
+  if (sim.loadBand(0) !== 'easy' || sim.loadBand(1) !== 'crush') err('the load bands must cover both ends');
+  if (sim.loadBand(0.95) !== 'crush') err('a nearly full train is a crush');
+}
+
+// Per-train orders: the inspector's verbs, on the same contract as the line
+// rows (fee on placement, execute when the train parks, refund if it dies).
+{
+  const p = sim.newGame();
+  p.money = 1e7;
+  p.pk = 99;
+  p.era = 1;
+  p.totalDelivered = 3e4;
+  sim.buy(p, 'westline');       // a second line, so there is somewhere to send one
+  sim.buy(p, 'train');
+  const mover = p.trains.find((x) => x.line === 0 && !x.run);
+  const before = p.money;
+  const r = sim.sendThisTrain(p, mover.id);
+  if (!r) err('sending a specific train should work with two lines and a spare');
+  if (p.money !== before - sim.BAL.moveTrainKr) err('a per-train order pays the depot fee once');
+  if (r === 'moved' && mover.line === 0) err('an idle train ordered away should have left');
+  // Stabling and waking one named train.
+  const idle = p.trains.find((x) => !x.run && !x.mothballed);
+  if (!sim.mothballTrain(p, idle.id)) err('an idle train should stable');
+  if (!idle.mothballed) err('the stabled train should be stabled');
+  if (sim.mothballTrain(p, idle.id)) err('stabling twice must refuse');
+  if (!sim.wakeTrain(p, idle.id)) err('a stabled train should wake');
+  if (idle.mothballed) err('the woken train should be running again');
+  if (sim.trainView(p, idle.id).state === 'stabled') err('a woken train must not still read as stabled');
+  // The last working train never stables itself.
+  const solo = sim.newGame();
+  if (sim.mothballTrain(solo, solo.trains[0].id)) err('the last working train must never stable');
+  if (sim.sendThisTrain(solo, solo.trains[0].id)) err('a lone line has nowhere to send a train');
 }
 
 // A trunk shared by two services draws as two ribbons side by side, and it
