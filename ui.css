@@ -233,6 +233,10 @@
 .tb-linkbtn { font-family: var(--tb-mono); font-size: var(--tb-fs-label); background: none;
   border: 0; border-bottom: 1px dotted var(--tb-line); color: var(--tb-ink); padding: 0; cursor: pointer; }
 .tb-linkbtn:hover { color: var(--tb-green); border-bottom-color: var(--tb-green); }
+/* The rename pencil (0.13.1): quiet until hovered, no underline to mistake
+   for a station or line name. */
+.tb-linkbtn--edit { border-bottom: 0; color: var(--tb-ghost); padding: 0 0.2rem; cursor: pointer; }
+.tb-linkbtn--edit:hover { color: var(--tb-green); }
 
 /* Era moment / ending: a deliberate full-screen moment, left-aligned on the
    same axis as the menu (pass 01, unchanged, now in panel language). */

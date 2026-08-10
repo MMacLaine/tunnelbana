@@ -712,7 +712,7 @@ function drawStations(g) {
         ctx.fill();
       }
 
-      const key = s.anchor !== null ? 'a' + s.anchor : s.name;
+      const key = s.anchor !== null ? 'a' + s.anchor : s.geo[0].toFixed(4) + ',' + s.geo[1].toFixed(4);
       if (!labelled.has(key)) {
         labelled.add(key);
         label(s.name, p.x + 13, p.y, terminus ? COL.ink : COL.muted, 12);

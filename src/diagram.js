@@ -86,7 +86,9 @@ export function diagramSVG(g) {
   const seen = new Set();
   g.lines.forEach((L, li) => {
     L.stations.forEach((st, i) => {
-      const key = st.anchor !== null ? 'a' + st.anchor : st.name;
+      // Keyed by place, not name (0.13.1): a renamed junction is still one
+      // station on the ground.
+      const key = st.anchor !== null ? 'a' + st.anchor : st.geo[0].toFixed(4) + ',' + st.geo[1].toFixed(4);
       if (seen.has(key)) return;
       seen.add(key);
       const p = linePts[li][i];
@@ -126,8 +128,10 @@ export function diagramTrains(g) {
   return out;
 }
 
-// Shape signature: rebuild the static SVG only when this moves.
+// Shape signature: rebuild the static SVG only when this moves. Names are
+// part of the shape since 0.13.1 (a rename must repaint the labels).
 export function diagramSig(g) {
   return g.lines.map((L) => L.stations.length + ':' + L.color).join('|') +
-    '|' + g.lines.map((L) => L.stations.map((s) => s.tier).join('')).join(',');
+    '|' + g.lines.map((L) => L.stations.map((s) => s.tier).join('')).join(',') +
+    '|' + g.lines.map((L) => L.stations.map((s) => s.name).join(';')).join(',');
 }

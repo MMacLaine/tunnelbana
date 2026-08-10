@@ -296,7 +296,7 @@ export const ACHIEVEMENTS = [
     check: (g) => {
       const seen = new Set();
       for (const L of g.lines) for (const st of L.stations) {
-        const k = st.anchor !== null ? 'a' + st.anchor : st.name;
+        const k = physKeyOf(st);
         if (seen.has(k)) continue;
         seen.add(k);
         if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) return true;
@@ -391,7 +391,7 @@ export const ACHIEVEMENTS = [
       const seen = new Set();
       let n = 0;
       for (const L of g.lines) for (const st of L.stations) {
-        const k = st.anchor !== null ? 'a' + st.anchor : st.name;
+        const k = physKeyOf(st);
         if (seen.has(k)) continue;
         seen.add(k);
         if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) n++;
@@ -543,7 +543,7 @@ export const ACHIEVEMENTS = [
       const seen = new Set();
       let n = 0;
       for (const L of g.lines) for (const st of L.stations) {
-        const k = st.anchor !== null ? 'a' + st.anchor : st.name;
+        const k = physKeyOf(st);
         if (seen.has(k)) continue;
         seen.add(k);
         if (st.tier >= 3 && !(st.anchor !== null && ANCHORS[st.anchor].hub)) n++;
@@ -1063,6 +1063,8 @@ function newLine(stations, colorIdx, identity) {
   return {
     stations,
     name: identity?.name || (colorIdx === 0 ? 'Gröna linjen' : 'Linje ' + (colorIdx + 1)),
+    // The given name, kept so a rename can always be walked back.
+    name0: identity?.name || (colorIdx === 0 ? 'Gröna linjen' : 'Linje ' + (colorIdx + 1)),
     color: identity?.color || (typeof colorIdx === 'string' ? colorIdx : lineColor(colorIdx)),
     delivered: 0,   // lifetime riders this line carried to their stop
     earned: 0,      // lifetime fares booked at this line's platforms
@@ -2631,13 +2633,11 @@ export function placementProblem(g, li, end, geo, anchorIdx = null) {
 // Upgrading any entry of a physical station applies to all its line entries.
 
 function entriesOfSame(g, li, i) {
-  const st = g.lines[li].stations[i];
-  const key = st.anchor !== null ? 'a' + st.anchor : st.geo[0].toFixed(4) + ',' + st.geo[1].toFixed(4);
+  const key = physKeyOf(g.lines[li].stations[i]);
   const out = [];
   for (let l2 = 0; l2 < g.lines.length; l2++) {
     g.lines[l2].stations.forEach((s2, i2) => {
-      const k2 = s2.anchor !== null ? 'a' + s2.anchor : s2.geo[0].toFixed(4) + ',' + s2.geo[1].toFixed(4);
-      if (k2 === key) out.push([l2, i2]);
+      if (physKeyOf(s2) === key) out.push([l2, i2]);
     });
   }
   return out;
@@ -2739,6 +2739,55 @@ export function freeSpotName(g, geo) {
   }
   // NUMERALS[0] is '' (the first take is unnumbered), so no || fallback here.
   return base + (taken < NUMERALS.length ? NUMERALS[taken] : ' ' + (taken + 1));
+}
+
+// --- Renaming (0.13.1, from live feedback: an accidental build earned a
+// roman numeral and the player wanted it gone). Free spots are the player's
+// to name; anchors are real stations and keep their real names (README rule).
+// The 40-char cap matches validStation, so a rename always survives hydrate.
+
+function cleanName(name) {
+  const n = String(name).replace(/\p{C}/gu, '').replace(/\s+/g, ' ').trim();
+  return n.length >= 1 && n.length <= 40 ? n : null;
+}
+
+export function renameStation(g, li, i, name) {
+  const st = g.lines[li]?.stations[i];
+  if (!st || st.anchor !== null) return false;
+  const n = cleanName(name);
+  if (!n || n === st.name) return false;
+  // Every entry of the physical station renames together, same as upgrades:
+  // a junction is ONE station on the ground wearing one name.
+  for (const [l2, i2] of entriesOfSame(g, li, i)) g.lines[l2].stations[i2].name = n;
+  return true;
+}
+
+export function renameLine(g, li, name) {
+  const L = g.lines[li];
+  if (!L) return false;
+  const n = cleanName(name);
+  if (!n || n === L.name) return false;
+  L.name = n;
+  return true;
+}
+
+// What the city would have called this free spot: the district default,
+// counted as freeSpotName counts but blind to this station's own entries,
+// so a restore never numbers a station against itself.
+export function givenStationName(g, li, i) {
+  const st = g.lines[li].stations[i];
+  const base = densityAt(st.geo).district || 'Station';
+  const self = physKeyOf(st);
+  let taken = 0;
+  for (const L of g.lines) {
+    taken += L.stations.filter((s) =>
+      physKeyOf(s) !== self && (s.name === base || s.name.startsWith(base + ' '))).length;
+  }
+  return base + (taken < NUMERALS.length ? NUMERALS[taken] : ' ' + (taken + 1));
+}
+
+export function givenLineName(g, li) {
+  return g.lines[li].name0 || (li === 0 ? 'Gröna linjen' : 'Linje ' + (li + 1));
 }
 
 // anchorIdx is null for a free spot. An anchor already on THIS line is refused;
@@ -3456,7 +3505,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.13.0';
+export const VERSION = '0.13.1';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
@@ -3505,6 +3554,7 @@ export function serialize(g) {
       waitingF: L.waitingF.map((w) => Math.round(w)),
       waitingB: L.waitingB.map((w) => Math.round(w)),
       name: L.name,
+      name0: L.name0,
       color: L.color,
       delivered: Math.round(L.delivered || 0),
       earned: Math.round(L.earned || 0),
@@ -3670,8 +3720,16 @@ export function hydrate(raw) {
       s.lines.reduce((a, L) => a + L.stations.length, 0) <= BAL.maxStations + 16) {
     g.lines = s.lines.map((L, idx) => ({
       stations: sanitizeLine(L.stations),
-      // Pre-identity saves fall back to the palette by founding order.
-      name: typeof L.name === 'string' ? L.name : (idx === 0 ? 'Gröna linjen' : 'Linje ' + (idx + 1)),
+      // Pre-identity saves fall back to the palette by founding order. The
+      // 40-char clamp matches validStation (a save is hostile input).
+      name: typeof L.name === 'string' && L.name.length
+        ? L.name.slice(0, 40) : (idx === 0 ? 'Gröna linjen' : 'Linje ' + (idx + 1)),
+      // Pre-rename saves carry no name0; nothing was renamed, so the name
+      // they arrive with IS the given name.
+      name0: typeof L.name0 === 'string' && L.name0.length
+        ? L.name0.slice(0, 40)
+        : (typeof L.name === 'string' && L.name.length ? L.name.slice(0, 40)
+          : (idx === 0 ? 'Gröna linjen' : 'Linje ' + (idx + 1))),
       color: /^#[0-9a-f]{6}$/i.test(L.color || '') ? L.color : lineColor(idx),
       delivered: posInt(L.delivered, 1e12),
       earned: posInt(L.earned, 1e15),
