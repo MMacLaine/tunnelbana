@@ -564,6 +564,9 @@
     </div>
     <div class="tb-panel__body">
       <input id="rename-input" maxlength="40" autocomplete="off" spellcheck="false">
+      <!-- Line colours (0.14.0): shown only for lines the campaign has not
+           promised a colour to; hidden for stations and historic lines. -->
+      <div id="rename-colors" class="tb-swatches" hidden></div>
       <button class="tb-btn tb-btn--std tb-btn--block" id="rename-yes"></button>
       <button class="tb-btn tb-btn--inline tb-btn--block" id="rename-given"></button>
       <button class="tb-btn tb-btn--std tb-btn--block" id="rename-cancel">Cancel</button>

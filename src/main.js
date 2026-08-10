@@ -135,6 +135,7 @@ const STR = {
   diaToDiagram: 'DIAGRAM',
   fleetGrows: 'The fleet cap rises with the next era',
   upkeepGrows: 'Upkeep grows about',
+  lineColour: 'Line colour',
   statsToggle: 'Stats',
   skipOn: 'Express skips this stop',
   skipOff: 'Express calls here again',
@@ -1855,6 +1856,7 @@ function openRename(ref) {
   }
   $('rename-yes').textContent = STR.renameSave;
   $('rename-given').textContent = STR.renameGiven;
+  renderSwatches();
   $('rename').hidden = false;
   inp.focus();
   inp.select();
@@ -1863,6 +1865,37 @@ function closeRename() {
   renameRef = null;
   $('rename').hidden = true;
 }
+// Line colour swatches (0.14.0): live in the line's rename dialog, hidden
+// for stations and for the historic lines whose colours the campaign
+// promised. A tap recolours immediately, so the map is the preview.
+function renderSwatches() {
+  const box = $('rename-colors');
+  const li = renameLi();
+  const show = !!renameRef && renameRef.kind === 'line' && li >= 0 && sim.canRecolorLine(g, li);
+  box.hidden = !show;
+  box.innerHTML = '';
+  if (!show) return;
+  const own = g.lines[li].color;
+  for (const c of [own, ...sim.recolorChoices(g, li)]) {
+    const b = document.createElement('button');
+    b.className = 'tb-swatch' + (c === own ? ' tb-swatch--on' : '');
+    b.dataset.color = c;
+    b.style.background = c;
+    b.setAttribute('aria-label', STR.lineColour + ' ' + c);
+    box.appendChild(b);
+  }
+}
+$('rename-colors').addEventListener('pointerdown', (e) => {
+  const c = e.target?.dataset?.color;
+  if (!c) return;
+  e.preventDefault(); // keep focus with the dialog's input
+  const li = renameLi();
+  if (li >= 0 && sim.recolorLine(g, li, c)) {
+    save();
+    updateUI();
+    renderSwatches();
+  }
+});
 function commitRename(name) {
   const ref = renameRef;
   const li = renameLi();

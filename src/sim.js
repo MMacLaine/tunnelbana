@@ -2574,18 +2574,23 @@ export function nextEra(g) {
   return goal === e.delivered ? e : { ...e, delivered: goal };
 }
 
-// Trust stops accruing at exactly what the next era asks for (owner ask,
-// 2026-08-05). Trust is a GATE currency, not a stockpile: without a ceiling the
-// idle player banks decades of it, walks back to the tab and buys three hubs
-// and an era in one click, and the one resource the game says cannot be bought
-// turns out to be the one you get for free by leaving. A cap says "spend me".
-// The final era lifts it, like every other constraint there: hub 6 onward costs
-// more trust (1.7x each) than any era ever asked for, and the sandbox is where
-// that is supposed to be reachable. Nothing clamps a SAVE downward: a player who
-// banked trust before this rule keeps it and simply stops earning more.
+// Trust stops accruing at DOUBLE what the next era asks for (owner ask,
+// 2026-08-05; doubled 2026-08-10 with 0.14.0). Trust is a GATE currency, not
+// a stockpile: without a ceiling the idle player banks decades of it, walks
+// back to the tab and buys three hubs and an era in one click, and the one
+// resource the game says cannot be bought turns out to be the one you get
+// for free by leaving. A cap says "spend me". At exactly the era's ask the
+// cap said it too hard: advancing SPENDS the trust, so hubs, charters and
+// council decisions competed with the era for the same full bar (probe-arc
+// measured the bot stalling an era it had the riders for). Double covers
+// the gate and a life beside it. The final era lifts the cap entirely, like
+// every other constraint there: hub 6 onward costs more trust (1.7x each)
+// than any era ever asked for, and the sandbox is where that is supposed to
+// be reachable. Nothing clamps a SAVE downward: a player who banked trust
+// before this rule keeps it and simply stops earning more.
 export function pkCap(g) {
   const e = nextEra(g);
-  return e ? e.pk : Infinity;
+  return e ? e.pk * 2 : Infinity;
 }
 
 export function canAdvanceEra(g) {
@@ -2854,6 +2859,51 @@ export function renameLine(g, li, name) {
   const n = cleanName(name);
   if (!n || n === L.name) return false;
   L.name = n;
+  return true;
+}
+
+// --- Line colours (0.14.0, owner ask): a line the player founded can wear
+// the colour they choose, and the trains on every line wear their line's
+// colour on the map. The HISTORIC lines keep their identities: the campaign
+// promised green to Gröna linjen, red to Röda and blue to Blå, and a 1952
+// line painted blue would tell the player they unlocked something they did
+// not (the LINE_IDENTITY rule, extended to recolouring). name0 is the
+// stable marker: renames never touch it. ---
+const HISTORIC_NAME0 = new Set([
+  'Gröna linjen', 'Västerortsbanan', 'Röda linjen', 'Blå linjen',
+]);
+
+export function canRecolorLine(g, li) {
+  const L = g.lines[li];
+  return !!L && !HISTORIC_NAME0.has(L.name0);
+}
+
+// The swatches offered: the golden-angle generator the sandbox already
+// paints with, all mid-lightness so the onboard count stays readable on the
+// train body. Reserved identity colours, colours another line wears and the
+// line's own current colour are left out (the dialog shows the current one
+// itself, and recolorLine refuses a no-op).
+export function recolorChoices(g, li) {
+  const taken = new Set(g.lines.map((L) => L.color));
+  const out = [];
+  for (let i = 0; out.length < 10 && i < 60; i++) {
+    const c = lineColor(i);
+    if (RESERVED.has(c) || c === LINE_COLORS[0] || taken.has(c)) continue;
+    out.push(c);
+  }
+  return out;
+}
+
+export function recolorLine(g, li, color) {
+  if (!canRecolorLine(g, li)) return false;
+  if (!/^#[0-9a-f]{6}$/i.test(color || '')) return false;
+  const c = color.toLowerCase();
+  if (RESERVED.has(c) || c === LINE_COLORS[0]) return false;
+  for (let k = 0; k < g.lines.length; k++) {
+    if (k !== li && g.lines[k].color.toLowerCase() === c) return false;
+  }
+  if (g.lines[li].color.toLowerCase() === c) return false;
+  g.lines[li].color = c;
   return true;
 }
 
