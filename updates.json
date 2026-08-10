@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.13.1",
+      "title": "Rename your stations and lines",
+      "content": "A station built by accident arrived wearing a roman numeral and there was no way to change it. Now there is.\n- Stations you build can be renamed. Click the pencil beside the name in the station panel\n- Lines can be renamed with the pencil beside their name in the network panel\n- The rename dialog has a button that brings back the given name\n- Real Stockholm stations keep their real names\n- Hub achievements now recognise a station by its place on the map rather than its name, so a renamed junction still counts as one station"
+    },
+    {
       "version": "0.13.0",
       "title": "Running a railway now costs like one",
       "content": "Operating costs used to fade into rounding as income grew. Now they scale with ambition and can be managed.\n- A large fleet costs more per train to keep in service. The first few trains are unchanged, then the rate climbs as the fleet grows\n- New building. Driftcentralen above T-Centralen cuts fleet running costs by 30 percent, available from 1964 once T-Centralen stands\n- New council decision. A standing maintenance contract cuts fleet running costs by 20 percent\n- Vagnhallen's night stabling now saves real money on a big fleet\n- The era front pages now print a kungörelse naming what the government asks before the next charter\n- Existing saves keep everything they have, the new bill simply starts applying"

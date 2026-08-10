@@ -281,6 +281,12 @@ const STR = {
   removeBtn: 'Demolish this stop',
   removeWarnTitle: 'DEMOLISH THE STOP',
   removeWarn: 'and its riders and upgrades are gone for good. The line closes the gap.',
+  // Renaming (0.13.1). Anchors keep their real names, so the pencil only
+  // shows on stations the player built.
+  renameStation: 'Rename the station',
+  renameLine: 'Rename the line',
+  renameSave: 'Save',
+  renameGiven: 'Use the given name',
   removeYes: 'Demolish',
   insertLabel: 'Add a stop here',
   councilToggle: 'Council',
@@ -414,6 +420,9 @@ function fmt(n) {
 // as the value, and thousands group with a thin space, never a comma.
 const kr = (n) => grouped(n);
 const numHTML = (n, unit) => fmt(n) + '<span class="tb-num__unit">' + unit + '</span>';
+// Player-typed names (0.13.1) and imported saves reach innerHTML sinks; every
+// name interpolated into markup goes through this, no exceptions.
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 // --- Theme (light mode is a testing aid; dark is the designed theme) ---
 const THEME_KEY = 'tunnelbana_theme';
@@ -1288,6 +1297,7 @@ $('settings-reset').addEventListener('click', () => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
+    if (!$('rename').hidden) { closeRename(); return; }
     if (!$('confirm').hidden) { closeConfirm(); return; }
     if (statsOpen) { setStatsOpen(false); return; }
     if (councilOpen) { setCouncilOpen(false); return; }
@@ -1671,6 +1681,9 @@ function updateStationPanel() {
   const st = L.stations[selected.i];
   if (!st) { selectStation(null); return; }
   $('sp-name').textContent = st.name;
+  // The pencil only shows on stations the player built; anchors are real
+  // stations and keep their real names (README rule).
+  $('sp-rename').hidden = st.anchor !== null;
   $('sp-tier').textContent = STR.tiers[st.tier];
   const waiting = Math.floor(sim.waitingAt(g, selected.li, selected.i));
   const crowd = Math.round(100 * waiting / (sim.stationCap(g) * st.mult));
@@ -1687,7 +1700,7 @@ function updateStationPanel() {
   const dirs = sim.odWeights(g, selected.li, selected.i);
   $('sp-dest').innerHTML = dirs.length
     ? STR.panelTop + '<span class="tb-row__v">' +
-      dirs.map((d) => d.name + ' ' + Math.round(d.share * 100) + '%').join(' · ') + '</span>'
+      dirs.map((d) => esc(d.name) + ' ' + Math.round(d.share * 100) + '%').join(' · ') + '</span>'
     : '';
   const tierBtn = $('sp-tier-btn');
   tierBtn.title = st.tier >= 3 ? '' : STR.tierWhat[st.tier];
@@ -1808,6 +1821,63 @@ $('confirm-mute').addEventListener('click', () => {
 $('confirm-no').addEventListener('click', closeConfirm);
 $('confirm-cancel').addEventListener('click', closeConfirm);
 
+// --- Renaming (0.13.1): one dialog serves stations and lines. The game runs
+// underneath, so the target is re-resolved at commit and a vanished target is
+// a quiet no-op, same contract as the warning dialog. ---
+let renameRef = null; // { kind: 'station', li, i } | { kind: 'line', li } | null
+function openRename(ref) {
+  renameRef = ref;
+  const inp = $('rename-input');
+  if (ref.kind === 'station') {
+    $('rename-title').textContent = STR.renameStation;
+    inp.value = g.lines[ref.li].stations[ref.i].name;
+  } else {
+    $('rename-title').textContent = STR.renameLine;
+    inp.value = g.lines[ref.li].name;
+  }
+  $('rename-yes').textContent = STR.renameSave;
+  $('rename-given').textContent = STR.renameGiven;
+  $('rename').hidden = false;
+  inp.focus();
+  inp.select();
+}
+function closeRename() {
+  renameRef = null;
+  $('rename').hidden = true;
+}
+function commitRename(name) {
+  const ref = renameRef;
+  closeRename();
+  if (!ref) return;
+  const ok = ref.kind === 'station'
+    ? sim.renameStation(g, ref.li, ref.i, name)
+    : sim.renameLine(g, ref.li, name);
+  if (ok) { save(); updateUI(); }
+}
+$('rename-yes').addEventListener('click', () => commitRename($('rename-input').value));
+$('rename-given').addEventListener('click', () => {
+  const ref = renameRef;
+  if (!ref) return;
+  if (ref.kind === 'station') {
+    if (!g.lines[ref.li]?.stations?.[ref.i]) { closeRename(); return; }
+    commitRename(sim.givenStationName(g, ref.li, ref.i));
+  } else {
+    if (!g.lines[ref.li]) { closeRename(); return; }
+    commitRename(sim.givenLineName(g, ref.li));
+  }
+});
+$('rename-cancel').addEventListener('click', closeRename);
+$('rename-close').addEventListener('click', closeRename);
+$('rename-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); commitRename($('rename-input').value); }
+});
+$('sp-rename').title = STR.renameStation;
+$('sp-rename').setAttribute('aria-label', STR.renameStation);
+$('sp-rename').addEventListener('click', () => {
+  if (!selected) return;
+  openRename({ kind: 'station', li: selected.li, i: selected.i });
+});
+
 $('sp-remove').addEventListener('click', () => {
   if (!selected) return;
   const { li, i } = selected;
@@ -1829,6 +1899,8 @@ $('sp-remove').addEventListener('click', () => {
 // before any re-render can replace the node under the pointer.
 $('line-rows').addEventListener('pointerdown', (e) => {
   const d = e.target?.dataset || {};
+  // preventDefault so the press cannot pull focus back off the dialog's input.
+  if (d.rename !== undefined) { e.preventDefault(); openRename({ kind: 'line', li: Number(d.rename) }); return; }
   if (d.req !== undefined && sim.requestTrain(g, Number(d.req))) updateUI();
   if (d.send !== undefined && sim.sendTrain(g, Number(d.send))) updateUI();
   if (d.cancel !== undefined && sim.cancelMove(g, Number(d.cancel))) updateUI();
@@ -1869,7 +1941,8 @@ function updateLineRows() {
       : '';
     rows.push(
       '<div class="tb-row"><span class="tb-chip" style="background:' + g.lines[li].color + '"></span>' +
-      '<button class="tb-linkbtn" data-focus="' + li + '">' + g.lines[li].name + '</button>' +
+      '<button class="tb-linkbtn" data-focus="' + li + '">' + esc(g.lines[li].name) + '</button>' +
+      '<button class="tb-linkbtn tb-linkbtn--edit" data-rename="' + li + '" title="' + STR.renameLine + '" aria-label="' + STR.renameLine + '">✎</button>' +
       '<span class="tb-row__v">' + g.lines[li].stations.length + ' ' + STR.stops + ' · ' +
       active + ' 🚆' + qChip + ' · ' + (active ? Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + '</span>' +
       (g.lines.length > 1
@@ -2234,7 +2307,7 @@ function renderStats() {
   // The ledger: the pass-03 line table.
   $('stats-lines').innerHTML = g.lines.map((L, li) => {
     const active = g.trains.filter((t) => t.line === li && !t.mothballed).length;
-    return '<tr><td><span class="tb-linedot" style="background:' + L.color + '"></span>' + L.name + '</td>' +
+    return '<tr><td><span class="tb-linedot" style="background:' + L.color + '"></span>' + esc(L.name) + '</td>' +
       '<td>' + fmt(L.delivered) + '</td>' +
       '<td>' + fmt(L.earned) + ' kr</td>' +
       '<td class="dim">' + active + '</td></tr>';
