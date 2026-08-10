@@ -190,18 +190,94 @@ export function addFloatGeo(geo, text, colour) {
 
 // --- Hit helpers (canvas px) ---
 
+// Every grabbable line end with its display position. Ends sharing a
+// physical station fan out around it, each along its own line's outgoing
+// direction where the line has one, so every terminating line stays
+// separately visible and grabbable. Before this, coincident ends projected
+// to identical pixels and the strict nearest-point compare handed every
+// grab to the lowest line index while the top-drawn ring wore another
+// line's colour (live report 2026-08-10: "when multiple lines terminate at
+// a station, only one line is extendable").
+export function endHandles(g) {
+  const groups = new Map();
+  for (let li = 0; li < g.lines.length; li++) {
+    const sts = g.lines[li].stations;
+    if (sts.length < 1) continue;
+    // A one-station line's head and tail are the same point and the same
+    // move; one handle, so a fan never shows the same line twice.
+    for (const end of sts.length === 1 ? ['tail'] : ['head', 'tail']) {
+      const st = endStation(g, li, end);
+      const k = stKey(st);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push({ li, end, st });
+    }
+  }
+  const out = [];
+  for (const members of groups.values()) {
+    const c = project(members[0].st.geo);
+    if (members.length === 1) {
+      const m = members[0];
+      out.push({ li: m.li, end: m.end, x: c.x, y: c.y, cx: c.x, cy: c.y, fanned: false });
+      continue;
+    }
+    members.forEach((m, k) => {
+      const sts = g.lines[m.li].stations;
+      if (sts.length > 1) {
+        const nb = project((m.end === 'head' ? sts[1] : sts[sts.length - 2]).geo);
+        m.ang = Math.atan2(c.y - nb.y, c.x - nb.x);
+      } else {
+        m.ang = -Math.PI / 2 + (k * Math.PI * 2) / members.length;
+      }
+    });
+    // Near-parallel approaches would stack their handles; a few relaxation
+    // passes push neighbouring angles apart until each has its own arc.
+    const minGap = Math.min(1.0, (Math.PI * 2) / members.length);
+    for (let pass = 0; pass < 4; pass++) {
+      members.sort((a, b) => a.ang - b.ang);
+      for (let i = 0; i < members.length; i++) {
+        const a = members[i], b = members[(i + 1) % members.length];
+        const gap = (i === members.length - 1 ? b.ang + Math.PI * 2 : b.ang) - a.ang;
+        if (gap < minGap) {
+          const push = (minGap - gap) / 2;
+          a.ang -= push;
+          b.ang += push;
+        }
+      }
+    }
+    const dist = grabRadius() * 0.9;
+    for (const m of members) {
+      out.push({
+        li: m.li, end: m.end,
+        x: c.x + Math.cos(m.ang) * dist, y: c.y + Math.sin(m.ang) * dist,
+        cx: c.x, cy: c.y, fanned: true,
+      });
+    }
+  }
+  return out;
+}
+
 // Returns { li, end } for the nearest grabbable line end, or null.
 export function nearEnd(g, p) {
   const r = grabRadius();
+  const handles = endHandles(g);
   let best = null, bestD = r;
-  for (let li = 0; li < g.lines.length; li++) {
-    for (const end of ['head', 'tail']) {
-      const s = project(endStation(g, li, end).geo);
-      const d = Math.hypot(p.x - s.x, p.y - s.y);
-      if (d < bestD) { best = { li, end }; bestD = d; }
-    }
+  for (const h of handles) {
+    const d = Math.hypot(p.x - h.x, p.y - h.y);
+    if (d < bestD) { best = { li: h.li, end: h.end }; bestD = d; }
   }
-  return best;
+  if (best) return best;
+  // The fan pulled the handles off the station, which orphaned the side of
+  // the old grab region facing away from them: a pointer within reach of a
+  // shared terminus itself still grabs, taking whichever handle sits
+  // nearest, so every spot that worked before the fan keeps working.
+  let fb = null, fbD = Infinity;
+  for (const h of handles) {
+    if (!h.fanned) continue;
+    if (Math.hypot(p.x - h.cx, p.y - h.cy) >= r) continue;
+    const d = Math.hypot(p.x - h.x, p.y - h.y);
+    if (d < fbD) { fb = { li: h.li, end: h.end }; fbD = d; }
+  }
+  return fb;
 }
 
 // --- Insert-station affordance (v12, pass 04 section e): a ghost node on a
@@ -497,31 +573,38 @@ export function coachBuild(g) {
 
 function drawEndHandles(g) {
   const coach = coachBuild(g);
-  for (let li = 0; li < g.lines.length; li++) {
-    if (g.lines[li].stations.length < 1) continue;
-    for (const end of ['head', 'tail']) {
-      const p = project(endStation(g, li, end).geo);
-      const r = 10.5 + Math.sin(clockT * 2.2) * 1.4;
+  for (const h of endHandles(g)) {
+    const r = 10.5 + Math.sin(clockT * 2.2) * 1.4;
+    if (h.fanned) {
+      // A stub ties the fanned handle back to the station it extends.
       ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = g.lines[li].color;
-      ctx.globalAlpha = 0.9;
+      ctx.moveTo(h.cx, h.cy);
+      ctx.lineTo(h.x, h.y);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = g.lines[h.li].color;
+      ctx.globalAlpha = 0.55;
       ctx.stroke();
       ctx.globalAlpha = 1;
-      // The coach speaks at the working end: the one instruction the first
-      // minute actually needs, riding the handle it applies to.
-      if (coach && end === 'tail') {
-        const pulse = 0.5 + 0.5 * Math.sin(clockT * (Math.PI * 2 / 2.4));
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r + 5 + pulse * 3, 0, Math.PI * 2);
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = COL.amber;
-        ctx.globalAlpha = 0.5 + 0.45 * pulse;
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        label('Drag this end to the pulsing ring', p.x + 18, p.y + 18, COL.amber, 12, { weight: 600 });
-      }
+    }
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = g.lines[h.li].color;
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // The coach speaks at the working end: the one instruction the first
+    // minute actually needs, riding the handle it applies to.
+    if (coach && h.end === 'tail') {
+      const pulse = 0.5 + 0.5 * Math.sin(clockT * (Math.PI * 2 / 2.4));
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, r + 5 + pulse * 3, 0, Math.PI * 2);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = COL.amber;
+      ctx.globalAlpha = 0.5 + 0.45 * pulse;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      label('Drag this end to the pulsing ring', h.x + 18, h.y + 18, COL.amber, 12, { weight: 600 });
     }
   }
 }

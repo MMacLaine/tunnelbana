@@ -12,6 +12,7 @@
 //   node _dev/probe-arc.mjs 900 quiet   # summary only
 import * as sim from '../src/sim.js';
 import { ANCHORS, CORRIDORS } from '../src/data.js';
+import { wouldBuyTrain } from './probe-policy.mjs';
 
 const HORIZON = Number(process.argv[2]) || 1200;
 const QUIET = process.argv.includes('quiet');
@@ -89,6 +90,9 @@ function cheapestBuy() {
   let best = null;
   for (const item of sim.CATALOG) {
     if (!sim.canBuy(g, item.id)) continue;
+    // The informed-player floor on trains: probe-policy.mjs holds the one
+    // definition probe-arc and probe-costs share.
+    if (item.id === 'train' && !wouldBuyTrain(sim, g)) continue;
     const cost = sim.shopCost(g, item.id);
     // pk and kr are not comparable; treat a trust project as always worth it
     // (they are one-shot unlocks and the player wants them).
