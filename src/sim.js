@@ -3714,7 +3714,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.14.1';
+export const VERSION = '0.14.2';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
@@ -3810,6 +3810,20 @@ function validStation(st) {
 }
 
 const posInt = (v, max) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));
+
+// The largest fleet this game can ever legitimately produce, DERIVED so it
+// cannot drift from the balance again. It is hydrate's sanity rail against a
+// hostile save, and it must never sit below what an honest player can own:
+// a hard 48 was written when 28 trains were purchasable, and 0.14.0 raised
+// that to 70, which quietly turned a rail into a cliff that would have eaten
+// a late fleet on reload (found 2026-08-10, before it reached a save). Smoke
+// asserts a maximum fleet survives a round trip.
+export function maxFleetEver() {
+  const item = CATALOG.find((i) => i.id === 'train');
+  const achSlots = ACHIEVEMENTS.reduce((n, a) => n + ((a.add && a.add.fleetMax) || 0), 0);
+  const charterGifts = Object.keys(PROJECT_SEEDS).length;
+  return item.max + BAL.fleetPerEra * (ERAS.length - 1) + achSlots + 1 + charterGifts;
+}
 
 // v7 stations carry tier + upgrade levels (v6's carried mult, now computed).
 function sanitizeLine(stations) {
@@ -3974,16 +3988,23 @@ export function hydrate(raw) {
     }
     g.freeSpots = posInt(s.freeSpots, BAL.maxStations);
     g.trains = [];
-    // 48: the era-scaled ceiling (28 bought + 1 starting + 3 charter gifts is
-    // 32 exactly) plus honest headroom, so the bound is a sanity rail again
-    // rather than a cliff one purchase away.
-    const tr = Array.isArray(s.trains) ? s.trains.slice(0, 48) : [];
+    const tr = Array.isArray(s.trains) ? s.trains.slice(0, maxFleetEver()) : [];
     for (const t of tr) {
       const li = posInt(t?.line, g.lines.length - 1);
       addTrain(g, li).mothballed = !!t?.mothballed;
     }
     if (!g.trains.length) addTrain(g, 0);
     if (!g.trains.some((t) => !t.mothballed)) g.trains[0].mothballed = false;
+    // Restore a fleet the old hard bound truncated. Nothing in play ever
+    // destroys a train, so the fleet a save is owed is exactly what was
+    // bought plus the starting train plus one per charter taken, and a save
+    // holding fewer was robbed by the 48 entry limit rather than by
+    // anything the player did. Clamped by the derived ceiling so a forged
+    // owned count cannot mint a fleet. Healthy saves match already and this
+    // never fires for them.
+    const gifts = Object.keys(PROJECT_SEEDS).filter((id) => g.owned[id]).length;
+    const owedFleet = Math.min(maxFleetEver(), g.owned.train + 1 + gifts);
+    while (g.trains.length < owedFleet) addTrain(g, Math.max(0, neediestLine(g, -1)));
     // Pending depot orders (0.9): fee already paid, so they must survive a
     // reload. Anything malformed is dropped, not refunded: a forged save is
     // not owed money.
