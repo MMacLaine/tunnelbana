@@ -157,6 +157,44 @@
 .tb-insp__ephemeral::before { content: "\25CB"; margin-right: .35rem; color: var(--tb-line-hi); }
 
 /* ============================================================================
+   THE LINE ROW  (tb-linerow)  ·  one line per line, at every width
+   The old row was a .tb-row, which wraps: "Gröna linjen" broke across two
+   lines and a long name like Västerortsbanan pushed the controls onto a
+   row of their own, so the panel grew a ragged staircase as the rail
+   narrowed. This row never wraps. The NAME is the only thing allowed to
+   give, by ellipsis; the numbers and the target stepper hold their size.
+   ========================================================================== */
+.tb-linerow { display: flex; align-items: center; gap: .35rem; min-width: 0; flex-wrap: nowrap;
+  padding: .1rem 0; }
+/* Two things may give, and the stepper is not one of them: a control the
+   player cannot reach is worse than a name they cannot finish reading. */
+.tb-linerow__name { flex: 0 1 auto; min-width: 2.2rem; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; text-align: left; }
+/* Short enough never to need shrinking, so it does not: the NAME absorbs
+   every pixel the row is short, which is the only thing here that can be
+   half-read and still do its job. */
+.tb-linerow__v { margin-left: auto; flex: none; white-space: nowrap; text-align: right;
+  color: var(--tb-muted); font-variant-numeric: tabular-nums; font-size: var(--tb-fs-caption); }
+
+/* The target stepper: what the player wants this line to have. Reads quiet
+   while the line is on no particular plan, and wears the ink of a stated
+   intention once it is. */
+.tb-linerow__now { flex: none; white-space: nowrap; font-size: var(--tb-fs-caption);
+  font-variant-numeric: tabular-nums; color: var(--tb-ink); }
+
+.tb-target { display: inline-flex; align-items: center; flex: none; gap: 0;
+  border: var(--tb-border) solid var(--tb-line); border-radius: var(--tb-radius-chip); }
+.tb-target--set { border-color: var(--tb-green-dim); }
+.tb-target__b, .tb-target__n { font-family: var(--tb-mono); font-size: var(--tb-fs-caption);
+  background: none; border: 0; color: var(--tb-muted); cursor: pointer; padding: .2rem .35rem;
+  line-height: 1; }
+.tb-target__n { color: var(--tb-ghost); min-width: 1.6rem; text-align: center;
+  font-variant-numeric: tabular-nums; }
+.tb-target--set .tb-target__n { color: var(--tb-ink); font-weight: var(--tb-weight-semi); }
+.tb-target__b:hover, .tb-target__n:hover { color: var(--tb-green); }
+.tb-target__b:focus-visible, .tb-target__n:focus-visible { box-shadow: var(--tb-focus); outline: 0; }
+
+/* ============================================================================
    ON-MAP SELECTION + INVITATION  (rulings 1c/3)
    These style the SVG the renderer draws; shown in the mockup over a mock map.
    ========================================================================== */

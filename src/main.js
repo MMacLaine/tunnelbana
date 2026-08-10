@@ -136,6 +136,12 @@ const STR = {
   fleetGrows: 'The fleet cap rises with the next era',
   upkeepGrows: 'Upkeep grows about',
   lineColour: 'Line colour',
+  targetSet: 'How many trains this line should have. The fleet arranges itself to match',
+  targetIs: 'This line is set to',
+  targetClear: 'click the number to let it float again',
+  targetUp: 'One more train on this line',
+  targetDown: 'One fewer train on this line',
+  transferHintTarget: 'Set how many trains each line should have. A line you leave alone keeps what it has.',
   // The train inspector (0.15.0). Every line of it obeys the voice rule, so
   // a state reads as a sentence about a train rather than a labelled field.
   ti: {
@@ -2248,6 +2254,19 @@ $('line-rows').addEventListener('pointerdown', (e) => {
   const d = e.target?.dataset || {};
   // preventDefault so the press cannot pull focus back off the dialog's input.
   if (d.rename !== undefined) { e.preventDefault(); openRename({ kind: 'line', line: g.lines[Number(d.rename)] }); return; }
+  // Target verbs. A line with no target starts from what it has, so the
+  // first press is always "one more than now" or "one fewer than now".
+  if (d.tup !== undefined || d.tdown !== undefined) {
+    const li = Number(d.tup !== undefined ? d.tup : d.tdown);
+    const cur = sim.lineTarget(g, li);
+    const now = cur === null ? g.trains.filter((t) => t.line === li && !t.mothballed).length : cur;
+    if (sim.setLineTarget(g, li, now + (d.tup !== undefined ? 1 : -1))) { save(); updateUI(); }
+    return;
+  }
+  if (d.tclear !== undefined) {
+    if (sim.setLineTarget(g, Number(d.tclear), null)) { save(); updateUI(); }
+    return;
+  }
   if (d.req !== undefined && sim.requestTrain(g, Number(d.req))) updateUI();
   if (d.send !== undefined && sim.sendTrain(g, Number(d.send))) updateUI();
   if (d.cancel !== undefined && sim.cancelMove(g, Number(d.cancel))) updateUI();
@@ -2299,24 +2318,38 @@ function updateLineRows() {
       ? ' <button class="tb-linkbtn" data-cancel="' + li + '" title="' + STR.queuedCancel + '"' +
         ' style="color: var(--tb-amber)">' + (q.in ? '+' + q.in : '') + (q.out ? '−' + q.out : '') + '…</button>'
       : '';
+    // The plus and minus set this line's TARGET rather than shoving a train
+    // somewhere immediately: the player says how many trains this line
+    // should have and the fleet arranges itself to match, which is the whole
+    // point of 0.15.2. A line with no target keeps whatever it has.
+    const tgt = sim.lineTarget(g, li);
+    const shown = tgt === null ? active : tgt;
+    const tWhy = tgt === null ? STR.targetSet : STR.targetIs + ' ' + tgt + ' · ' + STR.targetClear;
     rows.push(
-      '<div class="tb-row"><span class="tb-chip" style="background:' + g.lines[li].color + '"></span>' +
-      '<button class="tb-linkbtn" data-focus="' + li + '">' + esc(g.lines[li].name) + '</button>' +
+      '<div class="tb-linerow">' +
+      '<span class="tb-chip" style="background:' + g.lines[li].color + '"></span>' +
+      '<button class="tb-linkbtn tb-linerow__name" data-focus="' + li + '">' + esc(g.lines[li].name) + '</button>' +
       '<button class="tb-linkbtn tb-linkbtn--edit" data-rename="' + li + '" title="' + STR.renameLine + '" aria-label="' + STR.renameLine + '">✎</button>' +
-      '<span class="tb-row__v">' + g.lines[li].stations.length + ' ' + STR.stops + ' · ' +
-      active + ' 🚆' + qChip + ' · ' + (active ? Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + '</span>' +
+      // The rail is 300px wide and the row may never wrap, so it carries the
+      // two numbers that answer the question the stepper asks: how often a
+      // train comes, and how many are running. The stop count moves to the
+      // tooltip rather than pushing the control out of reach.
+      '<span class="tb-linerow__v" title="' + g.lines[li].stations.length + ' ' + STR.stops + '">' +
+      (active ? Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + '</span>' +
+      '<span class="tb-linerow__now">' + active + ' 🚆' + qChip + '</span>' +
       (g.lines.length > 1
-        ? '<button class="tb-btn tb-btn--inline" data-send="' + li + '" title="' + sendWhy + '"' +
-          (canSend ? '' : ' disabled') + '>−</button>' +
-          '<button class="tb-btn tb-btn--inline" data-req="' + li + '" title="' + reqWhy + '"' +
-          (canReq ? '' : ' disabled') + '>+</button>'
+        ? '<span class="tb-target' + (tgt === null ? '' : ' tb-target--set') + '" title="' + tWhy + '">' +
+          '<button class="tb-target__b" data-tdown="' + li + '" aria-label="' + STR.targetDown + '">−</button>' +
+          '<button class="tb-target__n" data-tclear="' + li + '">' + shown + '</button>' +
+          '<button class="tb-target__b" data-tup="' + li + '" aria-label="' + STR.targetUp + '">+</button>' +
+          '</span>'
         : '') +
       '</div>'
     );
   }
   if (g.lines.length > 1) {
     rows.push('<div class="tb-row" style="color: var(--tb-ghost); font-size: var(--tb-fs-caption)">' +
-      STR.transferHint + '</div>');
+      STR.transferHintTarget + '</div>');
   }
   // The works department's bulk orders live under the line rows: one click,
   // one level of an axis across every station that can take it.
