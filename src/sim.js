@@ -1190,8 +1190,89 @@ function newLine(stations, colorIdx, identity, name) {
     lastDepart: [-Infinity, -Infinity], // per end: [head, tail]
     lastPassF: stations.map(() => -Infinity), // last forward departure per station
     lastPassB: stations.map(() => -Infinity),
+    // The player's wanted train count for this line (0.15.2). null is no
+    // opinion, and no opinion means the fleet is never rearranged: the game
+    // used to hold three of its own (buy filled the emptiest line, plus
+    // pulled from the richest, minus pushed to the neediest), which made a
+    // deliberately small or empty line impossible to keep.
+    target: null,
     rev: 0,
   };
+}
+
+// A line with one stop cannot run a service at all, so it must never be
+// handed a train by any automatic path: trains sent there park forever,
+// pay full upkeep, and push the whole fleet's cost curve up.
+function canRunService(L) {
+  return !!L && L.stations.length >= 2;
+}
+
+export function lineTarget(g, li) {
+  const L = g.lines[li];
+  return L && Number.isInteger(L.target) ? L.target : null;
+}
+
+// null clears the target. Anything else is clamped to something the fleet
+// could actually satisfy.
+export function setLineTarget(g, li, n) {
+  const L = g.lines[li];
+  if (!L) return false;
+  if (n === null) { L.target = null; return true; }
+  const want = Math.max(0, Math.min(Math.round(Number(n) || 0), maxFleetEver()));
+  if (L.target === want) return false;
+  L.target = want;
+  return true;
+}
+
+// How many trains a line is short of what the player asked for. Lines with
+// no target are never short, so they are never filled behind the player's
+// back.
+function shortfall(g, li) {
+  const t = lineTarget(g, li);
+  if (t === null) return 0;
+  return t - g.trains.filter((x) => x.line === li).length;
+}
+
+// Where a train with no home should go. Targets win; among lines the player
+// has no opinion about, the emptiest, which is the old behaviour and keeps
+// the tuned opening intact for anyone who never touches a target.
+export function placementLine(g, notLi) {
+  const runnable = [];
+  for (let li = 0; li < g.lines.length; li++) {
+    if (li === notLi || !canRunService(g.lines[li])) continue;
+    runnable.push(li);
+  }
+  if (!runnable.length) return -1;
+  let best = -1, bestShort = 0;
+  for (const li of runnable) {
+    const sh = shortfall(g, li);
+    if (sh > bestShort) { bestShort = sh; best = li; }
+  }
+  if (best >= 0) return best;
+  // Nothing is short. Lines the player has no opinion about are free space,
+  // emptiest first, which is the old behaviour and keeps the tuned opening
+  // untouched for anyone who never sets a target.
+  const free = runnable.filter((li) => lineTarget(g, li) === null);
+  if (free.length) {
+    let pick = free[0], least = Infinity;
+    for (const li of free) {
+      const n = g.trains.filter((x) => x.line === li).length;
+      if (n < least) { least = n; pick = li; }
+    }
+    return pick;
+  }
+  // Every line is spoken for and satisfied, so this train is surplus. It
+  // goes to the BIGGEST line the player asked for, never to one they asked
+  // to keep empty, and never by the emptiest rule that would have parked it
+  // exactly where it was least wanted.
+  const willing = runnable.filter((li) => (lineTarget(g, li) || 0) > 0);
+  const pool = willing.length ? willing : runnable;
+  let pick = pool[0], biggest = -1;
+  for (const li of pool) {
+    const t = lineTarget(g, li) || 0;
+    if (t > biggest) { biggest = t; pick = li; }
+  }
+  return pick;
 }
 
 export function newGame() {
@@ -2618,6 +2699,7 @@ export function tick(g, dt) {
   // Depot orders execute the moment a train parks, BEFORE drivers can send it
   // straight back out from the terminus it just reached.
   processMoveQueue(g);
+  balanceToTargets(g);
 
   // Drivers: EVENT-DRIVEN turnaround (638 §2, 640 ordering). A train departs
   // when it has arrived, turned around, and its terminus has had the headway
@@ -3616,13 +3698,11 @@ export function buy(g, id) {
     g._netRev2 = undefined;
   }
   if (id === 'train') {
-    // The new train joins the line with the fewest trains.
-    let li = 0, best = Infinity;
-    for (let k = 0; k < g.lines.length; k++) {
-      const n = g.trains.filter((t) => t.line === k).length;
-      if (n < best) { best = n; li = k; }
-    }
-    addTrain(g, li);
+    // Where a new train goes is the player's call if they have made one.
+    // This used to be "the emptiest line", which quietly refilled a line
+    // the player had just deliberately emptied.
+    const li = placementLine(g, -1);
+    addTrain(g, li < 0 ? 0 : li);
   }
   if (PROJECT_SEEDS[id]) {
     // A charter megaproject: a new line with a gift train. westline and
@@ -3758,11 +3838,25 @@ export function spareTrains(g, li) {
 // The neediest other line: fewest trains (counting queued arrivals), ties to
 // the lowest index so the pick is predictable.
 function neediestLine(g, notLi) {
+  // A line the player asked to be short of trains is the neediest, and a
+  // line they asked to keep empty is never needy at all.
+  const byTarget = placementLine(g, notLi);
+  if (byTarget >= 0 && shortfall(g, byTarget) > 0) return byTarget;
   let best = -1, least = Infinity;
   for (let li = 0; li < g.lines.length; li++) {
     if (li === notLi) continue;
+    if (lineTarget(g, li) !== null && shortfall(g, li) <= 0) continue;
+    if (!canRunService(g.lines[li])) continue;
     const n = g.trains.filter((t) => t.line === li).length +
       g.moveQueue.filter((m) => m.to === li).length;
+    if (n < least) { least = n; best = li; }
+  }
+  if (best >= 0) return best;
+  // Nothing wants it, but a train must be somewhere: fall back to the old
+  // rule rather than strand it.
+  for (let li = 0; li < g.lines.length; li++) {
+    if (li === notLi) continue;
+    const n = g.trains.filter((t) => t.line === li).length;
     if (n < least) { least = n; best = li; }
   }
   return best;
@@ -4021,6 +4115,53 @@ export function cancelMove(g, li) {
 // train that just parked is caught before it is sent straight back out. An
 // order whose source line has lost all its trains refunds itself rather than
 // waiting forever on a promise nobody can keep.
+// Standing orders, not a heartbeat: a train only ever moves for a target
+// when it is PARKED, and only from a line that has more than the player
+// asked for to one that has fewer. It costs the same depot fee a manual
+// transfer costs, because it is the same act, and it waits rather than
+// overdrawing the player. One move per tick keeps a big retarget from
+// emptying the wallet in a frame, and nothing moves at all while every
+// line has no opinion, which is the default.
+function balanceToTargets(g) {
+  if (g.money < BAL.moveTrainKr) return;
+  if (!g.lines.some((L) => Number.isInteger(L.target))) return;
+  let to = -1, worst = 0;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (!canRunService(g.lines[li])) continue;
+    const sh = shortfall(g, li) - g.moveQueue.filter((m) => m.to === li).length;
+    if (sh > worst) { worst = sh; to = li; }
+  }
+  if (to < 0) {
+    // Nobody is short, but a line holding MORE than the player asked for
+    // still needs somewhere to send the difference, or a line set to zero
+    // never actually empties when the fleet outnumbers the targets. The
+    // overflow goes to the biggest line asked for, never to a line the
+    // player wants kept empty.
+    let biggest = 0;
+    for (let li = 0; li < g.lines.length; li++) {
+      if (!canRunService(g.lines[li])) continue;
+      const t = lineTarget(g, li) || 0;
+      if (t > biggest) { biggest = t; to = li; }
+    }
+    if (to < 0) return;
+  }
+  // Take from the line furthest ABOVE its target, and never from a line the
+  // player has expressed no opinion about while a surplus exists elsewhere.
+  let from = -1, over = 0;
+  for (let li = 0; li < g.lines.length; li++) {
+    if (li === to) continue;
+    const t = lineTarget(g, li);
+    if (t === null) continue;
+    const surplus = -shortfall(g, li);
+    if (surplus > over && spareTrains(g, li) > 0) { over = surplus; from = li; }
+  }
+  if (from < 0) return;
+  const t = g.trains.find((x) => x.line === from && !x.run && !x.mothballed);
+  if (!t) return;
+  g.money -= BAL.moveTrainKr;
+  execMove(g, t, to);
+}
+
 function processMoveQueue(g) {
   if (!g.moveQueue.length) return;
   for (let i = 0; i < g.moveQueue.length; i++) {
@@ -4088,7 +4229,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.15.1';
+export const VERSION = '0.15.2';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a
@@ -4143,6 +4284,7 @@ export function serialize(g) {
       delivered: Math.round(L.delivered || 0),
       earned: Math.round(L.earned || 0),
       skip: L.skip.map((s) => (s ? 1 : 0)),
+      target: Number.isInteger(L.target) ? L.target : null,
     })),
     hist: g.hist,
     records: g.records,
@@ -4371,6 +4513,9 @@ export function hydrate(raw) {
       earned: posInt(L.earned, 1e15),
       skip: [],
       expressNext: false,
+      // The player's wanted train count, kept because it is an instruction
+      // they gave, not a derived number.
+      target: Number.isInteger(L.target) && L.target >= 0 && L.target <= 1e4 ? L.target : null,
       waitingF: [],
       waitingB: [],
       left60: [],

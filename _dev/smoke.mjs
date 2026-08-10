@@ -1109,6 +1109,49 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (sim.shopCost(c, 'capacity') !== sim.shopCost(sim.newGame(), 'capacity')) err('the programme must not discount the rest of the shop');
 }
 
+// Per-line targets (0.15.2): the player says how many trains a line should
+// have and the fleet arranges itself. The promise that matters is that a
+// line set to zero STAYS at zero through every purchase, which the three
+// old heuristics made impossible.
+{
+  const t = sim.newGame();
+  t.money = 1e9; t.pk = 999; t.era = 3; t.totalDelivered = 3e5;
+  sim.buy(t, 'westline');
+  const on = (li) => t.trains.filter((x) => x.line === li).length;
+  const run = (secs) => { for (let i = 0; i < secs * 20; i++) { sim.tick(t, 0.05); t.events.length = 0; } };
+  for (let i = 0; i < 8; i++) sim.buy(t, 'train');
+  // Untouched, nothing is rearranged and the old placement still applies.
+  if (sim.lineTarget(t, 0) !== null) err('a line starts with no target');
+  sim.setLineTarget(t, 0, 8);
+  sim.setLineTarget(t, 1, 0);
+  run(240);
+  if (on(1) !== 0) err('a line set to zero must empty, got ' + on(1));
+  // And it must SURVIVE a purchase, which is the exact thing that failed.
+  sim.buy(t, 'train');
+  run(60);
+  if (on(1) !== 0) err('a bought train must not refill a line set to zero, got ' + on(1));
+  // Raising the target refills it.
+  sim.setLineTarget(t, 1, 3);
+  run(240);
+  if (on(1) !== 3) err('raising a target should fill the line, got ' + on(1));
+  // Targets are the player's instruction, so they survive a save.
+  const back = sim.hydrate(sim.serialize(t));
+  if (sim.lineTarget(back, 0) !== 8 || sim.lineTarget(back, 1) !== 3) {
+    err('targets must survive a save, got ' + back.lines.map((L) => L.target).join('/'));
+  }
+  // Clearing one hands the line back to the old free-space rule.
+  sim.setLineTarget(t, 1, null);
+  if (sim.lineTarget(t, 1) !== null) err('a target should be clearable');
+  // A one-stop line can never run a service, so nothing is ever parked there.
+  const stub = sim.newGame();
+  stub.money = 1e9; stub.pk = 999; stub.era = 3;
+  stub.lines[0].stations[1].tier = 3;
+  if (sim.foundLine(stub, 0, 1)) {
+    for (let i = 0; i < 4; i++) sim.buy(stub, 'train');
+    if (stub.trains.some((x) => x.line === 1)) err('a one-stop line must never be given a train');
+  }
+}
+
 // --- The 0.15.1 bug round. Each of these was found reproduced in the wild
 // before it was fixed, so each keeps a rail. ---
 {
