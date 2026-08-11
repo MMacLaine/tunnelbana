@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.15.3",
+      "title": "Charter a line from the hub",
+      "content": "A player at 1964 wrote that they had no idea how to satisfy the Örnsbergsgrenen or Östermalm requirements. The era names a corridor, but the card that starts it lived only in the shop, so standing at T Centralen you were offered Found a new line and nothing told you that was not the red line the plan wanted.\n- A hub station now offers the charter the plan is waiting on, named, with its trust price. Take it from the station panel or from the shop, whichever you found first\n- Once you take one, the panel offers the next line the plan still wants"
+    },
+    {
       "version": "0.15.2",
       "title": "Tell each line how many trains it should have",
       "content": "The game used to have three opinions about where your trains belonged. It filled the emptiest line when you bought one, took from the fullest when you asked for one, and gave to the thinnest when you sent one away. Between them you could not keep a line small, and a line you emptied refilled itself the next time you bought a train. Now you say what you want and the fleet arranges itself.\n- Each line in the Network panel has a number you set with plus and minus. That is how many trains that line should have\n- Trains move toward your numbers as they park, at the usual depot fee, and a line set to zero stays at zero however many trains you buy\n- Click the number to clear it. A line with no number keeps whatever it has and nothing is moved for you, which is how every line starts\n- New trains go to the line furthest below its number, or to the emptiest line you have no number on\n- A line with only one stop is never given a train any more. It cannot run a service, so trains sent there used to park forever while still costing full upkeep\n- The line rows now stay on one row each at any window size instead of breaking apart, and show how often a train comes beside how many are running"

@@ -136,6 +136,9 @@ const STR = {
   fleetGrows: 'The fleet cap rises with the next era',
   upkeepGrows: 'Upkeep grows about',
   lineColour: 'Line colour',
+  charterHere: 'Charter',
+  charterFor: 'the plan is waiting on it',
+  charterNeeds: 'Needs',
   targetSet: 'How many trains this line should have. The fleet arranges itself to match',
   targetIs: 'This line is set to',
   targetClear: 'click the number to let it float again',
@@ -1972,6 +1975,28 @@ function updateStationPanel() {
   const db = $('sp-down');
   db.hidden = !sim.canDowngradeTier(g, selected.li, selected.i);
   db.textContent = STR.tierDown;
+  // A hub is where a line is chartered, so it is where a player looks for
+  // one. The era plan names a corridor (Örnsbergsgrenen, Östermalm) but the
+  // card that STARTS it lived only in the shop, so standing at T-Centralen
+  // you were offered Found a line and no way to tell that was not the red
+  // line the plan wanted (live report 2026-08-11, and the owner hit it too).
+  const ch = $('sp-charter');
+  let charterId = null;
+  if (st.tier >= 3) {
+    for (const b of sim.planBlockers(g)) {
+      const proj = PROJECT_OF_CORRIDOR[b.id];
+      if (proj && !g.owned[proj]) { charterId = proj; break; }
+    }
+  }
+  ch.hidden = !charterId;
+  if (charterId) {
+    const cost = sim.shopCost(g, charterId);
+    const ok = sim.canBuy(g, charterId);
+    ch.textContent = STR.charterHere + ' ' + STR.shop[charterId].name + ' · ' + cost + ' ' + STR.trust;
+    ch.disabled = !ok;
+    ch.title = ok ? STR.shop[charterId].desc : STR.charterNeeds + ' ' + cost + ' ' + STR.trust;
+    ch.dataset.charter = charterId;
+  }
   const fb = $('sp-found');
   const showFound = st.tier >= 3;
   fb.hidden = !showFound;
@@ -2020,6 +2045,11 @@ for (const kind of ['tier', 'ent', 'gates', 'shop']) {
     if (sim.upgradeStationN(g, selected.li, selected.i, kind, n) > 0) updateUI();
   });
 }
+$('sp-charter').addEventListener('click', () => {
+  const id = $('sp-charter').dataset.charter;
+  if (!id || paused) return;
+  if (sim.buy(g, id)) { save(); updateUI(); }
+});
 $('sp-close').addEventListener('click', () => selectStation(null));
 
 // --- The inspector's controls. Each re-reads the selection at click time
