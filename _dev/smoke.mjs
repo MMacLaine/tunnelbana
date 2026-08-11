@@ -47,6 +47,8 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (sim.placementProblem(g, 0, 'head', [59.3240, 18.0500]) !== 'water') err('Riddarfjärden must refuse placement');
   if (sim.placementProblem(g, 0, 'tail', [59.3201, 18.0722]) !== 'tooClose') err('min spacing should be enforced');
   if (g.lines[0].stations[0].name !== 'T-Centralen' || !g.lines[0].stations[0].hub) err('the game should start at the T-Centralen hub');
+  if (sim.canDemolish(g, 0, 'head') || sim.demolish(g, 0, 'head')) err('T-Centralen must never be demolishable');
+  if (!sim.canDemolish(g, 0, 'tail')) err('the other opening terminus should remain demolishable');
   // District budgets: a fresh spot in Årsta claims real population; nowhere
   // gets the floor; and a SECOND station drinking from the same source gets
   // less than the first did (diminishing returns are structural now).
@@ -889,16 +891,17 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   if (back.lines[1].stations[1].tier !== 2) err('save round-trip lost the shared entry tier');
 }
 
-// Demolition still works, per line.
+// Demolition still works at a removable endpoint. T-Centralen itself is the
+// campaign anchor and is deliberately covered by the permanent-hub check.
 {
   const before = g.lines[0].stations.length;
   let done = false;
   for (let t = 0; t < 60 && !done; t += 0.05) {
     sim.tick(g, 0.05);
-    done = sim.demolish(g, 0, 'head');
+    done = sim.demolish(g, 0, 'tail');
     g.events.length = 0;
   }
-  if (!done || g.lines[0].stations.length !== before - 1) err('demolish head failed');
+  if (!done || g.lines[0].stations.length !== before - 1) err('demolish endpoint failed');
 }
 
 // A parked idle train must not block demolition (owner hit it 2026-08-04):
