@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.15.6",
+      "title": "Interchanges recalculate after rebuilding",
+      "content": "A rebuilt stop could leave the network still using the route through the stop you demolished. The map had moved on, but the routing graph had not.\n- Rebuilding a station or interchange now refreshes the network route graph immediately"
+    },
+    {
       "version": "0.15.5",
       "title": "Clear the map and keep the hub",
       "content": "Two player reports found a crowded opening and a route to a dead city. Both are fixed.\n- The money and trust panel on the left now has a handle that moves it off the map and remembers your choice\n- The opening guide closes once you reach 1952 and gives the map that space back\n- T-Centralen can no longer be demolished so the campaign always keeps its required hub"

@@ -1875,7 +1875,11 @@ function phaseVariantIdx(g) {
 }
 
 export function networkCache(g) {
-  const structRev = g.lines.map((L) => L.stations.length).join(',') + '|' + g.lines.length;
+  // The route graph follows the ORDERED physical stops, not merely how many
+  // entries each line holds. A demolition followed by a rebuild can restore
+  // the same per-line counts while replacing a station or an interchange;
+  // counts alone then resurrected the demolished edges until a later build.
+  const structRev = g.lines.map((L) => L.stations.map(physKeyOf).join('>')).join('|');
   if (g._netRev2 === structRev && g._net) {
     const vRev = netRev(g);
     if (g._netVarRev !== vRev && g.clock - g._netVarAt >= VARIANT_REFRESH_S) {
@@ -4239,7 +4243,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.15.5';
+export const VERSION = '0.15.6';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a

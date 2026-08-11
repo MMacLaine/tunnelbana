@@ -552,6 +552,24 @@ const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); 
   if (backRm.lines[0].stations.length !== L0.stations.length) err('the removal must survive a save');
 }
 
+// Routing caches must follow the stations themselves, not only line lengths.
+// Replacing a stop used to restore the old count and leave a deleted station
+// and its interchange edges alive in the route graph.
+{
+  const rewire = sim.newGame();
+  rewire.money = 1e9;
+  rewire.era = sim.ERAS.length - 1;
+  sim.extendTo(rewire, 0, 'tail', ANCHORS[3].geo, 3);
+  sim.extendTo(rewire, 0, 'tail', ANCHORS[4].geo, 4);
+  sim.networkCache(rewire); // cache the original 0, 1, 2, 3, 4 topology
+  if (!sim.removeStation(rewire, 0, 2)) err('cache rewire setup removal failed');
+  if (!sim.extendTo(rewire, 0, 'tail', ANCHORS[5].geo, 5)) err('cache rewire setup rebuild failed');
+  const net = sim.networkCache(rewire);
+  if (net.keys.includes('a2') || !net.keys.includes('a5')) {
+    err('routing cache kept the demolished topology after a same-length rebuild');
+  }
+}
+
 // --- A save written between founding a line and extending it (v12 live
 // loss): the one-station line is REAL, and it must never retire the city. ---
 {
