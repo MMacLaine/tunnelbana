@@ -250,6 +250,11 @@ export const BAL = {
 // Thresholds derived post-638 against measured greedy pacing (~2,900
 // delivered/min single-line late; multi-line projected 2-3x): gates land at
 // roughly 1h / 4h / 8h / 12h / 16h of active play on the way to the 20 h arc.
+// That hours model is HISTORY, not intent: the thresholds below were
+// rescaled from measurement in 2026-08-05, live medians now put the last
+// era near two hours, and the owner ruled 2026-08-11 that a few good hours
+// beat twenty forced ones. Do not slow anything down to defend a number
+// from this comment.
 // Coarse by design; the owner's playtests refine them. Rescaled x0.35 with
 // the 2026-08-04 slowdown; reshaped the same day for the CAMPAIGN (owner
 // direction): each era is one real line's story, and the final era is the
