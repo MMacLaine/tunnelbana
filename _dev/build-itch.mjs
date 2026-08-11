@@ -1,7 +1,8 @@
 // Build the itch.io zip: everything the game needs, all local except the tile
 // service. Run: node _dev/build-itch.mjs  -> dist/tunnelbana.zip
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, cpSync, statSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, rmSync, cpSync, statSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -22,6 +23,25 @@ const INCLUDE = ['index.html', 'tokens.css', 'tokens-ui.css', 'ui.css', 'ui-mome
                  'src', 'vendor', 'fonts', 'basemap', 'audio'];
 for (const item of INCLUDE) {
   cpSync(join(ROOT, item), join(STAGE, item), { recursive: true });
+}
+
+// itch serves static files too, so a returning player can pair this build's
+// HTML with an earlier module graph unless the package changes every module
+// URL. The site deployer stamps its copy the same way. Hash the staged bytes
+// and rewrite only the staged package: source imports stay readable in git.
+const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'src/facts.js', 'src/sound.js', 'src/diagram.js', 'ui.css', 'ui-moments.css', 'ui-council.css', 'ui-train.css', 'tokens-ui.css', 'tokens.css']
+  .map((f) => readFileSync(join(STAGE, f))).join('\n');
+const stamp = createHash('sha256').update(hashSrc).digest('hex').slice(0, 10);
+const htmlPath = join(STAGE, 'index.html');
+writeFileSync(htmlPath, readFileSync(htmlPath, 'utf8').replace(/\?v=[0-9a-z.]+/g, '?v=' + stamp));
+const IMPORT_RE = /(\bfrom\s+['"])(\.\.?\/[\w./-]+\.js)(['"])/g;
+for (const name of ['main.js', 'sim.js', 'render.js', 'data.js', 'facts.js', 'sound.js', 'diagram.js']) {
+  const p = join(STAGE, 'src', name);
+  const src = readFileSync(p, 'utf8');
+  writeFileSync(p, src.replace(IMPORT_RE, (_m, a, spec, z) => a + spec + '?v=' + stamp + z));
+  const unstamped = [...readFileSync(p, 'utf8').matchAll(/\bfrom\s+['"](\.\.?\/[^'"]+)['"]/g)]
+    .map((m) => m[1]).filter((spec) => !spec.includes('?v='));
+  if (unstamped.length) throw new Error('UNSTAMPED IMPORT in src/' + name + ': ' + unstamped.join(', '));
 }
 
 // Guard: every staged file, not just the HTML, and the allowlist names the
@@ -58,4 +78,5 @@ rmSync(STAGE, { recursive: true, force: true });
 const kb = Math.round(statSync(ZIP).size / 1024);
 // State what was actually found, rather than asserting it in prose.
 console.log(`dist/tunnelbana.zip ready (${kb} KB).`);
+console.log(`module graph stamped ${stamp}.`);
 console.log('runtime external hosts found: ' + (runtimeSeen.join(', ') || 'none'));
