@@ -1,11 +1,6 @@
 {
   "updates": [
     {
-      "version": "0.15.7",
-      "title": "Fresh itch builds load fresh code",
-      "content": "The itch package carried an old module cache key, so a returning browser could run an earlier build after an update.\n- itch releases now stamp the whole module graph with the build content, so every update loads its matching game code"
-    },
-    {
       "version": "0.15.6",
       "title": "Interchanges recalculate after rebuilding",
       "content": "A rebuilt stop could leave the network still using the route through the stop you demolished. The map had moved on, but the routing graph had not.\n- Rebuilding a station or interchange now refreshes the network route graph immediately"
