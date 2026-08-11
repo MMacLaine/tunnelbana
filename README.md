@@ -26,6 +26,9 @@ The dev server sends `no-store`, which matters: browsers cache ES modules aggres
 a stale module is an afternoon spent debugging a bug you already fixed. ES modules do not
 load over `file://`, so a server is required either way.
 
+Release builders stamp every module URL by the shipped content, so a returning browser cannot
+pair a new page with an older game module.
+
 ## What is in here
 
 | Path | What it is |
