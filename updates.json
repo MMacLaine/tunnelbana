@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.15.5",
+      "title": "Clear the map and keep the hub",
+      "content": "Two player reports found a crowded opening and a route to a dead city. Both are fixed.\n- The money and trust panel on the left now has a handle that moves it off the map and remembers your choice\n- The opening guide closes once you reach 1952 and gives the map that space back\n- T-Centralen can no longer be demolished so the campaign always keeps its required hub"
+    },
+    {
       "version": "0.15.4",
       "title": "What a busier city costs",
       "content": "A player pointed out that demand upgrades can cost you trust, and they were right. Measured, buying every demand upgrade raises riders by a quarter to a third and cuts the trust rate by about a fifth, because a busier city is a bigger city and trust is paid for the share of the region you serve well. The trade is real and stays, but nothing said so.\n- The demand upgrades now say it on the card, so the trade is a decision rather than a surprise\n- The anonymous milestone pulse now records the shape of the network as well as the timing. Counts of stations, lines, trains, achievements and upgrades, plus coverage and the order of magnitude of money and riders. Still no identifier, no position, no save contents and no text, and Settings still turns it off"

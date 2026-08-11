@@ -127,6 +127,11 @@ async function main() {
     await shot(ws, '4c-corner-buttons', { x: 1040, y: 820, width: 400, height: 80 });
     await evaluate(ws, `document.getElementById('rail-toggle').click()`);
     await sleep(400);
+    await evaluate(ws, `document.getElementById('status-toggle').click()`);
+    await sleep(400);
+    await shot(ws, '4d-status-hidden');
+    await evaluate(ws, `document.getElementById('status-toggle').click()`);
+    await sleep(400);
 
     // 3. A richer state: money for the shop's affordable/unaffordable split,
     // a station panel open, and an era in reach. Reaches into the live game
@@ -165,13 +170,13 @@ async function main() {
     await sleep(500);
     await shot(ws, '6-moment');
 
-    // 5. The diagram (0.10): buy Linjekartan, toggle, let a train run on it.
+    // 5. The diagram is the reward for the first era. Toggle it and let a
+    // train run on it.
     await evaluate(ws, `(async () => {
       const t = window.__tb;
       document.getElementById('moment-close').click();
       const { sim, g } = t;
-      g.era = 3; g.money = 1e9;
-      sim.buy(g, 'diagram');
+      g.era = 1; g.money = 1e9;
       t.updateUI();
       document.getElementById('dia-toggle').click();
       sim.dispatch(g);

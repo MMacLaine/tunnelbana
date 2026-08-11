@@ -155,6 +155,12 @@ async function main() {
       const { ANCHORS } = await import('./src/data.js');
       document.getElementById('help-back').click();
       document.getElementById('menu-resume').click();
+      const guideShown = !document.getElementById('hints-panel').hidden;
+      const statusToggle = document.getElementById('status-toggle');
+      statusToggle.click();
+      const statusHidden = document.body.classList.contains('status-hidden');
+      statusToggle.click();
+      const statusRestored = !document.body.classList.contains('status-hidden');
       g.money = 1e9; g.era = 3;
       for (const k of g.lines[0].stations.length < 8 ? [3, 4, 5, 6, 7] : []) {
         sim.extendTo(g, 0, 'tail', ANCHORS[k].geo, k);
@@ -177,7 +183,10 @@ async function main() {
       await new Promise((r) => setTimeout(r, 500));
       const diaSvg = !!document.querySelector('#dia-mode svg');
       document.getElementById('dia-toggle').click();
-      return 'skipBtn=' + skipShown + ' bulk=' + bulkShown +
+      const guideClosed = document.getElementById('hints-panel').hidden;
+      return 'guideShown=' + guideShown + ' guideClosed=' + guideClosed +
+             ' statusHidden=' + statusHidden + ' statusRestored=' + statusRestored +
+             ' skipBtn=' + skipShown + ' bulk=' + bulkShown +
              ' statsRecords=' + statsRows + ' overlay=' + statsOverlay +
              ' toggle=' + statsAgain + ' diagram=' + diaSvg;
     })()`));

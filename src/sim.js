@@ -3238,12 +3238,16 @@ export function extendTo(g, li, end, geo, anchorIdx) {
 
 export function canDemolish(g, li, end) {
   const L = g.lines[li];
+  if (!L) return false;
   // A short line stays demolishable: taking the second to last stop takes
   // the LINE with it (live report 2026-08-10, a stub line squatted on its
   // hub with no way to remove it). Only the network's last line is safe.
   if (L.stations.length <= 2 && g.lines.length <= 1) return false;
   if (g.money < BAL.demolishCost) return false;
   const idx = end === 'head' ? 0 : L.stations.length - 1;
+  // T-Centralen is the campaign's permanent anchor. It cannot be rebuilt by
+  // the plan, so removing it turns a valid save into a dead city.
+  if (L.stations[idx].anchor === 0) return false;
   // Only a train IN MOTION at or toward the doomed station blocks demolition
   // (its run references the geometry). A parked idle train never does: trains
   // rest at exactly the ends a player may demolish, so refusing on idle
@@ -3401,6 +3405,7 @@ export function canRemoveStation(g, li, i) {
   if (!L || !Number.isInteger(i) || i <= 0 || i >= L.stations.length - 1) return false;
   if (L.stations.length <= 2) return false;
   if (g.money < BAL.demolishCost) return false;
+  if (L.stations[i].anchor === 0) return false;
   // Same rule as canDemolish: only a train moving at or toward the doomed
   // stop blocks it (its run references the geometry).
   for (const t of g.trains) {
@@ -4234,7 +4239,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.15.4';
+export const VERSION = '0.15.5';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a

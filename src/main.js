@@ -93,7 +93,7 @@ const STR = {
   coverage: 'coverage',
   phases: ['MORNING RUSH', '', 'EVENING RUSH', 'NIGHT'],
   demolished: '−' + B.demolishCost + ' kr',
-  cantDemolish: 'Cannot demolish now',
+  cantDemolish: 'Cannot demolish',
   menuStart: 'Start',
   menuContinue: 'Continue',
   menuResume: 'Resume',
@@ -229,6 +229,8 @@ const STR = {
   menuBtn: 'Menu',
   railHide: 'Hide the upgrade rail',
   railShow: 'Show the upgrade rail',
+  statusHide: 'Hide the money panel',
+  statusShow: 'Show the money panel',
   fbTitle: 'What broke, or what would you love?',
   fbHint: 'Goes straight to the person who made this.',
   fbSend: 'Submit',
@@ -1114,6 +1116,22 @@ $('rail-toggle').addEventListener('click', () => {
   setRail(!document.body.classList.contains('rail-hidden'));
 });
 setRail(store.get(RAIL_KEY) === 'hidden');
+
+// The live readout is useful until it sits over the railhead. Like the shop
+// rail, it remembers the player's choice, while the identity stays visible.
+const STATUS_KEY = 'tunnelbana_status';
+function setStatus(hidden) {
+  document.body.classList.toggle('status-hidden', hidden);
+  const t = $('status-toggle');
+  t.textContent = hidden ? '›' : '‹';
+  t.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+  t.setAttribute('aria-label', hidden ? STR.statusShow : STR.statusHide);
+  store.set(STATUS_KEY, hidden ? 'hidden' : 'shown');
+}
+$('status-toggle').addEventListener('click', () => {
+  setStatus(!document.body.classList.contains('status-hidden'));
+});
+setStatus(store.get(STATUS_KEY) === 'hidden');
 $('menu-open').addEventListener('click', () => {
   if (menu.hidden) showMenu('pause');
   else closeMenu();
@@ -1745,7 +1763,8 @@ wrap.addEventListener('contextmenu', (e) => {
     }
     updateUI();
   } else {
-    render.addFloatGeo(sim.endStation(g, ref.li, ref.end).geo, STR.cantDemolish);
+    const station = sim.endStation(g, ref.li, ref.end);
+    render.addFloatGeo(station.geo, STR.cantDemolish);
   }
 });
 
@@ -3130,6 +3149,9 @@ function popNum(el) {
 
 // --- Stats ---
 function updateUI() {
+  // The opening legend earns its space while the player learns the first
+  // railway. Once 1950 is complete, the map needs that corner back.
+  $('hints-panel').hidden = g.era >= 1;
   $('money').innerHTML = numHTML(g.money, ' kr');
   const mMag = magOf(g.money);
   if (moneyMag >= 0 && mMag > moneyMag) popNum($('money'));
