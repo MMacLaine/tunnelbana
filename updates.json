@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.15.4",
+      "title": "What a busier city costs",
+      "content": "A player pointed out that demand upgrades can cost you trust, and they were right. Measured, buying every demand upgrade raises riders by a quarter to a third and cuts the trust rate by about a fifth, because a busier city is a bigger city and trust is paid for the share of the region you serve well. The trade is real and stays, but nothing said so.\n- The demand upgrades now say it on the card, so the trade is a decision rather than a surprise\n- The anonymous milestone pulse now records the shape of the network as well as the timing. Counts of stations, lines, trains, achievements and upgrades, plus coverage and the order of magnitude of money and riders. Still no identifier, no position, no save contents and no text, and Settings still turns it off"
+    },
+    {
       "version": "0.15.3",
       "title": "Charter a line from the hub",
       "content": "A player at 1964 wrote that they had no idea how to satisfy the Örnsbergsgrenen or Östermalm requirements. The era names a corridor, but the card that starts it lived only in the shop, so standing at T Centralen you were offered Found a new line and nothing told you that was not the red line the plan wanted.\n- A hub station now offers the charter the plan is waiting on, named, with its trust price. Take it from the station panel or from the shop, whichever you found first\n- Once you take one, the panel offers the next line the plan still wants"

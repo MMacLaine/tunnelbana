@@ -19,6 +19,12 @@ const PROJECT_OF_CORRIDOR = {
 };
 const pct = (x) => Math.round(Math.abs(1 - x) * 100);
 const FEEDBACK_TO_LABEL = 'matthew@maclaine.se';
+// Measured 2026-08-11, from a player's report: buying demand raises riders
+// and income by a quarter to a third and cuts coverage, and so trust, by
+// about a fifth. It is a coherent trade rather than a bug (a grown city is a
+// bigger region to cover) but nothing said so, and a fifth of the trust rate
+// is too much to leave as a surprise. The maths stands; the card now warns.
+const STR_DEMAND_NOTE = ' A busier city is a bigger city, and trust is paid for the share of the region you serve well, so lay on the service to match.';
 const STR = {
   dispatch: 'AVGÅNG',
   dispatchSub: 'Dispatch a train',
@@ -253,14 +259,14 @@ const STR = {
     westline:   { name: 'Västerortsbanan',   desc: 'Megaproject: a second line from T-Centralen to Hötorget, with a train. The city pays in trust.' },
     redline:    { name: 'Röda linjen',       desc: 'Megaproject: charter the red line as a Söder shuttle, Mariatorget to Zinkensdamm, with a train. Connect it to your network your way; Fruängen waits at the far end.' },
     blueline:   { name: 'Blå linjen',        desc: 'Megaproject: charter the deep blue line, T-Centralen to Rådhuset, with a train. Hjulsta waits beyond Järvafältet.' },
-    entrances:  { name: 'Extra entrances',   desc: 'Wider catchment: +' + Math.round(CAT.entrances.add.demand * 100) + '% demand everywhere, per level.' },
+    entrances:  { name: 'Extra entrances',   desc: 'Wider catchment: +' + Math.round(CAT.entrances.add.demand * 100) + '% demand everywhere, per level.' + STR_DEMAND_NOTE },
     through:    { name: 'Through-running',   desc: 'Megaproject: changing lines gets easier, so more of the city rides across them.' },
     stock1957:  { name: '1957 stock',        desc: 'Top speed and acceleration up ' + pct(CAT.stock1957.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     c4stock:    { name: 'C4 stock',          desc: 'Top speed and acceleration up ' + pct(CAT.c4stock.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     c14stock:   { name: 'C14 stock',         desc: 'Top speed and acceleration up ' + pct(CAT.c14stock.mult.speed) + '%; the open stretches quicken, the stops still take their time.' },
     zonefare:   { name: 'Zone fares',        desc: 'Fares worth ' + pct(CAT.zonefare.mult.fare) + '% more.' },
     atc:        { name: 'ATC holding',       desc: 'Comfort: trains stop bunching onto each other. You can watch it work.' },
-    artstation: { name: 'Konst i tunnelbanan', desc: 'Art in the stations: +' + Math.round(CAT.artstation.add.demand * 100) + '% demand everywhere. The world\'s longest gallery.' },
+    artstation: { name: 'Konst i tunnelbanan', desc: 'Art in the stations: +' + Math.round(CAT.artstation.add.demand * 100) + '% demand everywhere. The world\'s longest gallery.' + STR_DEMAND_NOTE },
     cbtc:       { name: 'CBTC signalling',   desc: 'Moving-block signalling: trains brake later and run ' + pct(CAT.cbtc.mult.speed) + '% harder, and the signalling floor drops ' + pct(CAT.cbtc.mult.dispatchInterval) + '%.' },
     nightservice: { name: 'Nattrafik',       desc: 'The city never fully sleeps: night demand doubled.' },
   },
@@ -1162,7 +1168,24 @@ function pulse(ev, year) {
       method: 'POST',
       keepalive: true, // an era pulse should survive an immediate tab close
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ev, year, playedS: Math.round(g.playedS), v: sim.VERSION, surface: pulseSurface }),
+      // Richer records cost NOTHING extra: KV bills per write, and this is
+      // the same one write it always was, so the payload may as well carry
+      // the shape of the railway that reached this milestone. Everything
+      // here is a count or a magnitude about the NETWORK, never about the
+      // person: no identifier, no position, no save contents, no text.
+      body: JSON.stringify({
+        ev, year, playedS: Math.round(g.playedS), v: sim.VERSION, surface: pulseSurface,
+        stations: sim.stationCount(g),
+        lines: g.lines.length,
+        trains: g.trains.length,
+        ach: Object.keys(g.achieved || {}).length,
+        upg: sim.CATALOG.reduce((n, it) => n + (g.owned[it.id] || 0), 0),
+        cov: Math.round(sim.coverage(g) * 100),
+        // Order of magnitude, not the number: enough to see the economy's
+        // shape across an arc without recording anyone's balance.
+        krMag: g.money > 0 ? Math.floor(Math.log10(g.money)) : 0,
+        ridersMag: g.totalDelivered > 0 ? Math.floor(Math.log10(g.totalDelivered)) : 0,
+      }),
     }).catch(() => {});
   } catch {}
 }
