@@ -3,7 +3,7 @@
     {
       "version": "0.16.1",
       "title": "Nobody left behind can arrive",
-      "content": "A tiny, invisible remnant in the rolling abandonment counter could remain forever after it had already rounded to zero on the station panel. That stopped the achievement from triggering.\n- Fixed Nobody left behind unlocking once its rolling abandonment measure has genuinely cleared"
+      "content": "A tiny, invisible remnant in the rolling abandonment counter could remain forever after it had already rounded to zero on the station panel. That stopped the achievement from triggering.\n- Fixed Nobody left behind unlocking once its rolling abandonment measure has genuinely cleared\n- Added a Back button at the top of What’s new"
     },
     {
       "version": "0.16.0",
