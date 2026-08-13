@@ -12,6 +12,8 @@
    system, not design. */
 
 :root {
+  --tb-ui-scale: 1;
+  --tb-rail-width: 300px;
   /* --- Type scale, named by role (section 01) ---------------------------- */
   --tb-fs-hero: 1.5rem;      /* menu wordmark TUNNELBANA (was .menu-panel h1) */
   --tb-fs-counter: 1.6rem;   /* the money readout (was #money) */

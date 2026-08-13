@@ -3,7 +3,7 @@
 // transfer flow, surges, political capital, the mothball deficit rule, offline
 // progress, and save round-trips. Run: node _dev/smoke.mjs
 import * as sim from '../src/sim.js';
-import { trunkOffsets, trainMarks, nearTrain, setProjector } from '../src/render.js';
+import { trunkOffsets, trainMarks, nearTrain, nearStationAt, setProjector, setUIScale } from '../src/render.js';
 import { ANCHORS, CORRIDORS, WEST_FIRST, WATER, inRing, kmBetween } from '../src/data.js';
 
 const err = (msg) => { console.error('ASSERT FAILED: ' + msg); process.exit(1); };
@@ -750,12 +750,72 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
     sim.extendTo(g, 1, 'tail', ANCHORS[k].geo, k);
   }
   const d0 = g.totalDelivered;
+  const westDelivered0 = g.lines[1].delivered;
+  const westEarned0 = g.lines[1].earned;
   for (let t = 0; t < 60; t += 0.05) {
     sim.tick(g, 0.05);
     if (Math.floor(t * 20) % 10 === 0) sim.dispatch(g);
     g.events.length = 0;
   }
   if (!(g.totalDelivered > d0)) err('two-line network should deliver');
+  if (!(g.lines[1].delivered > westDelivered0)) err('Västerortsbanan should deliver riders of its own');
+  if (!(g.lines[1].earned > westEarned0)) err('Västerortsbanan should earn fares of its own');
+  const westRoundTrip = sim.hydrate(sim.serialize(g));
+  const westAfterHydrate = westRoundTrip.lines[1].delivered;
+  for (let t = 0; t < 30; t += 0.05) {
+    sim.tick(westRoundTrip, 0.05);
+    if (Math.floor(t * 20) % 10 === 0) sim.dispatch(westRoundTrip);
+    westRoundTrip.events.length = 0;
+  }
+  if (!(westRoundTrip.lines[1].delivered > westAfterHydrate)) {
+    err('Västerortsbanan should keep delivering after save and hydrate');
+  }
+}
+
+// Every campaign corridor must carry passengers, not merely be buildable. A
+// quiet real stop is valid play, but a whole corridor with no riders or fares
+// is a broken route. This runs only in the smoke suite, never in a player's
+// game. Each corridor is built to its final staked stop, dispatched through
+// service, then asked to keep earning after a save and hydrate round trip.
+{
+  for (const corridor of CORRIDORS) {
+    const c = sim.newGame();
+    c.money = 1e12;
+    c.pk = 999;
+    c.era = sim.ERAS.length - 1;
+    let li = 0;
+    if (corridor.id !== 'green-south') {
+      if (!sim.foundLine(c, 0, 0)) err(corridor.id + ' service setup should found from T-Centralen');
+      li = c.lines.length - 1;
+      sim.addTrain(c, li);
+    }
+    for (let k = corridor.start; k < corridor.end; k++) {
+      if (c.lines[li].stations.some((st) => st.anchor === k)) continue;
+      if (!sim.extendTo(c, li, 'tail', ANCHORS[k].geo, k)) {
+        err(corridor.id + ' service setup failed at ' + ANCHORS[k].name);
+      }
+    }
+    const delivered0 = c.lines[li].delivered;
+    const earned0 = c.lines[li].earned;
+    for (let t = 0; t < 120; t += 0.05) {
+      sim.tick(c, 0.05);
+      if (Math.floor(t * 20) % 10 === 0) sim.dispatchLine(c, li);
+      c.events.length = 0;
+    }
+    if (!(c.lines[li].delivered > delivered0 && c.lines[li].earned > earned0)) {
+      err(corridor.id + ' must carry riders and earn fares across its full corridor');
+    }
+    const reloaded = sim.hydrate(sim.serialize(c));
+    const deliveredAfterLoad = reloaded.lines[li].delivered;
+    for (let t = 0; t < 60; t += 0.05) {
+      sim.tick(reloaded, 0.05);
+      if (Math.floor(t * 20) % 10 === 0) sim.dispatchLine(reloaded, li);
+      reloaded.events.length = 0;
+    }
+    if (!(reloaded.lines[li].delivered > deliveredAfterLoad)) {
+      err(corridor.id + ' must keep carrying riders after save and hydrate');
+    }
+  }
 }
 
 // Found-a-line from a Knutpunkt, player train allocation, abandonment.
@@ -1075,6 +1135,13 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
     if (hit !== mk.id) err('the hit test missed train ' + mk.id + ' at its own mark, got ' + hit);
   }
   if (nearTrain(m, { x: 1e6, y: 1e6 }) !== null) err('empty map must return no train');
+  const stationPoint = (geo) => ({ x: (geo[1] - 18) * 20000, y: (59.35 - geo[0]) * 20000 });
+  const stationHit = nearStationAt(m, stationPoint(m.lines[0].stations[0].geo));
+  if (!stationHit?.core) err('a station centre must remain a distinct selectable core');
+  setUIScale('xl');
+  const scaledStationHit = nearStationAt(m, stationPoint(m.lines[0].stations[0].geo));
+  if (!scaledStationHit?.core) err('an extra-large interface must keep station selection usable');
+  setUIScale('standard');
   // Stacked pips are told apart: two trains resting at one stop get two
   // marks at different points, and each answers for itself.
   const parked = m.trains.filter((t) => !t.run);

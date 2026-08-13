@@ -4,24 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tunnelbana · Build Stockholm</title>
+<meta name="description" content="Tunnelbana is a calm, finite Stockholm metro building game. Build lines from T-Centralen, connect interchanges, run trains, and grow the city from 1950 onward.">
 <!-- The version this PAGE was built for. main.js compares it against its own
      and reloads once if they differ, so a cached script can never pair with a
      newer page (that shipped a dead Achievements screen and a 0.7 readout on a
      0.8 page). The handshake lives in the HTML because the HTML is the copy a
      browser revalidates. -->
-<meta name="tb-version" content="0.15.6">
+<meta name="tb-version" content="0.16.0">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="vendor/maplibre-gl.css" rel="stylesheet">
 <script src="vendor/maplibre-gl.js"></script>
 <!-- The design system, in adoption order (pass 02, section 08): colour and
      glyph tokens, then the interface tokens, then the component layer. Every
      class in the markup below comes from ui.css; this file owns only layout. -->
-<link rel="stylesheet" href="tokens.css?v=0.15.6">
-<link rel="stylesheet" href="tokens-ui.css?v=0.15.6">
-<link rel="stylesheet" href="ui.css?v=0.15.6">
-<link rel="stylesheet" href="ui-moments.css?v=0.15.6">
-<link rel="stylesheet" href="ui-council.css?v=0.15.6">
-<link rel="stylesheet" href="ui-train.css?v=0.15.6">
+<link rel="stylesheet" href="tokens.css?v=0.16.0">
+<link rel="stylesheet" href="tokens-ui.css?v=0.16.0">
+<link rel="stylesheet" href="ui.css?v=0.16.0">
+<link rel="stylesheet" href="ui-moments.css?v=0.16.0">
+<link rel="stylesheet" href="ui-council.css?v=0.16.0">
+<link rel="stylesheet" href="ui-train.css?v=0.16.0">
 <style>
   @font-face {
     font-family: "IBM Plex Mono";
@@ -70,6 +71,21 @@
     --tb-plate: rgba(255, 255, 255, 0.72);
   }
 
+  /* Optional accessibility preferences. The designed theme remains the
+     default; these only lift supporting copy for bright rooms and distance. */
+  :root[data-contrast="high"] {
+    --tb-muted: #b9c7d5;
+    --tb-ghost: #9eafc0;
+    --tb-disabled-ink: #b9c7d5;
+  }
+  :root[data-theme="light"][data-contrast="high"] {
+    --tb-muted: #344454;
+    --tb-ghost: #4d6070;
+    --tb-disabled-ink: #344454;
+  }
+  html[data-ui-scale="large"] { font-size: 120%; --tb-ui-scale: 1.2; --tb-rail-width: 360px; }
+  html[data-ui-scale="xl"] { font-size: 140%; --tb-ui-scale: 1.4; --tb-rail-width: 420px; }
+
   * { box-sizing: border-box; margin: 0; }
   /* The board lesson: any display: on a class beats the hidden attribute (the
      empty station panel shipped visible that way). Restated globally so no
@@ -97,15 +113,21 @@
     padding: 0.25rem 0.5rem;
     z-index: 2;
   }
+  #build-picker { position: fixed; z-index: 14; width: min(220px, calc(100vw - 2rem)); }
+  #build-picker .tb-btn { justify-content: flex-start; }
+  .tb-build-info { margin-left: auto; width: 1rem; height: 1rem; display: inline-grid; place-items: center;
+    border: 1px solid var(--tb-muted); border-radius: 50%; color: var(--tb-muted); cursor: help;
+    font: var(--tb-weight-semi) var(--tb-fs-micro)/1 var(--tb-mono); }
+  .tb-build-info:focus-visible { outline: none; box-shadow: var(--tb-focus); }
 
   /* --- HUD corners. Layout only: every surface inside is a .tb-panel. --- */
   .hud { position: fixed; z-index: 5; }
   #hud-tl { top: 1rem; left: 1rem; display: flex; flex-direction: column; gap: var(--tb-gap-panel); }
-  #hud-bl { bottom: 1.4rem; left: 1rem; display: flex; flex-direction: column; gap: var(--tb-gap-panel); max-width: 320px; }
+  #hud-bl { bottom: 1.4rem; left: 1rem; display: flex; flex-direction: column; gap: var(--tb-gap-panel); max-width: var(--tb-rail-width); }
   #hud-r {
     top: 1rem;
     right: 1rem;
-    width: 300px;
+    width: var(--tb-rail-width);
     /* 1rem top inset + clearance for the bottom-right controls, so the last
        upgrade card ends above them instead of sliding underneath. */
     max-height: calc(100vh - 4.75rem);
@@ -123,7 +145,7 @@
   #rail-toggle {
     position: fixed;
     top: 1rem;
-    right: calc(300px + 1.6rem);
+    right: calc(var(--tb-rail-width) + 1.6rem);
     z-index: 6;
     width: 1.6rem;
     height: 1.6rem;
@@ -145,9 +167,9 @@
 
   /* The live readout can cover a useful piece of a compact map. Keep the
      identity above it, but let the money and trust panel step aside. */
-  #status-panel { width: 300px; transition: transform 200ms var(--tb-ease, ease); }
+  #status-panel { width: var(--tb-rail-width); transition: transform 200ms var(--tb-ease, ease); }
   #status-toggle {
-    position: fixed; top: calc(1rem + 34px + var(--tb-gap-panel)); left: calc(300px + 1.6rem); z-index: 6;
+    position: fixed; top: calc(1rem + 34px + var(--tb-gap-panel)); left: calc(var(--tb-rail-width) + 1.6rem); z-index: 6;
     width: 1.6rem; height: 1.6rem; font-family: var(--tb-mono); font-size: var(--tb-fs-md); line-height: 1;
     background: var(--tb-panel-t); border: var(--tb-border) solid var(--tb-line); color: var(--tb-muted); cursor: pointer;
     -webkit-backdrop-filter: blur(var(--tb-blur)); backdrop-filter: blur(var(--tb-blur));
@@ -259,6 +281,15 @@
     text-align: left;
   }
   #fact-toast:hover .tb-toast__trip { color: var(--tb-ink); }
+  #charter-coach {
+    position: fixed;
+    top: 4.7rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    max-width: 360px;
+    text-align: left;
+  }
 
   /* The numbers ceremony (0.11, pass-02 item e finally): a counter crossing
      a power of ten gets one beat. Watching a number rise is the genre; the
@@ -394,6 +425,7 @@
   <div id="map-wrap">
     <div id="basemap"></div>
     <canvas id="map"></canvas>
+    <div class="tb-panel" id="build-picker" hidden></div>
     <div id="map-status" hidden></div>
   </div>
 
@@ -690,6 +722,13 @@
     </div>
   </button>
 
+  <div class="tb-panel" id="charter-coach" hidden>
+    <div class="tb-panel__body">
+      <div class="tb-row"><span class="tb-panel__tag">NEW LINE</span><button class="tb-panel__close" id="charter-coach-close" aria-label="Dismiss new line guidance">×</button></div>
+      <p id="charter-coach-text" style="color: var(--tb-muted); line-height: var(--tb-lh)"></p>
+    </div>
+  </div>
+
   <button type="button" class="tb-panel" id="ach-toast" hidden>
     <div class="tb-panel__body">
       <div class="tb-panel__title" id="ach-toast-label"></div>
@@ -755,6 +794,13 @@
              clicking it opens the changelog for anyone who cares how the
              game is moving. -->
         <button class="tb-btn tb-btn--inline" id="version-btn" style="margin: 0.1rem 0 0.5rem"><span data-version></span> · What's new</button>
+        <div class="tb-menu__music" aria-label="Music player">
+          <span class="tb-menu__note" id="music-track">Morning Rain · TAD</span>
+          <span class="tb-menu__music-controls">
+            <button class="tb-btn tb-btn--inline" id="music-prev" aria-label="Previous song">‹ Back</button>
+            <button class="tb-btn tb-btn--inline" id="music-next" aria-label="Next song">Next ›</button>
+          </span>
+        </div>
         <p class="tb-menu__note" id="offline-note" hidden style="color: var(--tb-amber); margin-top: 0"></p>
         <button class="tb-btn tb-btn--primary tb-btn--block" id="menu-resume">Start</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="menu-help">How to play</button>
@@ -768,7 +814,7 @@
       </div>
 
       <div class="tb-menu__view" id="help-view" hidden>
-        <div class="tb-menu__title">HOW TO PLAY</div>
+        <div class="tb-menu__head"><div class="tb-menu__title">HOW TO PLAY</div><button class="tb-btn tb-btn--inline" id="help-back-top">Back</button></div>
         <div class="tb-menu__sub">Everything the game never says out loud</div>
 
         <div class="tb-prose">
@@ -825,6 +871,10 @@
           for the price of the station works alone.</p>
           <p>Cost grows along the line you are extending, so a long line gets expensive; a
           new line starts cheap again.</p>
+          <p>Chartering a line creates that service and gives it its first train. It does not
+          unlock general building: follow that new line's coloured end to its own staked
+          continuation. When two ends can reach the same stake, choose the line from the
+          small colour-labelled choice beside it.</p>
           <p>On the map: every station you have built is a hollow circle, drawn larger at the
           two ends of a line. The tinted disc around it, in that line's colour, is the area it
           serves; it widens with the station's tier and its entrances. A thin outer ring with
@@ -838,7 +888,9 @@
           <p>Ring AVGÅNG (or press space) to send a train out. Hiring drivers automates it.
           Each line shows how often it sends a train: more trains, faster stock and a tighter
           timetable all shorten that number, and a timetable also stops trains bunching into
-          convoys.</p>
+          convoys. In the Network panel, <b>15 s</b> is the service interval and <b>14 🚆</b>
+          means fourteen active trains. The number between <b>−</b> and <b>+</b> is the train
+          target for that line.</p>
         </div>
 
         <div class="tb-prose">
@@ -899,7 +951,7 @@
       </div>
 
       <div class="tb-menu__view" id="ach-view" hidden>
-        <div class="tb-menu__title">ACHIEVEMENTS</div>
+        <div class="tb-menu__head"><div class="tb-menu__title">ACHIEVEMENTS</div><button class="tb-btn tb-btn--inline" id="ach-back-top">Back</button></div>
         <div class="tb-menu__sub" id="ach-count"></div>
         <div id="ach-list"></div>
         <button class="tb-btn tb-btn--std tb-btn--block" id="ach-back" style="margin-top: 1rem">Back</button>
@@ -932,7 +984,7 @@
         <div class="tb-setting"><span>Map tiles</span><span class="tb-setting__v"><a href="https://openfreemap.org">OpenFreeMap</a></span></div>
         <div class="tb-setting"><span>Map engine</span><span class="tb-setting__v"><a href="https://maplibre.org">MapLibre GL JS</a> (BSD-3)</span></div>
         <div class="tb-setting"><span>Typefaces</span><span class="tb-setting__v">IBM Plex Mono · Libre Caslon (both SIL OFL)</span></div>
-        <div class="tb-setting"><span>Music</span><span class="tb-setting__v">"Morning Rain" &amp; "Countryside" by TAD (<a href="https://opengameart.org/content/lofi-compilation">OpenGameArt</a>, CC0)</span></div>
+        <div class="tb-setting"><span>Music</span><span class="tb-setting__v">"Morning Rain", "Countryside", "Oceanside" &amp; "Florist" by TAD (<a href="https://opengameart.org/content/lofi-compilation">OpenGameArt</a>, CC0)</span></div>
         <div class="tb-setting"><span>Visual system</span><span class="tb-setting__v">Tunnelbana pass 04</span></div>
         <div class="tb-setting"><span>A game by</span><span class="tb-setting__v">Matthew MacLaine</span></div>
         <div class="tb-setting"><span>Analytics</span><span class="tb-setting__v">anonymous page counts and era milestones, cookieless, off switch in Settings</span></div>
@@ -941,11 +993,12 @@
 
       <div class="tb-menu__view" id="settings-view" hidden>
         <div class="tb-menu__title">SETTINGS</div>
-        <div class="tb-menu__sub">Placeholders mostly, for now.</div>
         <div class="tb-setting"><span>Theme</span><button class="tb-btn tb-btn--inline" id="settings-theme">Dark</button></div>
+        <div class="tb-setting"><span>Interface size</span><button class="tb-btn tb-btn--inline" id="settings-scale">Standard</button></div>
+        <div class="tb-setting"><span>Text contrast</span><button class="tb-btn tb-btn--inline" id="settings-contrast">Default</button></div>
         <div class="tb-setting"><span>Numbers</span><button class="tb-btn tb-btn--inline" id="settings-numfmt">Short</button></div>
-        <div class="tb-setting"><span>City notes</span><button class="tb-btn tb-btn--inline" id="settings-notes">On</button></div>
-        <div class="tb-setting"><span>Milestone pings</span><button class="tb-btn tb-btn--inline" id="settings-pulse">On</button></div>
+        <div class="tb-setting"><span>City notes</span><span class="tb-setting__controls"><button class="tb-btn tb-btn--inline" id="settings-notes">On</button><button class="tb-btn tb-btn--inline" id="settings-notes-history">Read</button></span></div>
+        <div class="tb-setting"><span>Milestone pings</span><span class="tb-setting__controls"><button class="tb-btn tb-btn--inline" id="settings-pulse">On</button><button class="tb-btn tb-btn--inline" id="settings-milestones-history">Read</button></span></div>
         <div class="tb-setting"><span>Warnings</span><button class="tb-btn tb-btn--inline" id="settings-warns">On</button></div>
         <div class="tb-setting"><span>Master</span><input type="range" class="tb-slider" id="vol-master" min="0" max="100"></div>
         <div class="tb-setting"><span>Music</span><input type="range" class="tb-slider" id="vol-music" min="0" max="100"></div>
@@ -960,6 +1013,13 @@
         <textarea id="import-text" hidden spellcheck="false"></textarea>
         <button class="tb-btn tb-btn--std tb-btn--danger tb-btn--block" id="settings-reset">Reset progress</button>
         <button class="tb-btn tb-btn--std tb-btn--block" id="settings-back">Back</button>
+      </div>
+
+      <div class="tb-menu__view" id="record-view" hidden>
+        <div class="tb-menu__head"><div class="tb-menu__title" id="record-title">CITY NOTES</div><button class="tb-btn tb-btn--inline" id="record-back-top">Back</button></div>
+        <div class="tb-menu__sub" id="record-sub"></div>
+        <div class="tb-prose" id="record-list"></div>
+        <button class="tb-btn tb-btn--std tb-btn--block" id="record-back" style="margin-top: 1rem">Back to settings</button>
       </div>
     </div>
   </div>

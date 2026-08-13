@@ -109,7 +109,7 @@
 .tb-shop[data-state="locked"] .tb-shop__name,
 .tb-shop[data-state="locked"] .tb-shop__cost,
 .tb-shop[data-state="locked"] .tb-shop__desc,
-.tb-shop[data-state="locked"] .tb-shop__icon { color: var(--tb-ghost); }
+.tb-shop[data-state="locked"] .tb-shop__icon { color: var(--tb-muted); }
 .tb-shop[data-state="locked"] .tb-shop__gate { color: var(--tb-politic); }
 
 /* State: project (trust) — politic keyline, its own accent */
@@ -149,6 +149,10 @@
   color: var(--tb-ink); }
 .tb-menu__sub { color: var(--tb-muted); font-size: var(--tb-fs-body); margin-bottom: .8rem; line-height: var(--tb-lh); }
 .tb-menu__note { color: var(--tb-ghost); font-size: var(--tb-fs-caption); line-height: var(--tb-lh-loose); margin-top: .8rem; }
+.tb-menu__music { display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  margin: -0.1rem 0 0.15rem; }
+.tb-menu__music .tb-menu__note { margin: 0; }
+.tb-menu__music-controls { display: inline-flex; gap: .35rem; flex: none; }
 .tb-menu__legal { color: var(--tb-line-hi); font-size: var(--tb-fs-micro); line-height: var(--tb-lh); margin-top: .4rem; }
 
 /* ============================================================================
@@ -180,6 +184,20 @@
 /* The pass-02 achievements LIST retired in 0.10: ui-moments.css owns the
    categorised page now. The toast keeps its big-name treatment below. */
 #ach-toast .tb-ach__name { font-size: var(--tb-fs-title); font-weight: var(--tb-weight-semi); color: var(--tb-green); }
+.tb-ach--focus { outline: 2px solid var(--tb-green); outline-offset: 3px; }
+.tb-record { padding: .65rem 0; border-bottom: var(--tb-border) solid var(--tb-line); }
+.tb-record b { color: var(--tb-ink); }
+.tb-record p { margin: .25rem 0 0; color: var(--tb-muted); line-height: var(--tb-lh); }
+.tb-record--paper { width: 100%; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.tb-record--paper:hover, .tb-record--paper:focus-visible { border-color: var(--tb-green); outline: none; }
+.tb-record--paper::after { content: 'Read paper ›'; display: block; margin-top: .35rem; color: var(--tb-green); font-size: var(--tb-fs-caption); }
+.tb-record--locked { border-style: dashed; }
+.tb-record--locked b, .tb-record--locked p { color: var(--tb-ghost); }
+#record-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 2rem; }
+#record-list > h3 { grid-column: 1 / -1; margin: 1.2rem 0 .1rem; }
+@media (max-width: 700px) {
+  #record-list { grid-template-columns: 1fr; }
+}
 .tb-ach--old { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.6rem; }
 .tb-ach__row { display: flex; align-items: baseline; gap: 0.5rem;
   border: var(--tb-border) solid var(--tb-line); padding: 0.45rem 0.6rem; }
@@ -193,8 +211,16 @@
 .tb-menu--full { position: fixed; inset: 0; z-index: 20; background: transparent; }
 .tb-menu--full .tb-menu__veil { background: var(--tb-veil); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
 .tb-menu__inner--wide { width: min(560px, 88%); max-height: calc(100vh - 4rem); overflow-y: auto; }
+.tb-menu--record .tb-menu__inner--wide { width: min(1080px, 92%); }
+.tb-menu--log .tb-menu__inner--wide { width: min(840px, 92%); }
+@media (max-width: 700px) {
+  .tb-menu--record .tb-menu__inner--wide { width: min(560px, 88%); }
+  .tb-menu--log .tb-menu__inner--wide { width: min(560px, 88%); }
+}
 .tb-menu__title { font: var(--tb-weight-semi) 1.1rem/1 var(--tb-mono);
   letter-spacing: 0.28em; color: var(--tb-ink); margin-bottom: 0.2rem; }
+.tb-menu__head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.tb-menu__head .tb-menu__title { margin-bottom: 0; }
 
 /* Each menu view is its own column on the same rhythm: the inner's gap applies
    to the views, so without this the buttons inside sat flush against each other
@@ -205,6 +231,7 @@
 .tb-setting { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
   padding: 0.55rem 0; border-bottom: var(--tb-border) solid var(--tb-line);
   font-size: var(--tb-fs-label); color: var(--tb-muted); }
+.tb-setting__controls { display: inline-flex; align-items: center; justify-content: flex-end; gap: .35rem; flex-wrap: wrap; }
 .tb-setting__v { color: var(--tb-ink); }
 .tb-setting a { color: var(--tb-amber); text-decoration: none; border-bottom: 1px solid var(--tb-amber-dim); }
 .tb-setting a:hover { color: var(--tb-ink); border-bottom-color: var(--tb-ink); }
