@@ -1,6 +1,11 @@
 {
   "updates": [
     {
+      "version": "0.16.1",
+      "title": "Nobody left behind can arrive",
+      "content": "A tiny, invisible remnant in the rolling abandonment counter could remain forever after it had already rounded to zero on the station panel. That stopped the achievement from triggering.\n- Fixed Nobody left behind unlocking once its rolling abandonment measure has genuinely cleared"
+    },
+    {
       "version": "0.16.0",
       "title": "Make the railway easier to read and direct",
       "content": "This update makes the map easier to read and building choices clearer.\n- Settings now offers Standard, Large and Extra large interface sizes plus a High contrast text option\n- Locked and unavailable upgrade cards remain readable in both themes\n- How to play and Achievements now have a Back button at the top as well as the bottom\n- An earned achievement now opens its own card when you select its notification\n- City Notes is now a wide collection of every city fact and odd corner. Entries reveal themselves when found and show your total progress\n- Journey postcards and reached milestones remain available per save in Settings\n- Selecting an era milestone reopens its newspaper and returns you to the milestone list afterwards\n- The menu names the current TAD track and lets you go back or skip forward\n- Oceanside and Florist by TAD join the music rotation under CC0\n- Network values explain service intervals and active trains on hover and in accessible labels\n- A new line now explains that its coloured end must be extended to its staked continuation\n- At a busy interchange, click the station core for the station panel and a train body for its inspector\n- Stake clicks now choose the nearest sensible line end by default and show up to three nearby colour keyed choices with their true prices\n- When money is short, stake clicks still show the nearby origins and their required costs. Distant ends remain available by dragging\n- Every campaign corridor now has a regression check proving it carries riders and fares before and after a save reload"

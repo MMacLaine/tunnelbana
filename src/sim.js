@@ -2666,7 +2666,12 @@ export function tick(g, dt) {
           L.leaveAcc[i] = 0;
         }
       }
+      // This is a decaying per-minute diagnostic, so a past fractional loss
+      // otherwise approaches zero forever without ever reaching it. Keep the
+      // display and the Nobody left behind aim honest: below a thousandth of
+      // a rider it is numerical residue, not an active abandonment.
       L.left60[i] = Math.max(0, L.left60[i] - L.left60[i] * dt / 60);
+      if (L.left60[i] < 0.001) L.left60[i] = 0;
     }
   }
 
@@ -4243,7 +4248,7 @@ export const SAVE_KEY = 'tunnelbana_save';
 
 // Shown in the menu and stamped on feedback, so a bug report always says which
 // build it came from. Bump on anything a player would notice.
-export const VERSION = '0.16.0';
+export const VERSION = '0.16.1';
 
 // --- The save container (0.11.3): TBSAVE1:<crc32 hex>:<json>. The checksum
 // makes corruption DETECTABLE (a truncated write no longer looks like a

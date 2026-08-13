@@ -849,6 +849,17 @@ if (!sawSurge) err('a surge should have occurred within ten minutes');
   for (let t = 0; t < 120; t += 0.05) { sim.tick(a, 0.05); a.events.length = 0; }
   const leftTotal = a.lines[0].left60.reduce((x, y) => x + y, 0);
   if (!(leftTotal > 0)) err('crowded platforms should leak passengers (abandonment)');
+
+  // Nobody left behind reads the same rolling abandonment measure as the
+  // station panel. A decayed fractional loss must clear instead of remaining
+  // just above zero forever and silently blocking the achievement.
+  const clean = sim.newGame();
+  clean.opened = true;
+  clean.totalDelivered = 5001;
+  clean.lines[0].left60.fill(0.0005);
+  clean.achieveAt = -1;
+  sim.tick(clean, 0.05);
+  if (!clean.achieved['nobody-left']) err('Nobody left behind should unlock after a cleared abandonment residue');
 }
 
 // Report 638 follow-ups: the growth loop responds to investment (§1), the
