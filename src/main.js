@@ -738,6 +738,7 @@ $('menu-help').addEventListener('click', () => menuView('help'));
 $('menu-ach').addEventListener('click', () => menuView('ach'));
 $('version-btn').addEventListener('click', () => menuView('log'));
 $('log-back').addEventListener('click', () => menuView('main'));
+$('log-back-top').addEventListener('click', () => menuView('main'));
 $('menu-slots').addEventListener('click', () => menuView('slots'));
 $('slots-back').addEventListener('click', () => menuView('main'));
 $('music-prev').addEventListener('click', () => { sfx.skipMusic(-1); updateMusicTrack(); });
