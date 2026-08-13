@@ -105,6 +105,40 @@ async function main() {
       })`);
       console.log(id + ':', r, '->', state);
     }
+    // Accessibility preferences are local UI state. They must actually alter
+    // the document and cycle back to their safe defaults, never touch a save.
+    console.log('accessibility:', await evaluate(ws, `(() => {
+      document.getElementById('menu-settings').click();
+      document.getElementById('settings-scale').click();
+      document.getElementById('settings-contrast').click();
+      const changed = document.documentElement.dataset.uiScale === 'large' &&
+        document.documentElement.dataset.contrast === 'high';
+      document.getElementById('settings-scale').click();
+      document.getElementById('settings-scale').click();
+      document.getElementById('settings-contrast').click();
+      const reset = document.documentElement.dataset.uiScale === 'standard' &&
+        document.documentElement.dataset.contrast === 'default';
+      document.getElementById('settings-back').click();
+      return 'changed=' + changed + ' reset=' + reset;
+    })()`));
+
+    console.log('menu music and records:', await evaluate(ws, `(() => {
+      const before = document.getElementById('music-track').textContent;
+      document.getElementById('music-next').click();
+      const after = document.getElementById('music-track').textContent;
+      document.getElementById('menu-settings').click();
+      document.getElementById('settings-notes-history').click();
+      const notes = !document.getElementById('record-view').hidden &&
+        document.getElementById('record-title').textContent.endsWith('/ 41') &&
+        document.getElementById('record-list').querySelectorAll('.tb-record').length >= 41;
+      document.getElementById('record-back').click();
+      document.getElementById('settings-milestones-history').click();
+      const milestones = !document.getElementById('record-view').hidden &&
+        document.getElementById('record-title').textContent === 'MILESTONES';
+      document.getElementById('record-back-top').click();
+      document.getElementById('settings-back').click();
+      return 'musicChanged=' + (before !== after) + ' notes=' + notes + ' milestones=' + milestones;
+    })()`));
 
     // The achievement toast has to LEAD somewhere (owner ask 2026-08-05). It is
     // a button that opens the achievements list, and the only way to know it
@@ -112,7 +146,7 @@ async function main() {
     await evaluate(ws, `(() => {
       document.getElementById('menu-resume').click();
       const t = window.__tb;
-      if (t) t.g.events.push({ type: 'achievement', name: 'Probe' });
+      if (t) t.g.events.push({ type: 'achievement', id: 'first-departure', name: 'Probe' });
       return !!t;
     })()`);
     await sleep(600);   // the toast is raised by the game loop's event drain
@@ -124,7 +158,13 @@ async function main() {
       return 'clicked -> menu=' + document.getElementById('menu').hidden +
              ' achView=' + document.getElementById('ach-view').hidden +
              ' rows=' + document.getElementById('ach-list').childElementCount +
+             ' focused=' + !!document.querySelector('[data-ach-ids~="first-departure"]') +
              ' toastHidden=' + toast.hidden;
+    })()`));
+    console.log('achievement top back:', await evaluate(ws, `(() => {
+      document.getElementById('ach-back-top').click();
+      return 'main=' + !document.getElementById('main-view').hidden +
+        ' ach=' + document.getElementById('ach-view').hidden;
     })()`));
     // The icon key: every glyph the shop uses must have a line explaining it.
     console.log('icon key:', await evaluate(ws, `(() => {

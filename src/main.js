@@ -1,7 +1,7 @@
 import * as sim from './sim.js';
 import * as render from './render.js';
-import { ANCHORS, CORRIDORS } from './data.js';
-import { FACTS, NAMES } from './facts.js';
+import { ANCHORS, CORRIDORS, kmBetween } from './data.js';
+import { EGGS, FACTS, NAMES } from './facts.js';
 import * as sfx from './sound.js';
 import { diagramSVG, diagramTrains, diagramSig } from './diagram.js';
 
@@ -58,6 +58,8 @@ const STR = {
   lvl: 'lvl',
   foundBtn: 'Found a new line',
   linesHdr: 'Trains per line',
+  lineHeadway: 'Service interval between departures',
+  lineActive: 'Active trains on this line',
   // Fleet orders (0.9): the transfer verb was the most-missed mechanic in the
   // 0.8.2 feedback, so every state says what it does or why it will not.
   reqTrain: 'Bring a train here',
@@ -488,10 +490,20 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 // --- Theme (light mode is a testing aid; dark is the designed theme) ---
 const THEME_KEY = 'tunnelbana_theme';
+const UI_SCALE_KEY = 'tunnelbana_ui_scale';
+const CONTRAST_KEY = 'tunnelbana_contrast';
 const NIGHT_STYLE = 'basemap/tunnelbana-night.json';
 const LIGHT_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 const urlTheme = new URLSearchParams(location.search).get('theme');
 let theme = (urlTheme || store.get(THEME_KEY)) === 'light' ? 'light' : 'dark';
+let uiScale = ['large', 'xl'].includes(store.get(UI_SCALE_KEY)) ? store.get(UI_SCALE_KEY) : 'standard';
+let contrast = store.get(CONTRAST_KEY) === 'high' ? 'high' : 'default';
+
+function applyAccessibility() {
+  document.documentElement.dataset.uiScale = uiScale;
+  document.documentElement.dataset.contrast = contrast;
+  render.setUIScale(uiScale);
+}
 
 function applyTheme(next) {
   theme = next;
@@ -514,6 +526,7 @@ function applyTheme(next) {
 }
 document.documentElement.dataset.theme = theme;
 render.setTheme(theme);
+applyAccessibility();
 
 // --- Basemap (MapLibre + OpenFreeMap, same stack as the SL map) ---
 const wrap = $('map-wrap');
@@ -660,6 +673,8 @@ function hasSave() {
   return store.get(saveKey) !== null;
 }
 function menuView(which) {
+  menu.classList.toggle('tb-menu--record', which === 'record');
+  menu.classList.toggle('tb-menu--log', which === 'log');
   $('main-view').hidden = which !== 'main';
   $('settings-view').hidden = which !== 'settings';
   $('about-view').hidden = which !== 'about';
@@ -667,13 +682,17 @@ function menuView(which) {
   $('ach-view').hidden = which !== 'ach';
   $('log-view').hidden = which !== 'log';
   $('slots-view').hidden = which !== 'slots';
+  $('record-view').hidden = which !== 'record';
   if (which === 'ach') renderAchievements();
   if (which === 'log') renderLog();
   if (which === 'slots') renderSlots();
   if (which === 'help') renderIconKey();
+  if (which === 'record') renderRecord();
   if (which === 'settings') {
     $('settings-reset').textContent = STR.reset;
     $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
+    $('settings-scale').textContent = uiScale === 'xl' ? 'Extra large' : uiScale === 'large' ? 'Large' : 'Standard';
+    $('settings-contrast').textContent = contrast === 'high' ? 'High' : 'Default';
     $('settings-numfmt').textContent = numShort ? STR.numShort : STR.numFull;
     $('settings-notes').textContent = notesOn ? STR.notesOn : STR.notesOff;
     $('settings-pulse').textContent = pulseOn ? STR.pulseOn : STR.pulseOff;
@@ -705,6 +724,7 @@ function showMenu(mode) {
   $('menu-slots').textContent = othersUsed || activeSlot !== '1'
     ? STR.slotsBtnAt + ' ' + activeSlot : STR.slotsBtnPlain;
   $('menu-quit').hidden = mode !== 'pause';
+  updateMusicTrack();
 }
 function closeMenu() {
   paused = false;
@@ -720,6 +740,11 @@ $('version-btn').addEventListener('click', () => menuView('log'));
 $('log-back').addEventListener('click', () => menuView('main'));
 $('menu-slots').addEventListener('click', () => menuView('slots'));
 $('slots-back').addEventListener('click', () => menuView('main'));
+$('music-prev').addEventListener('click', () => { sfx.skipMusic(-1); updateMusicTrack(); });
+$('music-next').addEventListener('click', () => { sfx.skipMusic(1); updateMusicTrack(); });
+function updateMusicTrack() {
+  $('music-track').textContent = sfx.musicTrackName() + ' · TAD';
+}
 
 // --- Save slots (v12, pass 04 section e): three networks side by side.
 // A row is the pass-02 button frame with the three facts that identify a
@@ -831,6 +856,7 @@ function switchSlot(s) {
   store.set(SLOT_KEY, s);
   rotateBak(raw);
   g = h;
+  loadRecordHistories();
   clearSelections(); // the old city's indices mean nothing here
   saveLocked = false; // fresh or proven-loadable bytes re-arm autosave
   // A slot that sat while another was played still ran its trains: the same
@@ -1086,7 +1112,9 @@ $('council-tree').addEventListener('click', (e) => {
   }
 });
 $('ach-back').addEventListener('click', () => menuView('main'));
+$('ach-back-top').addEventListener('click', () => menuView('main'));
 $('help-back').addEventListener('click', () => menuView('main'));
+$('help-back-top').addEventListener('click', () => menuView('main'));
 $('about-mark').addEventListener('click', () => {
   if (menu.hidden) showMenu('pause');
   menuView('about');
@@ -1273,6 +1301,18 @@ $('settings-theme').addEventListener('click', () => {
   applyTheme(theme === 'light' ? 'dark' : 'light');
   $('settings-theme').textContent = theme === 'light' ? STR.themeLight : STR.themeDark;
 });
+$('settings-scale').addEventListener('click', () => {
+  uiScale = uiScale === 'standard' ? 'large' : uiScale === 'large' ? 'xl' : 'standard';
+  store.set(UI_SCALE_KEY, uiScale);
+  applyAccessibility();
+  $('settings-scale').textContent = uiScale === 'xl' ? 'Extra large' : uiScale === 'large' ? 'Large' : 'Standard';
+});
+$('settings-contrast').addEventListener('click', () => {
+  contrast = contrast === 'default' ? 'high' : 'default';
+  store.set(CONTRAST_KEY, contrast);
+  applyAccessibility();
+  $('settings-contrast').textContent = contrast === 'high' ? 'High' : 'Default';
+});
 $('settings-export').addEventListener('click', () => {
   const btn = $('settings-export');
   save();
@@ -1382,7 +1422,10 @@ $('settings-reset').addEventListener('click', () => {
     return;
   }
   store.del(saveKey); // only the slot being played; the other two are other lives
+  store.del(recordKey(NOTE_HISTORY_KEY));
+  store.del(recordKey(MILESTONE_HISTORY_KEY));
   g = sim.hydrate(null);
+  loadRecordHistories();
   clearSelections();
   saveLocked = false; // an explicit fresh start re-arms autosave
   // A reset clears the PREVIOUS life's notes too (live report, 2026-08-08:
@@ -1396,6 +1439,7 @@ $('settings-reset').addEventListener('click', () => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
+    if (!$('build-picker').hidden) { hideBuildPicker(); return; }
     if (!$('rename').hidden) { closeRename(); return; }
     if (!$('confirm').hidden) { closeConfirm(); return; }
     if (statsOpen) { setStatsOpen(false); return; }
@@ -1407,7 +1451,7 @@ window.addEventListener('keydown', (e) => {
     if (selectedTrain !== null && menu.hidden) { selectTrain(null); return; }
     if (menu.hidden) showMenu('pause');
     else if (!$('settings-view').hidden || !$('about-view').hidden || !$('help-view').hidden ||
-             !$('ach-view').hidden || !$('log-view').hidden || !$('slots-view').hidden) menuView('main');
+             !$('ach-view').hidden || !$('log-view').hidden || !$('slots-view').hidden || !$('record-view').hidden) menuView('main');
     else closeMenu();
   }
 });
@@ -1452,6 +1496,7 @@ function newsMotif(era) {
 }
 
 let momentOpen = false;
+let momentReturnToRecord = false;
 function showFrontPage(key) {
   const e = ERA_NEWS[key];
   if (!e) return;
@@ -1519,6 +1564,11 @@ $('moment-close').textContent = STR.newsContinue;
 $('moment-close').addEventListener('click', () => {
   momentOpen = false;
   $('moment').hidden = true;
+  if (momentReturnToRecord) {
+    momentReturnToRecord = false;
+    menu.hidden = false;
+    menuView('record');
+  }
 });
 $('era-btn').addEventListener('click', () => {
   if (sim.advanceEra(g)) updateUI();
@@ -1576,9 +1626,69 @@ function dragState(p) {
 }
 
 let downAt = null; // for click-vs-drag discrimination
+let buildChoices = null;
+const buildPicker = $('build-picker');
+
+function hideBuildPicker() {
+  buildChoices = null;
+  buildPicker.hidden = true;
+  buildPicker.replaceChildren();
+}
+
+function showBuildPicker(anchor, options, p) {
+  buildChoices = { anchor, options };
+  const head = document.createElement('div');
+  head.className = 'tb-panel__head';
+  const title = document.createElement('span');
+  title.className = 'tb-panel__title';
+  title.textContent = 'BUILD WITH';
+  const info = document.createElement('span');
+  info.className = 'tb-build-info';
+  info.tabIndex = 0;
+  info.textContent = 'i';
+  info.title = 'Nearby continuations and their costs are shown here. To build from another line end, drag that end to this stake.';
+  head.append(title, info);
+  const body = document.createElement('div');
+  body.className = 'tb-panel__body';
+  options.forEach((o, n) => {
+    const L = g.lines[o.li];
+    const button = document.createElement('button');
+    button.className = 'tb-btn tb-btn--inline';
+    button.dataset.buildChoice = String(n);
+    button.style.borderLeftColor = L.color;
+    button.style.borderLeftWidth = '3px';
+    button.disabled = o.problem === 'money';
+    button.title = o.problem === 'money' ? 'Need ' + fmt(o.cost) + ' kr' : 'Build from this end';
+    button.textContent = L.name + ' from ' + sim.endStation(g, o.li, o.end).name + ' · ' +
+      (o.problem === 'money' ? 'Need ' : '') + fmt(o.cost) + ' kr';
+    body.appendChild(button);
+  });
+  buildPicker.replaceChildren(head, body);
+  buildPicker.style.left = Math.max(12, Math.min(window.innerWidth - 232, p.x + 14)) + 'px';
+  buildPicker.style.top = Math.max(12, Math.min(window.innerHeight - 160, p.y + 14)) + 'px';
+  buildPicker.hidden = false;
+  body.querySelector('button:not(:disabled)')?.focus() || info.focus();
+}
+
+buildPicker.addEventListener('click', (e) => {
+  const n = Number(e.target.closest('[data-build-choice]')?.dataset.buildChoice);
+  const choice = buildChoices?.options[n];
+  const anchor = buildChoices?.anchor;
+  if (!choice || choice.problem || anchor === undefined) return;
+  const ap = render.project(ANCHORS[anchor].geo);
+  dragRef = { li: choice.li, end: choice.end };
+  tryExtend(dragState(ap));
+  dragRef = null;
+  hideBuildPicker();
+});
 
 wrap.addEventListener('pointerdown', (e) => {
   if (paused || e.button === 2) return;
+  if (buildPicker.contains(e.target)) return;
+  if (!buildPicker.hidden) {
+    hideBuildPicker();
+    return;
+  }
   const p = canvasPos(e);
   downAt = p;
   // Line ends and trains compete for the same pixels: a train resting at a
@@ -1613,17 +1723,24 @@ wrap.addEventListener('pointerdown', (e) => {
   if (eggId) {
     const egg = sim.foundEgg(g, eggId);
     if (egg) {
-      showNote('fact', egg.name, egg.fact);
+      showNote('fact', egg.name, egg.fact, 'egg:' + egg.id);
       updateUI();
     }
     e.stopPropagation();
     e.preventDefault();
     return;
   }
-  // A train (0.15.0). It outranks the station beneath it for the same
-  // reason a curiosity does, and because trains paint over stations: the
-  // thing under the pointer should be the thing that answers. It sits below
-  // the golden train and the curiosities, which are briefer and rarer.
+  // At a busy interchange the station's central node is the reliable way to
+  // open its panel. The train remains inspectable from its visible body just
+  // outside that core, rather than swallowing the station beneath it.
+  const stationHit = render.nearStationAt(g, p);
+  if (stationHit && stationHit.core) {
+    selectStation({ li: stationHit.li, i: stationHit.i });
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
+  // A train on its visible body opens the inspector.
   if (nearTrainHit) {
     selectTrain(nearTrainHit.id);
     e.stopPropagation();
@@ -1631,9 +1748,8 @@ wrap.addEventListener('pointerdown', (e) => {
     return;
   }
   // A built station (not a grabbable end): select it for the panel.
-  const st = render.nearStation(g, p);
-  if (st) {
-    selectStation(st);
+  if (stationHit) {
+    selectStation({ li: stationHit.li, i: stationHit.i });
     e.stopPropagation();
     e.preventDefault();
     return;
@@ -1660,17 +1776,44 @@ wrap.addEventListener('pointerdown', (e) => {
     const options = [];
     for (let li = 0; li < g.lines.length; li++) {
       for (const end of ['head', 'tail']) {
-        const ep = render.project(sim.endStation(g, li, end).geo);
-        options.push({ li, end, d: Math.hypot(ap.x - ep.x, ap.y - ep.y) });
+        const from = sim.endStation(g, li, end);
+        options.push({
+          li, end,
+          km: kmBetween(from.geo, ANCHORS[a].geo),
+          cost: sim.extensionCost(g, li, end, ANCHORS[a].geo, a),
+        });
       }
     }
-    // The stake's OWNING line takes it first (live feedback: nearest-end
-    // sometimes grabbed the wrong colour); distance only breaks ties.
-    const owner = sim.stakeLine(g, a);
-    options.sort((x, y) => ((y.li === owner) - (x.li === owner)) || (x.d - y.d));
-    dragRef = options.find((o) => !sim.placementProblem(g, o.li, o.end, ANCHORS[a].geo, a)) || options[0];
-    tryExtend(dragState(p));
-    dragRef = null;
+    // Money is an explanation, not an illegal route. If it filtered the
+    // candidates out, an unaffordable click fell through to the first line
+    // end in memory order, which was often T-Centralen rather than the
+    // nearby continuation the drag preview correctly used.
+    const viable = options.map((o) => ({
+      ...o,
+      problem: sim.placementProblem(g, o.li, o.end, ANCHORS[a].geo, a),
+    })).filter((o) => !o.problem || o.problem === 'money');
+    // A stake is a continuation, not a shortcut from any terminus in the
+    // city. The simulator deliberately permits a player to drag a distant
+    // end across town, but offering it on a stake click produced loops from
+    // hubs such as T-Centralen. Keep the quick picker local to the closest
+    // railhead. Ends at the same interchange naturally remain together.
+    const nearestKm = viable.reduce((best, o) => Math.min(best, o.km), Infinity);
+    const nearby = viable
+      .filter((o) => o.km <= nearestKm + 1)
+      .sort((a, b) => a.cost - b.cost || a.km - b.km)
+      .slice(0, 3);
+    if (nearby.length === 1 && nearby[0].problem !== 'money') {
+      dragRef = nearby[0];
+      tryExtend(dragState(p));
+      dragRef = null;
+    } else if (nearby.length) {
+      showBuildPicker(a, nearby, ap);
+    } else if (options.length) {
+      // A failed placement still names its reason, just as an end drag does.
+      dragRef = options[0];
+      tryExtend(dragState(p));
+      dragRef = null;
+    }
     e.stopPropagation();
     e.preventDefault();
   }
@@ -2406,9 +2549,9 @@ function updateLineRows() {
       // two numbers that answer the question the stepper asks: how often a
       // train comes, and how many are running. The stop count moves to the
       // tooltip rather than pushing the control out of reach.
-      '<span class="tb-linerow__v" title="' + g.lines[li].stations.length + ' ' + STR.stops + '">' +
+      '<span class="tb-linerow__v" title="' + STR.lineHeadway + ' · ' + g.lines[li].stations.length + ' ' + STR.stops + '" aria-label="' + STR.lineHeadway + '">' +
       (active ? Math.round(sim.lineHeadwayS(g, li)) + ' s' : '—') + '</span>' +
-      '<span class="tb-linerow__now">' + active + ' 🚆' + qChip + '</span>' +
+      '<span class="tb-linerow__now" title="' + STR.lineActive + '" aria-label="' + STR.lineActive + '">' + active + ' 🚆' + qChip + '</span>' +
       (g.lines.length > 1
         ? '<span class="tb-target' + (tgt === null ? '' : ' tb-target--set') + '" title="' + tWhy + '">' +
           '<button class="tb-target__b" data-tdown="' + li + '" aria-label="' + STR.targetDown + '">−</button>' +
@@ -2498,6 +2641,8 @@ for (const [id, key] of [['vol-master', 'master'], ['vol-music', 'music'], ['vol
 // advance through the list across sessions so nobody rereads note 1. ---
 const NOTES_KEY = 'tunnelbana_notes';
 const FACT_KEY = 'tunnelbana_factidx';
+const NOTE_HISTORY_KEY = 'tunnelbana_note_history';
+const MILESTONE_HISTORY_KEY = 'tunnelbana_milestone_history';
 const NOTE_EVERY = 120;   // game-seconds between notes
 let notesOn = store.get(NOTES_KEY) !== 'off';
 let factIdx = Number(store.get(FACT_KEY)) || 0;
@@ -2505,13 +2650,119 @@ let lastNoteAt = 0;
 let noteKind = 0;
 let noteN = 3;
 let noteShownAt = 0;
+let recordKind = 'notes';
+let noteHistory = [];
+let milestoneHistory = [];
 
-function showNote(kind, who, text) {
+function recordKey(prefix) { return prefix + '_s' + activeSlot; }
+function readRecords(prefix) {
+  try {
+    const value = JSON.parse(store.get(recordKey(prefix)) || '[]');
+    return Array.isArray(value) ? value.filter((r) => r && typeof r.title === 'string' && typeof r.text === 'string').slice(-80) : [];
+  } catch { return []; }
+}
+function loadRecordHistories() {
+  noteHistory = readRecords(NOTE_HISTORY_KEY);
+  milestoneHistory = readRecords(MILESTONE_HISTORY_KEY);
+}
+function addRecord(prefix, record) {
+  const list = prefix === NOTE_HISTORY_KEY ? noteHistory : milestoneHistory;
+  // Facts and curiosities are finite discoveries. A second sighting may still
+  // make a nice toast, but it must not make the collection look larger.
+  if (record.id && list.some((item) => item.id === record.id)) return;
+  list.push({ ...record, at: Date.now() });
+  if (list.length > 80) list.splice(0, list.length - 80);
+  store.set(recordKey(prefix), JSON.stringify(list));
+}
+function recordMilestone(title, text, momentKey = null) {
+  addRecord(MILESTONE_HISTORY_KEY, { title, text, momentKey });
+}
+function renderRecord() {
+  const notes = recordKind === 'notes';
+  const list = notes ? noteHistory : milestoneHistory;
+  const catalog = [
+    ...FACTS.map((text, i) => ({ id: 'fact:' + i, title: STR.noteCity, text, label: 'City note ' + String(i + 1).padStart(2, '0') })),
+    ...EGGS.map((egg, i) => ({ id: 'egg:' + egg.id, title: egg.name, text: egg.fact, label: 'Odd corner ' + String(i + 1).padStart(2, '0'), eggId: egg.id })),
+  ];
+  const known = (entry) => list.some((item) => item.id === entry.id ||
+    (item.title === entry.title && item.text === entry.text)) || !!(entry.eggId && g.eggs[entry.eggId]);
+  const found = catalog.filter(known).length;
+  $('record-title').textContent = notes ? 'CITY NOTES · ' + found + ' / ' + catalog.length : 'MILESTONES';
+  $('record-sub').textContent = notes
+    ? 'City facts and odd corners reveal themselves here when found. Journey postcards are kept below.'
+    : 'Select an era to read its newspaper again. Kept on this device.';
+  const host = $('record-list');
+  host.replaceChildren();
+  if (notes) {
+    for (const entry of catalog) {
+      const seen = known(entry);
+      const row = document.createElement('div');
+      row.className = 'tb-record' + (seen ? '' : ' tb-record--locked');
+      const title = document.createElement('b');
+      title.textContent = seen ? entry.title : entry.label + ' · undiscovered';
+      const text = document.createElement('p');
+      text.textContent = seen ? entry.text : 'Keep building and looking around Stockholm.';
+      row.append(title, text);
+      host.append(row);
+    }
+    const journeys = list.filter((item) => !item.id);
+    if (journeys.length) {
+      const heading = document.createElement('h3');
+      heading.textContent = 'Journeys';
+      host.append(heading);
+      for (const item of [...journeys].reverse()) appendRecord(host, item);
+    }
+    return;
+  }
+  if (!list.length) {
+    const empty = document.createElement('p');
+    empty.textContent = notes ? 'New city notes will be kept here.' : 'New milestones will be kept here.';
+    host.append(empty);
+    return;
+  }
+  for (const item of [...list].reverse()) appendRecord(host, item);
+}
+function appendRecord(host, item) {
+  // Older local records predate the explicit paper key. Their title is enough
+  // to restore the link without changing or re-saving the player’s history.
+  const oldYear = /^Era (1952|1957|1964|1975|2000)$/.exec(item.title);
+  const momentKey = item.momentKey || (oldYear ? oldYear[1] : null);
+  const row = document.createElement(momentKey ? 'button' : 'div');
+  if (momentKey) {
+    row.type = 'button';
+    row.dataset.momentKey = momentKey;
+  }
+  row.className = 'tb-record' + (momentKey ? ' tb-record--paper' : '');
+  const title = document.createElement('b');
+  title.textContent = item.title;
+  const text = document.createElement('p');
+  text.textContent = item.text;
+  row.append(title, text);
+  host.append(row);
+}
+function openRecordedMoment(key) {
+  if (!ERA_NEWS[key]) return;
+  momentReturnToRecord = true;
+  menu.hidden = true;
+  showFrontPage(key);
+}
+$('record-list').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-moment-key]');
+  if (row) openRecordedMoment(row.dataset.momentKey);
+});
+function openRecord(kind) {
+  recordKind = kind;
+  menuView('record');
+}
+loadRecordHistories();
+
+function showNote(kind, who, text, id = '') {
   $('fact-toast').className = 'tb-toast tb-toast--' + kind;
   $('fact-tag').textContent = who;
   $('fact-text').textContent = text;
   $('fact-toast').hidden = false;
   noteShownAt = performance.now();
+  addRecord(NOTE_HISTORY_KEY, { id, title: who, text });
 }
 $('fact-toast').addEventListener('click', () => {
   $('fact-toast').hidden = true;
@@ -2528,6 +2779,10 @@ $('settings-pulse').addEventListener('click', () => {
   store.set(PULSE_KEY, pulseOn ? '1' : '0');
   $('settings-pulse').textContent = pulseOn ? STR.pulseOn : STR.pulseOff;
 });
+$('settings-notes-history').addEventListener('click', () => openRecord('notes'));
+$('settings-milestones-history').addEventListener('click', () => openRecord('milestones'));
+$('record-back').addEventListener('click', () => menuView('settings'));
+$('record-back-top').addEventListener('click', () => menuView('settings'));
 $('settings-warns').addEventListener('click', () => {
   warnsOn = !warnsOn;
   store.set(WARN_KEY, warnsOn ? 'on' : 'off');
@@ -2548,7 +2803,8 @@ function maybeNote() {
     const pc = sim.postcard(g, noteN);
     if (pc) showNote('commuter', NAMES[noteN % NAMES.length], pc.from + ' → ' + pc.to + ' · ' + pc.km + ' km');
   } else {
-    showNote('fact', STR.noteCity, FACTS[factIdx % FACTS.length]);
+    const i = factIdx % FACTS.length;
+    showNote('fact', STR.noteCity, FACTS[i], 'fact:' + i);
     factIdx++;
     store.set(FACT_KEY, String(factIdx));
   }
@@ -2561,6 +2817,34 @@ function maybeNote() {
 // is remembered: it is a tutorial, not a nag. ---
 const AIM_KEY = 'tunnelbana_aims';
 let aimsHidden = store.get(AIM_KEY) === 'hidden';
+const CHARTER_COACH_KEY = 'tunnelbana_charter_coached';
+let charterCoached = new Set();
+try {
+  const savedCoach = JSON.parse(store.get(CHARTER_COACH_KEY) || '[]');
+  if (Array.isArray(savedCoach)) charterCoached = new Set(savedCoach.filter((x) => typeof x === 'string'));
+} catch {}
+let charterCoachLine = null;
+
+function finishCharterCoach() {
+  if (charterCoachLine === null) return;
+  const id = g.lines[charterCoachLine]?.name0;
+  if (id) {
+    charterCoached.add(id);
+    store.set(CHARTER_COACH_KEY, JSON.stringify([...charterCoached]));
+  }
+  charterCoachLine = null;
+  $('charter-coach').hidden = true;
+}
+
+function showCharterCoach(li) {
+  const L = g.lines[li];
+  if (!L || charterCoached.has(L.name0)) return;
+  charterCoachLine = li;
+  $('charter-coach-text').textContent = L.name + ' now has its first train. Extend its glowing ' +
+    'coloured end to the staked station to begin serving this new part of the city.';
+  $('charter-coach').hidden = false;
+}
+$('charter-coach-close').addEventListener('click', finishCharterCoach);
 $('aim-tag').textContent = STR.aimTag;
 $('aim-close').addEventListener('click', () => {
   aimsHidden = true;
@@ -2616,6 +2900,7 @@ function aimText() {
 
 let lastAim = '';
 function updateAim() {
+  if (charterCoachLine !== null && g.lines[charterCoachLine]?.stations.length > 2) finishCharterCoach();
   const aim = aimsHidden || paused ? null : aimText();
   $('aim-panel').hidden = !aim;
   if (aim && aim !== lastAim) {
@@ -2626,10 +2911,11 @@ function updateAim() {
 
 // --- Achievements: aims, stated plainly, with the bonus they carry ---
 let achToastAt = 0;
-function showAchievement(name, bonus) {
+let achievementFocusId = null;
+function showAchievement(a, bonus) {
   sfx.achievement();
   $('ach-toast-label').textContent = STR.achEarned;
-  $('ach-toast-name').textContent = name;
+  $('ach-toast-name').textContent = a.name;
   // What the aim just granted rides the toast (owner ask 2026-08-10, the
   // fleet slots especially should be exciting to see land).
   $('ach-toast-more').textContent = bonus ? bonus + ' · ' + STR.achToastMore : STR.achToastMore;
@@ -2643,8 +2929,14 @@ function showAchievement(name, bonus) {
 $('ach-toast').addEventListener('click', () => {
   $('ach-toast').hidden = true;
   achToastAt = 0;
+  achievementFocusId = $('ach-toast').dataset.achievementId || null;
   showMenu('pause');
   menuView('ach');
+  requestAnimationFrame(() => {
+    const target = achievementFocusId && document.querySelector('[data-ach-ids~="' + achievementFocusId + '"]');
+    if (target) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    achievementFocusId = null;
+  });
 });
 // `granted` (the achievement event's actual kr/trust) overrides the nominal
 // reward on the earn toast: the trust grant is clamped by pkCap, and a toast
@@ -2682,7 +2974,7 @@ const ACH_GLYPHS = {
   endgame: '<path d="M12 3l2.6 5.6 6 .7-4.4 4 1.2 6L12 16.9 6.6 19.3l1.2-6-4.4-4 6-.7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>',
 };
 
-function achCard(a, meta, dots) {
+function achCard(a, meta, dots, ids, focused) {
   const has = !!g.achieved[a.id];
   const hidden = meta.hidden && !has;
   const state = has ? 'earned' : hidden ? 'hidden' : 'locked';
@@ -2692,7 +2984,7 @@ function achCard(a, meta, dots) {
   const tierRow = dots
     ? '<span class="tb-ach__tier">' + dots.map((on) => '<i' + (on ? ' class="on"' : '') + '></i>').join('') + '</span>'
     : '';
-  return '<div class="tb-ach" data-state="' + state + '">' +
+  return '<div class="tb-ach' + (focused ? ' tb-ach--focus' : '') + '" data-state="' + state + '" data-ach-ids="' + (ids || [a.id]).join(' ') + '">' +
     '<span class="tb-ach__mark">' + (has ? '✓' : hidden ? '?' : '·') + '</span>' +
     '<span class="tb-ach__txt"><span class="tb-ach__name">' + name + '</span>' +
     '<span class="tb-ach__hint">' + hint + '</span>' + tierRow + '</span></div>';
@@ -2728,11 +3020,12 @@ function renderAchievements() {
     const earnedN = items.filter((it) => g.achieved[it.a.id]).length;
     const pct = Math.round((earnedN / items.length) * 100);
     const cards = rows.map((r) => {
-      if (r.one) return achCard(r.one.a, r.one.meta, null);
+      if (r.one) return achCard(r.one.a, r.one.meta, null, [r.one.a.id], r.one.a.id === achievementFocusId);
       const f = fams.get(r.fam);
       const nextIdx = f.findIndex((it) => !g.achieved[it.a.id]);
-      const rep = nextIdx === -1 ? f[f.length - 1] : f[nextIdx];
-      return achCard(rep.a, rep.meta, f.map((it) => !!g.achieved[it.a.id]));
+      const focused = f.find((it) => it.a.id === achievementFocusId);
+      const rep = focused || (nextIdx === -1 ? f[f.length - 1] : f[nextIdx]);
+      return achCard(rep.a, rep.meta, f.map((it) => !!g.achieved[it.a.id]), f.map((it) => it.a.id), !!focused);
     }).join('');
     return '<div class="tb-ach-cat">' +
       '<div class="tb-ach-cat__head">' +
@@ -3296,7 +3589,10 @@ function frame(now) {
     if (e.type === 'mothball') render.addFloatGeo(e.geo, STR.mothballedFloat, 'muted');
     if (e.type === 'surge') render.addFloatGeo(e.geo, 'RUSH · ' + e.name);
     if (e.type === 'abandon') render.addFloatGeo(e.geo, '−' + fmt(e.n), 'red');
-    if (e.type === 'newline') render.addFloatGeo(e.geo, e.name);
+    if (e.type === 'newline') {
+      render.addFloatGeo(e.geo, e.name);
+      showCharterCoach(g.lines.length - 1);
+    }
     if (e.type === 'trainmove') render.addFloatGeo(e.geo, '🚆 → ' + e.name);
     if (e.type === 'egg') render.addFloatGeo(e.geo, e.name);
     if (e.type === 'gold') render.addFloatGeo(e.geo, STR.goldName);
@@ -3323,13 +3619,19 @@ function frame(now) {
     if (e.type === 'council') render.addFloatGeo(e.geo, STR.councilFloat + ' · ' + e.name);
     if (e.type === 'achievement') {
       const a = sim.ACHIEVEMENTS.find((x) => x.id === e.id);
-      showAchievement(e.name, a ? bonusText(a, e) : '');
+      if (a) {
+        $('ach-toast').dataset.achievementId = a.id;
+        showAchievement(a, bonusText(a, e));
+      } else {
+        delete $('ach-toast').dataset.achievementId;
+        showAchievement({ name: e.name || 'Achievement' }, '');
+      }
     }
     // 'open' fires exactly once per game (the g.opened guard), so it is the
     // honest "someone actually started playing" milestone, not a page load.
-    if (e.type === 'open') { render.addFloatGeo(e.geo, STR.ribbonCut); pulse('start'); }
-    if (e.type === 'era') { showMoment(e.year); pulse('era', e.year); }
-    if (e.type === 'ending') { showEnding(); pulse('ending'); }
+    if (e.type === 'open') { render.addFloatGeo(e.geo, STR.ribbonCut); pulse('start'); recordMilestone('Opening day', STR.ribbonCut); }
+    if (e.type === 'era') { showMoment(e.year); pulse('era', e.year); recordMilestone('Era ' + e.year, 'The city moved into a new decade.', String(e.year)); }
+    if (e.type === 'ending') { showEnding(); pulse('ending'); recordMilestone('Hela Stockholm', 'The whole city is connected.', 'slut'); }
   }
   g.events.length = 0;
   // 7 s, not the old 4.2: a toast you are meant to CLICK has to outlive the

@@ -20,10 +20,14 @@ let lastFareAt = 0;
 
 // The mixer (0.11, owner ask): master, music, effects. Effects run through
 // the WebAudio gain; music is an <audio> element so the vendored tracks
-// stream lazily. MUSIC is real audio and therefore carries its credit line:
-// "Morning Rain" and "Countryside" by TAD, OpenGameArt.org, CC0 — credited
-// in About per the house rule even though CC0 does not demand it.
-const TRACKS = ['audio/morning-rain.mp3', 'audio/countryside.mp3'];
+// stream lazily. These four TAD tracks come from OpenGameArt's CC0 lofi
+// Compilation and are named in About, per the house rule.
+const TRACKS = [
+  { src: 'audio/morning-rain.mp3', name: 'Morning Rain' },
+  { src: 'audio/countryside.mp3', name: 'Countryside' },
+  { src: 'audio/oceanside.mp3', name: 'Oceanside' },
+  { src: 'audio/florist.mp3', name: 'Florist' },
+];
 const EFFECTS_BASE = 0.28;
 const MUSIC_BASE = 0.55;
 let vol = { master: 0.8, music: 0.5, effects: 0.8 };
@@ -46,14 +50,32 @@ function applyMusic() {
     // Created on first genuine need, so the boot never downloads a note.
     musicEl = new Audio();
     musicEl.addEventListener('ended', () => {
-      trackIdx = (trackIdx + 1) % TRACKS.length;
-      musicEl.src = TRACKS[trackIdx];
-      musicEl.play().catch(() => {});
+      skipMusic(1);
     });
-    musicEl.src = TRACKS[trackIdx];
+    musicEl.src = TRACKS[trackIdx].src;
   }
   musicEl.volume = Math.min(1, v * MUSIC_BASE);
   if (musicEl.paused) musicEl.play().catch(() => {});
+}
+
+export function musicTrackName() {
+  return TRACKS[trackIdx].name;
+}
+
+// The menu controls are deliberately a simple record-player order: previous
+// and next always mean the adjacent named track, including after a track ends.
+export function skipMusic(direction = 1) {
+  const step = direction < 0 ? -1 : 1;
+  trackIdx = (trackIdx + step + TRACKS.length) % TRACKS.length;
+  if (!musicEl) {
+    applyMusic();
+    return musicTrackName();
+  }
+  musicEl.pause();
+  musicEl.currentTime = 0;
+  musicEl.src = TRACKS[trackIdx].src;
+  if (unlocked && vol.master * vol.music > 0.005) musicEl.play().catch(() => {});
+  return musicTrackName();
 }
 
 export function setVolumes(v) {

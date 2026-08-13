@@ -100,6 +100,11 @@ let selected = null; // {li, i} | null
 let selectedTrain = null; // train id | null (0.15.0, the inspector)
 let clockT = 0;
 let lastDrawAt = 0;
+let uiScale = 1;
+
+export function setUIScale(scale) {
+  uiScale = scale === 'xl' ? 1.4 : scale === 'large' ? 1.2 : 1;
+}
 
 export function setSelected(sel) {
   selected = sel;
@@ -154,11 +159,11 @@ export function pxPerKm() {
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 export function grabRadius() {
-  return clamp(0.20 * pxPerKm(), 12, 30);
+  return clamp(0.20 * pxPerKm() * uiScale, 12 * uiScale, 30 * uiScale);
 }
 
 export function snapRadius() {
-  return clamp(0.25 * pxPerKm(), 14, 34);
+  return clamp(0.25 * pxPerKm() * uiScale, 14 * uiScale, 34 * uiScale);
 }
 
 // --- Setup ---
@@ -316,18 +321,25 @@ export function nearInsert(g, p) {
   return best;
 }
 
-// Nearest built station on any line, for selection.
-export function nearStation(g, p) {
+// Nearest built station on any line, for selection. The core flag separates
+// the station's central node from its forgiving outer hit area, so a train
+// stopped beside an interchange does not make the station panel unreachable.
+export function nearStationAt(g, p) {
   const r = grabRadius();
   let best = null, bestD = r;
   for (let li = 0; li < g.lines.length; li++) {
     g.lines[li].stations.forEach((st, i) => {
       const sp = project(st.geo);
       const d = Math.hypot(p.x - sp.x, p.y - sp.y);
-      if (d < bestD) { best = { li, i }; bestD = d; }
+      if (d < bestD) { best = { li, i, d }; bestD = d; }
     });
   }
-  return best;
+  return best && { ...best, core: best.d <= r * 0.55 };
+}
+
+export function nearStation(g, p) {
+  const hit = nearStationAt(g, p);
+  return hit && { li: hit.li, i: hit.i };
 }
 
 // Nearest anchor NOT already on the given line (anchors on other lines are
@@ -347,7 +359,7 @@ export function nearAnchor(g, p, li) {
 // --- Drawing ---
 
 function mono(size, weight) {
-  return (weight ? weight + ' ' : '') + size + 'px "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace';
+  return (weight ? weight + ' ' : '') + (size * uiScale) + 'px "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace';
 }
 
 // Labels get a halo in void, never a plate (design doc §4); the snapped anchor
@@ -1094,7 +1106,7 @@ export function nearTrainAt(g, p) {
   for (let i = marks.length - 1; i >= 0; i--) {
     const m = marks[i];
     const d = Math.hypot(p.x - m.x, p.y - m.y);
-    if (d <= (m.kind === 'run' ? 20 : 8) && d < bestD) { best = { id: m.id, d }; bestD = d; }
+    if (d <= (m.kind === 'run' ? 20 : 8) * uiScale && d < bestD) { best = { id: m.id, d }; bestD = d; }
   }
   return best;
 }
