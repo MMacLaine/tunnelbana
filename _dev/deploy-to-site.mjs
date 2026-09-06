@@ -26,7 +26,7 @@ const CHECK = process.argv.includes('--check');
 // updates.json is the incrementaldb.com update feed (polled daily): newest
 // entry first, unique version strings, Markdown content. It lives here so a
 // release and its changelog ship in the same push.
-const SHIP_FILES = ['index.html', 'favicon.svg', 'tokens.css', 'tokens-ui.css', 'ui.css',
+const SHIP_FILES = ['index.html', 'favicon.svg', 'og.jpg', 'tokens.css', 'tokens-ui.css', 'ui.css',
                     'ui-moments.css', 'ui-council.css', 'ui-train.css', 'incrementaldb.txt', 'updates.json'];
 const SHIP_DIRS = ['src', 'basemap', 'fonts', 'vendor', 'audio'];
 
