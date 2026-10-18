@@ -77,4 +77,17 @@ Both exit non-zero on failure and gate any commit that touches the economy.
 
 Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, tiles by
 [OpenFreeMap](https://openfreemap.org), rendering by [MapLibre GL JS](https://maplibre.org)
-(BSD-3). Typeface IBM Plex Mono (SIL OFL). Built by Matthew MacLaine.
+(BSD-3). Typefaces IBM Plex Mono and Libre Caslon (SIL OFL). Music "Morning Rain",
+"Countryside", "Oceanside" and "Florist" by TAD
+([OpenGameArt](https://opengameart.org/content/lofi-compilation), CC0). Built by Matthew MacLaine.
+
+## Licence
+
+The code is MIT licensed, see `LICENSE`. You can use it, change it and publish your own game
+with it, as long as the copyright notice stays in.
+
+The name "Tunnelbana · Build Stockholm", the logo and the artwork are not covered, so please give
+your version its own name. The fonts, map data, MapLibre and the music have their own licences,
+listed under Credits.
+
+If you build on this, a credit line like "based on Tunnelbana by Matthew MacLaine" is appreciated.
