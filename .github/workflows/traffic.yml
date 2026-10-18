@@ -1,0 +1,36 @@
+# Daily copy of the repo's GitHub traffic onto the `traffic` branch, so it
+# outlives GitHub's 14-day window. Needs the TRAFFIC_TOKEN secret: a
+# fine-grained token on this repo with Administration: read, because the
+# built-in token cannot read traffic. See _dev/traffic.mjs.
+name: Record traffic
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: traffic
+          path: traffic
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node _dev/traffic.mjs traffic/traffic.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+      - working-directory: traffic
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add traffic.json
+          git diff --cached --quiet || git commit -m "Traffic $(date -u +%F)"
+          git push
