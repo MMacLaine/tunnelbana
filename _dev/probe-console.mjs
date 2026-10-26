@@ -270,6 +270,9 @@ async function main() {
       const armed = s2.querySelector('.tb-slot__name').textContent;
       const stillRich = t.g.money === richMoney;
       s2.click();
+      // An empty slot is a new game and opens on the rewind to 1950 (0.17.0),
+      // which drops you into the game when it ends. Skip it here.
+      if (t.intro) t.intro.finish();
       await new Promise((r) => setTimeout(r, 200));
       const freshMoney = t.g.money;
       const ptr = localStorage.getItem('tunnelbana_slot');

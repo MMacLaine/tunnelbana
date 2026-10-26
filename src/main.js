@@ -4,6 +4,7 @@ import { ANCHORS, CORRIDORS, kmBetween } from './data.js';
 import { EGGS, FACTS, NAMES } from './facts.js';
 import * as sfx from './sound.js';
 import { diagramSVG, diagramTrains, diagramSig } from './diagram.js';
+import * as intro from './intro.js';
 
 // UI copy interpolates from BAL and the CATALOG so a balance change can never
 // make the interface lie.
@@ -426,6 +427,9 @@ let activeSlot = SLOT_IDS.includes(store.get(SLOT_KEY)) ? store.get(SLOT_KEY) : 
 let saveKey = slotSaveKey(activeSlot);
 
 const savedRaw = store.get(saveKey);
+// A first open (0.17.0): nothing in the active slot when the page loaded, so
+// the rewind to 1950 may play. Read before anything can write a save.
+const firstOpen = savedRaw === null;
 let g = sim.hydrate(savedRaw);
 // The two save-loss guards (0.11.2, after a live loss):
 // 1. THE FUSE: if stored bytes existed but did not load, autosave is off and
@@ -654,6 +658,37 @@ function homeCamera() {
   if (map) map.flyTo({ center: [18.0640, 59.3230], zoom: 12.0, duration: 900 });
 }
 
+// --- The rewind to 1950 (0.17.0): the opening a new player sees, on a first
+// open and on a new game, never on a continued save. src/intro.js draws it;
+// this decides when, and hands it the live map so it ends on the real game.
+// ?intro=1 forces it, ?intro=0 turns it off, ?intro=manual leaves its clock
+// to a harness (the run is on window.__tb.intro). ---
+const INTRO_PARAM = new URLSearchParams(location.search).get('intro');
+const INTRO_HOME = { lon: 18.0640, lat: 59.3230, zoom: 12.0 };
+const INTRO_SLUSSEN = ((a) => a && { lon: a.geo[1], lat: a.geo[0] })(ANCHORS.find((a) => a.name === 'Slussen'));
+let introRun = null;
+function startIntro(kind, cover) {
+  if (INTRO_PARAM === '0') return false;
+  if (INTRO_PARAM !== '1' && INTRO_PARAM !== 'manual' && !intro.wanted({ first: kind === 'first' })) return false;
+  intro.preload();
+  introRun = intro.play({
+    theme,
+    home: INTRO_HOME,
+    slussen: INTRO_SLUSSEN,
+    manual: INTRO_PARAM === 'manual',
+    cover: cover || null,
+    // the live map follows the drawing's camera, so the hand over has no jump
+    setCamera: map ? (lon, lat, zoom) => map.jumpTo({ center: [lon, lat], zoom }) : null,
+    mapReady: () => !map || basemapUp,
+    // first open ends on the real menu, which comes up last
+    panel: kind === 'first' ? menu.querySelector('.tb-menu__inner') : null,
+    // a new game ends on the board itself, the way an empty slot already does
+    onOut: kind === 'new' ? () => { if (!menu.hidden) closeMenu(); } : null,
+    onDone: () => { introRun = null; },
+  });
+  return !!introRun;
+}
+
 function geoAt(p) {
   if (map) {
     const ll = map.unproject([p.x, p.y]);
@@ -873,11 +908,13 @@ function switchSlot(s) {
   } catch {}
   save();
   updateUI();
-  homeCamera();
+  // An empty slot is a new game, so it opens on the rewind to 1950 too.
+  const fresh = !raw && startIntro('new');
+  if (!fresh) homeCamera();
   // You clicked a network to PLAY it. Only a real away report is worth
   // holding the menu open for.
   if (offline) showMenu('start');
-  else closeMenu();
+  else if (!fresh) closeMenu();
 }
 
 // --- The changelog (0.11.4): the SAME updates.json the incrementaldb feed
@@ -1434,6 +1471,9 @@ $('settings-reset').addEventListener('click', () => {
   $('offline-note').hidden = true;
   offline = null;
   updateUI();
+  // A new game opens on the rewind to 1950 where it may play, and lands on
+  // the fresh board; otherwise the start menu, as before.
+  if (startIntro('new')) return;
   homeCamera();
   settingsView(false);
   showMenu('start');
@@ -3725,10 +3765,12 @@ if (migratedFrom) {
 // (It first went in above the wrong showMenu and the game booted behind a
 // full-screen "Loading" overlay: caught by looking at a screenshot, not by the
 // console, which was clean.)
-document.getElementById('boot')?.remove();
+// A first open plays the rewind to 1950 over it instead, which takes the
+// loading screen away once its own ground has covered it.
 showMenu('start');
 updateUI();
 requestAnimationFrame(frame);
+if (!(firstOpen && startIntro('first', document.getElementById('boot')))) document.getElementById('boot')?.remove();
 
 // Debug handle for probes (_dev/); not part of the game surface.
 window.__tb = {
@@ -3737,6 +3779,7 @@ window.__tb = {
   render,
   get g() { return g; },
   get basemapUp() { return basemapUp; },
+  get intro() { return introRun; },
   closeMenu,
   selectStation,
   updateUI,
