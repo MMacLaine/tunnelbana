@@ -29,13 +29,13 @@ for (const item of INCLUDE) {
 // HTML with an earlier module graph unless the package changes every module
 // URL. The site deployer stamps its copy the same way. Hash the staged bytes
 // and rewrite only the staged package: source imports stay readable in git.
-const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'src/facts.js', 'src/sound.js', 'src/diagram.js', 'ui.css', 'ui-moments.css', 'ui-council.css', 'ui-train.css', 'tokens-ui.css', 'tokens.css']
+const hashSrc = ['src/main.js', 'src/sim.js', 'src/render.js', 'src/data.js', 'src/facts.js', 'src/sound.js', 'src/diagram.js', 'src/intro.js', 'ui.css', 'ui-moments.css', 'ui-council.css', 'ui-train.css', 'tokens-ui.css', 'tokens.css']
   .map((f) => readFileSync(join(STAGE, f))).join('\n');
 const stamp = createHash('sha256').update(hashSrc).digest('hex').slice(0, 10);
 const htmlPath = join(STAGE, 'index.html');
 writeFileSync(htmlPath, readFileSync(htmlPath, 'utf8').replace(/\?v=[0-9a-z.]+/g, '?v=' + stamp));
 const IMPORT_RE = /(\bfrom\s+['"])(\.\.?\/[\w./-]+\.js)(['"])/g;
-for (const name of ['main.js', 'sim.js', 'render.js', 'data.js', 'facts.js', 'sound.js', 'diagram.js']) {
+for (const name of ['main.js', 'sim.js', 'render.js', 'data.js', 'facts.js', 'sound.js', 'diagram.js', 'intro.js']) {
   const p = join(STAGE, 'src', name);
   const src = readFileSync(p, 'utf8');
   writeFileSync(p, src.replace(IMPORT_RE, (_m, a, spec, z) => a + spec + '?v=' + stamp + z));
